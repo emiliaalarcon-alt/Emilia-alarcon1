@@ -118,15 +118,11 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
   return { created, updated, skipped, parseErrors };
 }
 
-async function seedFromExcel() {
-  const count = await db.$count(scheduleClassesTable);
-  if (count >= 80) return;
-
+async function seedFromExcel(): Promise<boolean> {
   const excelDir = path.resolve(process.cwd(), "../../attached_assets");
   const files = fs.existsSync(excelDir) ? fs.readdirSync(excelDir).filter(f => f.includes("exportado_estudiantes_clases") && f.endsWith(".xlsx")) : [];
   if (files.length === 0) {
-    console.log("[schedule] No Excel seed file found in attached_assets/");
-    return;
+    return false;
   }
   const sorted = files.sort((a, b) => {
     const ma = fs.statSync(path.join(excelDir, a)).mtimeMs;
@@ -140,9 +136,8 @@ async function seedFromExcel() {
   const result = await upsertFromParsed(byCode);
   console.log(`[schedule] Seed complete: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`);
   if (result.parseErrors.length > 0) console.log(`[schedule] Parse errors:`, result.parseErrors.slice(0, 10));
+  return true;
 }
-
-seedFromExcel().catch(console.error);
 
 // Also keep SEED_DATA for absolute fallback (empty DB + no Excel file)
 const SEED_DATA = [
@@ -281,7 +276,15 @@ async function seedIfEmpty() {
   console.log(`[schedule] Seeded ${SEED_DATA.length} classes`);
 }
 
-seedIfEmpty().catch(console.error);
+(async () => {
+  const count = await db.$count(scheduleClassesTable);
+  if (count >= 80) return;
+  const excelSeeded = await seedFromExcel();
+  if (!excelSeeded) {
+    console.log("[schedule] No Excel seed file found, using fallback SEED_DATA");
+    await seedIfEmpty();
+  }
+})().catch(console.error);
 
 // GET /api/schedule?sede=LAS+ENCINAS
 router.get("/schedule", async (req, res) => {
