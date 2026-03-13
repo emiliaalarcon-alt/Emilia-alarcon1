@@ -1,7 +1,11 @@
 import { Router } from "express";
+import multer from "multer";
+import * as XLSX from "xlsx";
 import { db } from "@workspace/db";
 import { scheduleClassesTable, scheduleStudentsTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
 
@@ -297,6 +301,80 @@ router.delete("/schedule/classes", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/schedule/import — import students from Excel (.xlsx)
+router.post("/schedule/import", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
+
+    const wb = XLSX.read(req.file.buffer, { type: "buffer" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as string[][];
+
+    // Col indices: 0=Nivel, 2=Clase, 3=Nombre, 4=Apellido
+    const dataRows = rows.slice(1).filter(r => r.length >= 5);
+
+    // Parse class code from "BIO INT LUN 10.30 AV - LAS ENCINAS - SALA 1"
+    // Handle inconsistent spacing around dash
+    const sedePattern = /\s*-\s*(?=LAS ENCINAS|INES DE SUAREZ)/i;
+    const temuco = dataRows.filter(r => {
+      const clase = String(r[2] ?? "");
+      return /LAS ENCINAS|INES DE SUAREZ/i.test(clase);
+    });
+
+    // Group students by classCode
+    const byCode: Map<string, string[]> = new Map();
+    for (const r of temuco) {
+      const clase = String(r[2]).trim();
+      const parts = clase.split(sedePattern);
+      const rawCode = parts[0].trim();
+      // Normalize time: "16.45" stays, "16:45" → "16.45"
+      const classCode = rawCode.replace(/(\d{2}):(\d{2})/g, "$1.$2");
+      const nombre = String(r[3] ?? "").trim();
+      const apellido = String(r[4] ?? "").trim();
+      if (!nombre && !apellido) continue;
+      const fullName = `${nombre} ${apellido}`.trim();
+      if (!byCode.has(classCode)) byCode.set(classCode, []);
+      byCode.get(classCode)!.push(fullName);
+    }
+
+    // Get all existing classes from DB
+    const existingClasses = await db.select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable);
+    const existingCodes = new Set(existingClasses.map(c => c.classCode));
+
+    let updated = 0;
+    let skipped = 0;
+    const notFound: string[] = [];
+
+    for (const [classCode, students] of byCode.entries()) {
+      if (!existingCodes.has(classCode)) {
+        notFound.push(classCode);
+        skipped++;
+        continue;
+      }
+      // Replace student list for this class
+      await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
+      if (students.length > 0) {
+        await db.insert(scheduleStudentsTable).values(
+          students.map(studentName => ({ classCode, studentName }))
+        );
+      }
+      updated++;
+    }
+
+    res.json({
+      ok: true,
+      updated,
+      skipped,
+      totalStudents: temuco.length,
+      notFound: notFound.slice(0, 20),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al procesar el archivo" });
   }
 });
 

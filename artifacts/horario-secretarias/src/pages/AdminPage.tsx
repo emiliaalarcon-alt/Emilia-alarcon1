@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   Plus, Trash2, RefreshCw, AlertTriangle, BookOpen,
-  Search, X, CheckCircle, ChevronDown,
+  Search, X, CheckCircle, ChevronDown, Upload, FileSpreadsheet,
 } from "lucide-react";
 import {
   DAYS, DAY_LABELS, TIME_SLOTS, SEDES, COURSE_FULL_NAMES,
@@ -103,6 +103,13 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [filterSede, setFilterSede] = useState("");
   const [filterCourse, setFilterCourse] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    updated: number; skipped: number; totalStudents: number; notFound: string[];
+  } | null>(null);
+  const [importError, setImportError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -213,6 +220,32 @@ export default function AdminPage() {
     }
   }
 
+  async function handleImportFile(file: File) {
+    if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+      setImportError("Solo se aceptan archivos Excel (.xlsx)");
+      return;
+    }
+    setImporting(true);
+    setImportResult(null);
+    setImportError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/schedule/import", { method: "POST", body: formData });
+      const json = await res.json();
+      if (json.error) {
+        setImportError(json.error);
+      } else {
+        setImportResult(json);
+        fetchData();
+      }
+    } catch {
+      setImportError("Error de conexión al importar.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen pb-24 md:pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -264,6 +297,97 @@ export default function AdminPage() {
           <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">
             <div className="text-2xl font-display font-bold text-secondary">{statsBySede["INES DE SUAREZ"] ?? 0}</div>
             <div className="text-xs text-muted-foreground mt-1">Inés de Suárez</div>
+          </div>
+        </div>
+
+        {/* Importar desde Excel */}
+        <div className="mb-6">
+          <div
+            className={`bg-card rounded-3xl border-2 border-dashed shadow-sm transition-colors ${
+              dragOver ? "border-primary bg-primary/5" : "border-border/60"
+            }`}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => {
+              e.preventDefault();
+              setDragOver(false);
+              const file = e.dataTransfer.files[0];
+              if (file) handleImportFile(file);
+            }}
+          >
+            <div className="px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-700" />
+              </div>
+              <div className="flex-1">
+                <h2 className="font-display font-bold text-foreground">Importar desde Excel</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Arrastra el archivo exportado del sistema o haz clic para seleccionarlo. Actualiza los alumnos de cada clase automáticamente.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImportFile(file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {importing
+                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> Importando...</>
+                    : <><Upload className="w-4 h-4" /> Seleccionar archivo</>
+                  }
+                </button>
+              </div>
+            </div>
+
+            {/* Resultado de importación */}
+            {importResult && (
+              <div className="px-6 pb-5">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-wrap gap-6 items-start">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="text-sm font-bold text-emerald-800">Importación completada</span>
+                  </div>
+                  <div className="flex gap-6 text-sm">
+                    <div><span className="font-bold text-emerald-700">{importResult.updated}</span><span className="text-emerald-600"> clases actualizadas</span></div>
+                    <div><span className="font-bold text-emerald-700">{importResult.totalStudents}</span><span className="text-emerald-600"> alumnos procesados</span></div>
+                    {importResult.skipped > 0 && (
+                      <div><span className="font-bold text-amber-700">{importResult.skipped}</span><span className="text-amber-600"> clases no encontradas</span></div>
+                    )}
+                  </div>
+                  {importResult.notFound.length > 0 && (
+                    <details className="w-full">
+                      <summary className="text-xs text-amber-700 cursor-pointer font-medium">
+                        Ver clases no encontradas ({importResult.notFound.length})
+                      </summary>
+                      <ul className="mt-2 space-y-0.5">
+                        {importResult.notFound.map((c, i) => (
+                          <li key={i} className="text-xs text-amber-600 font-mono">{c}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              </div>
+            )}
+            {importError && (
+              <div className="px-6 pb-5">
+                <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span className="text-sm text-red-700 font-medium">{importError}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
