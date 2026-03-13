@@ -119,7 +119,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
 }
 
 async function seedFromExcel(): Promise<boolean> {
-  const excelDir = path.resolve(process.cwd(), "../../attached_assets");
+  const excelDir = path.resolve(import.meta.dirname, "../../../../attached_assets");
   const files = fs.existsSync(excelDir) ? fs.readdirSync(excelDir).filter(f => f.includes("exportado_estudiantes_clases") && f.endsWith(".xlsx")) : [];
   if (files.length === 0) {
     return false;
