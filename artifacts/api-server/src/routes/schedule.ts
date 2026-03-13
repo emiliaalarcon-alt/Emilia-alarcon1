@@ -97,21 +97,32 @@ function parseClassCode(code: string): { course: string; day: string; time: stri
   };
 }
 
-function importExcelBuffer(buffer: Buffer) {
+// Sede names per horario — mirrors HorarioConfig.sedes on the frontend
+const HORARIO_SEDES: Record<string, string[]> = {
+  TEMUCO:      ["LAS ENCINAS", "INES DE SUAREZ"],
+  ALMAGRO:     ["D. ALMAGRO"],
+  VILLARRICA:  ["VILLARRICA"],
+  AV_ALEMANIA: ["AV. ALEMANIA"],
+};
+
+function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
+  const sedes = HORARIO_SEDES[horarioId] ?? HORARIO_SEDES["TEMUCO"];
+
   const wb = XLSX.read(buffer, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as string[][];
   const dataRows = rows.slice(1).filter(r => r.length >= 5);
-  const sedePattern = /\s*-\s*(?=LAS ENCINAS|INES DE SUAREZ)/i;
-  const temuco = dataRows.filter(r => {
-    const clase = String(r[2] ?? "");
-    return /LAS ENCINAS|INES DE SUAREZ/i.test(clase);
-  });
+
+  // Build a regex that matches any of this horario's sedes (case-insensitive)
+  const sedeRegex = new RegExp(sedes.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "i");
+  const splitPattern = new RegExp(`\\s*-\\s*(?=${sedes.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "i");
+
+  const matching = dataRows.filter(r => sedeRegex.test(String(r[2] ?? "")));
 
   const byCode: Map<string, { students: string[]; sala: number | null; sede: string }> = new Map();
-  for (const r of temuco) {
+  for (const r of matching) {
     const clase = String(r[2]).trim();
-    const parts = clase.split(sedePattern);
+    const parts = clase.split(splitPattern);
     const rawCode = parts[0].trim();
     const classCode = rawCode.replace(/(\d{2}):(\d{2})/g, "$1.$2");
     const nombre = String(r[3] ?? "").trim();
@@ -121,16 +132,19 @@ function importExcelBuffer(buffer: Buffer) {
     let sala: number | null = null;
     const salaMatch = clase.match(/SALA\s+(\d+)/i);
     if (salaMatch) sala = parseInt(salaMatch[1], 10);
-    const sedeMatch = clase.match(/LAS ENCINAS|INES DE SUAREZ/i);
-    const sede = sedeMatch ? sedeMatch[0].toUpperCase() : "LAS ENCINAS";
+    const sedeMatch = clase.match(sedeRegex);
+    const sede = sedeMatch ? sedeMatch[0].toUpperCase() : sedes[0];
     if (!byCode.has(classCode)) byCode.set(classCode, { students: [], sala, sede });
     byCode.get(classCode)!.students.push(fullName);
   }
-  return { byCode, totalStudents: temuco.length };
+  return { byCode, totalStudents: matching.length };
 }
 
 async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
-  const existingClasses = await db.select({ classCode: scheduleClassesTable.classCode }).from(scheduleClassesTable);
+  const existingClasses = await db
+    .select({ classCode: scheduleClassesTable.classCode })
+    .from(scheduleClassesTable)
+    .where(eq(scheduleClassesTable.horario, horario));
   const existingCodes = new Set(existingClasses.map(c => c.classCode));
   let created = 0, updated = 0, skipped = 0;
   const parseErrors: string[] = [];
@@ -532,15 +546,18 @@ router.delete("/schedule/classes", async (req, res) => {
 });
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
+// Accepts multipart fields: file (xlsx), horario (optional, defaults to TEMUCO)
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    const { byCode, totalStudents } = importExcelBuffer(req.file.buffer);
-    const result = await upsertFromParsed(byCode);
+    const horarioId = (req.body?.horario as string | undefined)?.toUpperCase() ?? "TEMUCO";
+    const { byCode, totalStudents } = importExcelBuffer(req.file.buffer, horarioId);
+    const result = await upsertFromParsed(byCode, horarioId);
 
     res.json({
       ok: true,
+      horario: horarioId,
       created: result.created,
       updated: result.updated,
       skipped: result.skipped,
