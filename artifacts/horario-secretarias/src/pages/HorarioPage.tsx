@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Trash2, RefreshCw } from "lucide-react";
 import {
   DAYS,
@@ -586,50 +586,59 @@ export default function HorarioPage() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-[11px]">
+                <table className="border-collapse text-[11px]" style={{ tableLayout: "fixed" }}>
                   <thead>
                     <tr>
-                      <th className="sticky left-0 z-20 bg-muted/80 border border-border px-2 py-2 text-center font-bold text-[11px] text-foreground min-w-[110px] w-[110px]">
+                      <th
+                        rowSpan={2}
+                        className="sticky left-0 z-30 bg-muted/90 border border-border px-2 py-2 text-center font-bold text-[11px] text-foreground w-[96px] min-w-[96px] align-middle"
+                      >
                         Horario
                       </th>
-                      {Array.from({ length: numSalas }, (_, i) => (
-                        <th key={i} className="border border-border px-1 py-2 text-center font-semibold text-[10px] text-muted-foreground bg-muted/60 min-w-[110px] w-[110px]">
-                          Sala {i + 1}
+                      {DAYS.map((day) => (
+                        <th
+                          key={day}
+                          colSpan={numSalas}
+                          className="border border-border px-2 py-2 text-center font-display font-bold text-[12px] text-primary bg-primary/10"
+                        >
+                          {DAY_LABELS[day]}
                         </th>
                       ))}
                     </tr>
+                    <tr>
+                      {DAYS.map((day) =>
+                        Array.from({ length: numSalas }, (_, i) => (
+                          <th
+                            key={`${day}-sala-${i}`}
+                            className="border border-border px-1 py-1.5 text-center font-semibold text-[10px] text-muted-foreground bg-muted/60 w-[110px] min-w-[110px]"
+                          >
+                            Sala {i + 1}
+                          </th>
+                        ))
+                      )}
+                    </tr>
                   </thead>
                   <tbody>
-                    {DAYS.map((day) => (
-                      <Fragment key={day}>
-                        <tr>
-                          <td
-                            colSpan={numSalas + 1}
-                            className="border border-border bg-primary/10 px-3 py-1.5 font-display font-bold text-[12px] text-primary sticky left-0"
-                          >
-                            {DAY_LABELS[day]}
+                    {TIME_SLOTS.map((time) => {
+                      const hasAny = DAYS.some((day) =>
+                        Array.from({ length: numSalas }, (_, i) => getEntry(day, time, i + 1)).some(Boolean)
+                      );
+                      if (!hasAny && hasFilters) return null;
+                      return (
+                        <tr key={time}>
+                          <td className="sticky left-0 z-10 bg-muted/60 border border-border px-2 py-1 text-center font-bold text-[10px] text-muted-foreground align-middle whitespace-nowrap w-[96px] min-w-[96px]">
+                            {time}
                           </td>
-                        </tr>
-                        {TIME_SLOTS.map((time) => {
-                          const rowEntries = Array.from({ length: numSalas }, (_, i) =>
-                            getEntry(day, time, i + 1)
-                          );
-                          const hasAny = rowEntries.some(Boolean);
-                          if (!hasAny && hasFilters) return null;
-                          return (
-                            <tr key={`${day}-${time}`}>
-                              <td className="sticky left-0 z-10 bg-muted/60 border border-border px-2 py-1 text-center font-bold text-[10px] text-muted-foreground align-middle whitespace-nowrap min-w-[110px] w-[110px]">
-                                {time}
-                              </td>
-                              {rowEntries.map((entry, i) => (
-                                <td key={i} className="border border-border p-0 align-top">
+                          {DAYS.map((day) =>
+                            Array.from({ length: numSalas }, (_, i) => {
+                              const entry = getEntry(day, time, i + 1);
+                              return (
+                                <td key={`${day}-${i}`} className="border border-border p-0 align-top w-[110px] min-w-[110px]">
                                   {entry ? (
                                     <ClassCell
                                       entry={entry}
                                       onSelect={setSelectedEntry}
-                                      selected={
-                                        liveSelectedEntry?.classCode === entry.classCode
-                                      }
+                                      selected={liveSelectedEntry?.classCode === entry.classCode}
                                     />
                                   ) : (
                                     <div className="p-1.5 text-center text-muted-foreground/20 text-[10px] select-none min-h-[28px]">
@@ -637,12 +646,12 @@ export default function HorarioPage() {
                                     </div>
                                   )}
                                 </td>
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </Fragment>
-                    ))}
+                              );
+                            })
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
