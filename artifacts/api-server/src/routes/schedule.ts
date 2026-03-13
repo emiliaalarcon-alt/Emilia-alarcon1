@@ -1,6 +1,8 @@
 import { Router } from "express";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import * as fs from "fs";
+import * as path from "path";
 import { db } from "@workspace/db";
 import { scheduleClassesTable, scheduleStudentsTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -9,7 +11,140 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
 
-// Seed data from static export (runs once on startup)
+const DAY_TOKEN_MAP: Record<string, string> = {
+  LUN: "LUNES", MAR: "MARTES", MIE: "MIERCOLES", JUE: "JUEVES", VIE: "VIERNES",
+};
+
+const TIME_SLOT_MAP: Record<string, string> = {
+  "09.15": "09.15 - 10.15",
+  "10.30": "10:30 - 11:30",
+  "11.45": "11.45 - 12.45",
+  "15.30": "15.30 - 16.30",
+  "16.45": "16.45 - 17.45",
+  "18.00": "18.00 - 19.00",
+  "19.15": "19.15 - 20.15",
+};
+
+const DAY_TOKENS = Object.keys(DAY_TOKEN_MAP);
+
+function parseClassCode(code: string): { course: string; day: string; time: string; teacher: string } | null {
+  const parts = code.split(/\s+/);
+  const dayIdx = parts.findIndex(p => DAY_TOKENS.includes(p.toUpperCase()));
+  if (dayIdx < 1) return null;
+  const rawDay = parts[dayIdx].toUpperCase();
+  const rawTime = parts[dayIdx + 1] ?? "";
+  return {
+    course: parts.slice(0, dayIdx).join(" "),
+    day: DAY_TOKEN_MAP[rawDay] ?? rawDay,
+    time: TIME_SLOT_MAP[rawTime] ?? rawTime,
+    teacher: parts[dayIdx + 2] ?? "",
+  };
+}
+
+function importExcelBuffer(buffer: Buffer) {
+  const wb = XLSX.read(buffer, { type: "buffer" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as string[][];
+  const dataRows = rows.slice(1).filter(r => r.length >= 5);
+  const sedePattern = /\s*-\s*(?=LAS ENCINAS|INES DE SUAREZ)/i;
+  const temuco = dataRows.filter(r => {
+    const clase = String(r[2] ?? "");
+    return /LAS ENCINAS|INES DE SUAREZ/i.test(clase);
+  });
+
+  const byCode: Map<string, { students: string[]; sala: number | null; sede: string }> = new Map();
+  for (const r of temuco) {
+    const clase = String(r[2]).trim();
+    const parts = clase.split(sedePattern);
+    const rawCode = parts[0].trim();
+    const classCode = rawCode.replace(/(\d{2}):(\d{2})/g, "$1.$2");
+    const nombre = String(r[3] ?? "").trim();
+    const apellido = String(r[4] ?? "").trim();
+    if (!nombre && !apellido) continue;
+    const fullName = `${nombre} ${apellido}`.trim();
+    let sala: number | null = null;
+    const salaMatch = clase.match(/SALA\s+(\d+)/i);
+    if (salaMatch) sala = parseInt(salaMatch[1], 10);
+    const sedeMatch = clase.match(/LAS ENCINAS|INES DE SUAREZ/i);
+    const sede = sedeMatch ? sedeMatch[0].toUpperCase() : "LAS ENCINAS";
+    if (!byCode.has(classCode)) byCode.set(classCode, { students: [], sala, sede });
+    byCode.get(classCode)!.students.push(fullName);
+  }
+  return { byCode, totalStudents: temuco.length };
+}
+
+async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>) {
+  const existingClasses = await db.select({ classCode: scheduleClassesTable.classCode }).from(scheduleClassesTable);
+  const existingCodes = new Set(existingClasses.map(c => c.classCode));
+  let created = 0, updated = 0, skipped = 0;
+  const parseErrors: string[] = [];
+
+  for (const [classCode, { students, sala, sede }] of byCode.entries()) {
+    if (!existingCodes.has(classCode)) {
+      const parsed = parseClassCode(classCode);
+      if (!parsed || !parsed.course || !parsed.day || !parsed.time) {
+        parseErrors.push(classCode);
+        skipped++;
+        continue;
+      }
+      try {
+        await db.insert(scheduleClassesTable).values({
+          classCode,
+          course: parsed.course,
+          day: parsed.day,
+          time: parsed.time,
+          teacher: parsed.teacher,
+          sede,
+          sala: sala ?? 1,
+        });
+        existingCodes.add(classCode);
+        created++;
+      } catch {
+        parseErrors.push(classCode);
+        skipped++;
+        continue;
+      }
+    } else {
+      if (sala !== null) {
+        await db.update(scheduleClassesTable).set({ sala }).where(eq(scheduleClassesTable.classCode, classCode));
+      }
+    }
+    await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
+    if (students.length > 0) {
+      await db.insert(scheduleStudentsTable).values(students.map(studentName => ({ classCode, studentName })));
+    }
+    updated++;
+  }
+  return { created, updated, skipped, parseErrors };
+}
+
+async function seedFromExcel() {
+  const count = await db.$count(scheduleClassesTable);
+  if (count >= 80) return;
+
+  const excelDir = path.resolve(process.cwd(), "../../attached_assets");
+  const files = fs.existsSync(excelDir) ? fs.readdirSync(excelDir).filter(f => f.includes("exportado_estudiantes_clases") && f.endsWith(".xlsx")) : [];
+  if (files.length === 0) {
+    console.log("[schedule] No Excel seed file found in attached_assets/");
+    return;
+  }
+  const sorted = files.sort((a, b) => {
+    const ma = fs.statSync(path.join(excelDir, a)).mtimeMs;
+    const mb = fs.statSync(path.join(excelDir, b)).mtimeMs;
+    return mb - ma;
+  });
+  const filePath = path.join(excelDir, sorted[0]);
+  console.log(`[schedule] Seeding from ${filePath}...`);
+  const buffer = fs.readFileSync(filePath);
+  const { byCode } = importExcelBuffer(buffer);
+  const result = await upsertFromParsed(byCode);
+  console.log(`[schedule] Seed complete: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`);
+  if (result.parseErrors.length > 0) console.log(`[schedule] Parse errors:`, result.parseErrors.slice(0, 10));
+}
+
+seedFromExcel().catch(console.error);
+
+// Also keep SEED_DATA for absolute fallback (empty DB + no Excel file)
 const SEED_DATA = [
   { day: "LUNES", time: "10:30 - 11:30", sede: "LAS ENCINAS", sala: 1, classCode: "M1 LUN 10.30 JR", students: ["Agustin Llanquihuen","Consuelo Martinez","Cristobal Muñoz","Florencia Bastias","Joseph Vergara","Martina Bello"], teacher: "JR", course: "M1" },
   { day: "LUNES", time: "10:30 - 11:30", sede: "LAS ENCINAS", sala: 3, classCode: "FIS INT LUN 10.30 DE", students: ["Agustina Pérez","Aileen Lagos","Barbara Peña","Isidora Pereda","Paula Canales","Antonio Xi"], teacher: "DE", course: "FIS INT" },
@@ -327,125 +462,16 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    const wb = XLSX.read(req.file.buffer, { type: "buffer" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as string[][];
-
-    // Col indices: 0=Nivel, 2=Clase, 3=Nombre, 4=Apellido
-    const dataRows = rows.slice(1).filter(r => r.length >= 5);
-
-    // Parse class code from "BIO INT LUN 10.30 AV - LAS ENCINAS - SALA 1"
-    // Handle inconsistent spacing around dash
-    const sedePattern = /\s*-\s*(?=LAS ENCINAS|INES DE SUAREZ)/i;
-    const temuco = dataRows.filter(r => {
-      const clase = String(r[2] ?? "");
-      return /LAS ENCINAS|INES DE SUAREZ/i.test(clase);
-    });
-
-    // Day tokens used in classCodes
-    const DAY_TOKENS = ["LUN", "MAR", "MIE", "JUE", "VIE"];
-
-    // Parse classCode "M1 INT LUN 10.30 JR" → { course, day, time, teacher }
-    function parseClassCode(code: string): { course: string; day: string; time: string; teacher: string } | null {
-      const parts = code.split(/\s+/);
-      const dayIdx = parts.findIndex(p => DAY_TOKENS.includes(p.toUpperCase()));
-      if (dayIdx < 1) return null;
-      return {
-        course: parts.slice(0, dayIdx).join(" "),
-        day: parts[dayIdx].toUpperCase(),
-        time: parts[dayIdx + 1] ?? "",
-        teacher: parts[dayIdx + 2] ?? "",
-      };
-    }
-
-    // Group students, sala and sede by classCode
-    const byCode: Map<string, { students: string[]; sala: number | null; sede: string }> = new Map();
-    for (const r of temuco) {
-      const clase = String(r[2]).trim();
-      const parts = clase.split(sedePattern);
-      const rawCode = parts[0].trim();
-      // Normalize time: "16:45" → "16.45"
-      const classCode = rawCode.replace(/(\d{2}):(\d{2})/g, "$1.$2");
-      const nombre = String(r[3] ?? "").trim();
-      const apellido = String(r[4] ?? "").trim();
-      if (!nombre && !apellido) continue;
-      const fullName = `${nombre} ${apellido}`.trim();
-
-      // Extract sala from "SALA 6"
-      let sala: number | null = null;
-      const salaMatch = clase.match(/SALA\s+(\d+)/i);
-      if (salaMatch) sala = parseInt(salaMatch[1], 10);
-
-      // Extract sede
-      const sedeMatch = clase.match(/LAS ENCINAS|INES DE SUAREZ/i);
-      const sede = sedeMatch ? sedeMatch[0].toUpperCase() : "LAS ENCINAS";
-
-      if (!byCode.has(classCode)) byCode.set(classCode, { students: [], sala, sede });
-      byCode.get(classCode)!.students.push(fullName);
-    }
-
-    // Get all existing classes from DB
-    const existingClasses = await db.select({ classCode: scheduleClassesTable.classCode })
-      .from(scheduleClassesTable);
-    const existingCodes = new Set(existingClasses.map(c => c.classCode));
-
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    const parseErrors: string[] = [];
-
-    for (const [classCode, { students, sala, sede }] of byCode.entries()) {
-      if (!existingCodes.has(classCode)) {
-        // Try to create the class by parsing the classCode
-        const parsed = parseClassCode(classCode);
-        if (!parsed || !parsed.course || !parsed.day || !parsed.time) {
-          parseErrors.push(classCode);
-          skipped++;
-          continue;
-        }
-        try {
-          await db.insert(scheduleClassesTable).values({
-            classCode,
-            course: parsed.course,
-            day: parsed.day,
-            time: parsed.time,
-            teacher: parsed.teacher,
-            sede,
-            sala: sala ?? 1,
-          });
-          existingCodes.add(classCode);
-          created++;
-        } catch {
-          parseErrors.push(classCode);
-          skipped++;
-          continue;
-        }
-      } else {
-        // Update sala if provided
-        if (sala !== null) {
-          await db.update(scheduleClassesTable)
-            .set({ sala })
-            .where(eq(scheduleClassesTable.classCode, classCode));
-        }
-      }
-
-      // Replace student list
-      await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
-      if (students.length > 0) {
-        await db.insert(scheduleStudentsTable).values(
-          students.map(studentName => ({ classCode, studentName }))
-        );
-      }
-      updated++;
-    }
+    const { byCode, totalStudents } = importExcelBuffer(req.file.buffer);
+    const result = await upsertFromParsed(byCode);
 
     res.json({
       ok: true,
-      created,
-      updated,
-      skipped,
-      totalStudents: temuco.length,
-      parseErrors: parseErrors.slice(0, 20),
+      created: result.created,
+      updated: result.updated,
+      skipped: result.skipped,
+      totalStudents,
+      parseErrors: result.parseErrors.slice(0, 20),
     });
   } catch (err) {
     console.error(err);

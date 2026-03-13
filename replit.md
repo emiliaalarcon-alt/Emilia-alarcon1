@@ -101,6 +101,10 @@ React + Vite + Tailwind CSS web app for school schedule management (Temuco 2026)
 - Click any class cell to open a detail panel with add/remove student management
 - Duplicate enrollment detection (warns if same student appears in same course type across both campuses)
 - Design: DM Sans + Outfit fonts, purple/teal theme, glass navbar, rounded cards
+- Drag-to-scroll on the grid (click suppression after drag to prevent accidental cell selection)
+- Sticky "Horario" column with opaque background during horizontal scroll
+- Dynamic sala columns per day (each day shows only as many columns as needed)
+- Auto-seed from Excel on startup if DB has < 80 classes (picks newest file by mtime from attached_assets/)
 
 ### `scripts` (`@workspace/scripts`)
 
