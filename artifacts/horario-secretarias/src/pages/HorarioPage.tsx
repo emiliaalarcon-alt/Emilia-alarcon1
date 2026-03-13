@@ -407,6 +407,8 @@ function DetailPanel({
 
 export default function HorarioPage() {
   const [selectedCourse, setSelectedCourse] = useState<string>("");
+  const [selectedTeacher, setSelectedTeacher] = useState<string>("");
+  const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
   const [search, setSearch] = useState<string>("");
   const [selectedEntry, setSelectedEntry] = useState<ClassEntry | null>(null);
   const [activeSede, setActiveSede] = useState<string>("LAS ENCINAS");
@@ -442,6 +444,7 @@ export default function HorarioPage() {
   const filteredData = useMemo(() => {
     return sedeData.filter(entry => {
       if (selectedCourse && entry.course !== selectedCourse) return false;
+      if (selectedTeacher && entry.teacher !== selectedTeacher) return false;
       if (search) {
         const q = search.toLowerCase();
         const match =
@@ -453,18 +456,38 @@ export default function HorarioPage() {
       }
       return true;
     });
-  }, [sedeData, selectedCourse, search]);
+  }, [sedeData, selectedCourse, selectedTeacher, search]);
 
-  const courses = useMemo(
-    () => [...new Set(allData.map(e => e.course))].sort(),
-    [allData]
+  const visibleDays = useMemo(
+    () => DAYS.filter(d => selectedDays.includes(d)),
+    [selectedDays]
   );
 
-  const hasFilters = !!(selectedCourse || search);
+  const courses = useMemo(
+    () => [...new Set(sedeData.map(e => e.course))].sort(),
+    [sedeData]
+  );
+
+  const teachers = useMemo(
+    () => [...new Set(sedeData.map(e => e.teacher))].sort(),
+    [sedeData]
+  );
+
+  const hasFilters = !!(selectedCourse || selectedTeacher || search || selectedDays.length < DAYS.length);
 
   function clearFilters() {
     setSelectedCourse("");
+    setSelectedTeacher("");
     setSearch("");
+    setSelectedDays(DAYS);
+  }
+
+  function toggleDay(day: string) {
+    setSelectedDays(prev =>
+      prev.includes(day)
+        ? prev.length > 1 ? prev.filter(d => d !== day) : prev
+        : [...prev, day].sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b))
+    );
   }
 
   function getEntry(day: string, time: string, sala: number): ClassEntry | undefined {
@@ -524,54 +547,84 @@ export default function HorarioPage() {
               ))}
             </div>
 
-            <div className="flex flex-wrap gap-3 mb-4">
-              <div className="relative flex-1 min-w-48">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar alumno o curso..."
-                  className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-xl bg-card focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
-                />
+            <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-4 mb-4 space-y-3">
+              <div className="flex flex-wrap gap-3">
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar alumno o materia..."
+                    className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+                  />
+                </div>
+
+                <select
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  className="px-4 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground min-w-44"
+                >
+                  <option value="">Todas las materias</option>
+                  {courses.map((c) => (
+                    <option key={c} value={c}>{COURSE_FULL_NAMES[c] ?? c}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedTeacher}
+                  onChange={(e) => setSelectedTeacher(e.target.value)}
+                  className="px-4 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground min-w-40"
+                >
+                  <option value="">Todos los profesores</option>
+                  {teachers.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+
+                <div className="flex rounded-xl overflow-hidden border border-border/50 shadow-sm">
+                  {SEDES.map((sede) => (
+                    <button
+                      key={sede}
+                      onClick={() => setActiveSede(sede)}
+                      className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
+                        activeSede === sede
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+                    </button>
+                  ))}
+                </div>
+
+                {hasFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-destructive border border-destructive/20 rounded-xl bg-destructive/5 hover:bg-destructive/10 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                    Limpiar
+                  </button>
+                )}
               </div>
 
-              <select
-                value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-                className="px-4 py-2.5 text-sm border border-border rounded-xl bg-card focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground min-w-40"
-              >
-                <option value="">Todos los cursos</option>
-                {courses.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Días:</span>
+                {DAYS.map((day) => (
+                  <button
+                    key={day}
+                    onClick={() => toggleDay(day)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                      selectedDays.includes(day)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                    }`}
+                  >
+                    {DAY_LABELS[day]}
+                  </button>
                 ))}
-              </select>
-
-              {hasFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-destructive border border-destructive/20 rounded-xl bg-destructive/5 hover:bg-destructive/10 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                  Limpiar
-                </button>
-              )}
-            </div>
-
-            <div className="flex rounded-2xl overflow-hidden border border-border/50 w-fit shadow-sm mb-4">
-              {SEDES.map((sede) => (
-                <button
-                  key={sede}
-                  onClick={() => setActiveSede(sede)}
-                  className={`px-6 py-2.5 text-sm font-semibold transition-colors ${
-                    activeSede === sede
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  {sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
-                </button>
-              ))}
+              </div>
             </div>
 
             <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
@@ -595,7 +648,7 @@ export default function HorarioPage() {
                       >
                         Horario
                       </th>
-                      {DAYS.map((day) => (
+                      {visibleDays.map((day) => (
                         <th
                           key={day}
                           colSpan={numSalas}
@@ -606,7 +659,7 @@ export default function HorarioPage() {
                       ))}
                     </tr>
                     <tr>
-                      {DAYS.map((day) =>
+                      {visibleDays.map((day) =>
                         Array.from({ length: numSalas }, (_, i) => (
                           <th
                             key={`${day}-sala-${i}`}
@@ -620,7 +673,7 @@ export default function HorarioPage() {
                   </thead>
                   <tbody>
                     {TIME_SLOTS.map((time) => {
-                      const hasAny = DAYS.some((day) =>
+                      const hasAny = visibleDays.some((day) =>
                         Array.from({ length: numSalas }, (_, i) => getEntry(day, time, i + 1)).some(Boolean)
                       );
                       if (!hasAny && hasFilters) return null;
@@ -629,7 +682,7 @@ export default function HorarioPage() {
                           <td className="sticky left-0 z-10 bg-muted/60 border border-border px-2 py-1 text-center font-bold text-[10px] text-muted-foreground align-middle whitespace-nowrap w-[96px] min-w-[96px]">
                             {time}
                           </td>
-                          {DAYS.map((day) =>
+                          {visibleDays.map((day) =>
                             Array.from({ length: numSalas }, (_, i) => {
                               const entry = getEntry(day, time, i + 1);
                               return (
