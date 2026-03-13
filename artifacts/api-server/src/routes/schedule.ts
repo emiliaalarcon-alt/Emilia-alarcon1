@@ -97,7 +97,7 @@ function parseClassCode(code: string): { course: string; day: string; time: stri
   };
 }
 
-// Sede names per horario — mirrors HorarioConfig.sedes on the frontend
+// Sede names per horario — used for DB storage + seed fallback
 const HORARIO_SEDES: Record<string, string[]> = {
   TEMUCO:      ["LAS ENCINAS", "INES DE SUAREZ"],
   ALMAGRO:     ["D. ALMAGRO"],
@@ -105,35 +105,58 @@ const HORARIO_SEDES: Record<string, string[]> = {
   AV_ALEMANIA: ["AV. ALEMANIA"],
 };
 
+// Maps horarioId → the value that appears in column 0 (Nivel) of the exported Excel
+const HORARIO_NIVEL: Record<string, string> = {
+  TEMUCO:      "SEDE TEMUCO",
+  ALMAGRO:     "SEDE OSORNO",
+  VILLARRICA:  "SEDE VILLARRICA",
+  AV_ALEMANIA: "SEDE AV. ALEMANIA",
+};
+
+// Normalize the raw sede string extracted from the Clase column to a canonical DB value
+function normalizeSede(raw: string, fallback: string): string {
+  const s = raw.trim().toUpperCase().replace(/^SEDE\s+/, "");
+  if (/^AV\.?\s*ALEMANIA/.test(s)) return "AV. ALEMANIA";
+  if (/^D\.?\s*ALMAGRO/.test(s))   return "D. ALMAGRO";
+  if (/INES\s+DE\s+SUAREZ/.test(s)) return "INES DE SUAREZ";
+  if (/LAS\s+ENCINAS/.test(s))      return "LAS ENCINAS";
+  if (/VILLARRICA/.test(s))         return "VILLARRICA";
+  return fallback;
+}
+
 function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
-  const sedes = HORARIO_SEDES[horarioId] ?? HORARIO_SEDES["TEMUCO"];
+  const nivelFilter = (HORARIO_NIVEL[horarioId] ?? HORARIO_NIVEL["TEMUCO"]).toUpperCase();
+  const defaultSede = HORARIO_SEDES[horarioId]?.[0] ?? "LAS ENCINAS";
 
   const wb = XLSX.read(buffer, { type: "buffer" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as string[][];
   const dataRows = rows.slice(1).filter(r => r.length >= 5);
 
-  // Build a regex that matches any of this horario's sedes (case-insensitive)
-  const sedeRegex = new RegExp(sedes.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "i");
-  const splitPattern = new RegExp(`\\s*-\\s*(?=${sedes.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "i");
-
-  const matching = dataRows.filter(r => sedeRegex.test(String(r[2] ?? "")));
+  // Filter by column 0 (Nivel) — the most reliable campus identifier
+  const matching = dataRows.filter(r => String(r[0]).trim().toUpperCase() === nivelFilter);
 
   const byCode: Map<string, { students: string[]; sala: number | null; sede: string }> = new Map();
   for (const r of matching) {
     const clase = String(r[2]).trim();
-    const parts = clase.split(splitPattern);
-    const rawCode = parts[0].trim();
-    const classCode = rawCode.replace(/(\d{2}):(\d{2})/g, "$1.$2");
+
+    // Extract sala number
+    let sala: number | null = null;
+    const salaMatch = clase.match(/SALA\s+(\d+)/i);
+    if (salaMatch) sala = parseInt(salaMatch[1], 10);
+
+    // Remove SALA part, then split on " - " (with flexible spacing) to isolate class code and sede
+    const withoutSala = clase.replace(/\s*-?\s*SALA\s+\d+/i, "").trim();
+    const dashParts = withoutSala.split(/\s*-\s+|\s+-\s*/);
+    const classCode = dashParts[0].trim().replace(/(\d{2}):(\d{2})/g, "$1.$2");
+    const sedeRaw = dashParts.slice(1).join(" ").trim();
+    const sede = normalizeSede(sedeRaw, defaultSede);
+
     const nombre = String(r[3] ?? "").trim();
     const apellido = String(r[4] ?? "").trim();
     if (!nombre && !apellido) continue;
     const fullName = `${nombre} ${apellido}`.trim();
-    let sala: number | null = null;
-    const salaMatch = clase.match(/SALA\s+(\d+)/i);
-    if (salaMatch) sala = parseInt(salaMatch[1], 10);
-    const sedeMatch = clase.match(sedeRegex);
-    const sede = sedeMatch ? sedeMatch[0].toUpperCase() : sedes[0];
+
     if (!byCode.has(classCode)) byCode.set(classCode, { students: [], sala, sede });
     byCode.get(classCode)!.students.push(fullName);
   }
