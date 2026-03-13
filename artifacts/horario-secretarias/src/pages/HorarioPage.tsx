@@ -102,12 +102,11 @@ interface DuplicateConflict {
 }
 
 function getConflicts(entry: ClassEntry, allData: ClassEntry[]): DuplicateConflict[] {
-  const baseCourse = getBaseCourse(entry.course);
   const conflicts: DuplicateConflict[] = [];
   for (const student of entry.students) {
     const others = allData.filter(
       e => e.classCode !== entry.classCode &&
-        getBaseCourse(e.course) === baseCourse &&
+        e.course === entry.course &&
         e.students.includes(student)
     );
     for (const other of others) {
@@ -234,7 +233,7 @@ function DetailPanel({
     const results: { classEntry: ClassEntry; matchedName: string }[] = [];
     for (const e of allData) {
       if (e.classCode === entry.classCode) continue;
-      if (getBaseCourse(e.course) !== getBaseCourse(entry.course)) continue;
+      if (e.course !== entry.course) continue;
       for (const s of e.students) {
         if (s.toLowerCase().includes(name)) {
           results.push({ classEntry: e, matchedName: s });
