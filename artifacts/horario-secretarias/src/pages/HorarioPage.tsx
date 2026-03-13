@@ -110,10 +110,14 @@ function ClassCell({
   entry,
   onSelect,
   selected,
+  highlighted,
+  dimmed,
 }: {
   entry: ClassEntry;
   onSelect: (e: ClassEntry) => void;
   selected: boolean;
+  highlighted?: boolean;
+  dimmed?: boolean;
 }) {
   const solidBg = COURSE_SOLID_COLORS[entry.course] ?? "bg-slate-500";
   const count = entry.students.length;
@@ -125,6 +129,10 @@ function ClassCell({
       className={`w-full h-full text-left align-top cursor-pointer transition-all duration-150 ${
         selected
           ? "bg-primary/5 outline outline-2 outline-primary outline-offset-[-2px]"
+          : highlighted
+          ? "bg-yellow-50 outline outline-2 outline-yellow-400 outline-offset-[-2px] shadow-inner"
+          : dimmed
+          ? "opacity-30 grayscale-[60%]"
           : "hover:bg-muted/60"
       }`}
     >
@@ -441,9 +449,8 @@ export default function HorarioPage() {
     [allData, activeSede]
   );
 
-  const filteredData = useMemo(() => {
+  const gridData = useMemo(() => {
     return sedeData.filter(entry => {
-      if (selectedCourse && entry.course !== selectedCourse) return false;
       if (selectedTeacher && entry.teacher !== selectedTeacher) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -456,7 +463,12 @@ export default function HorarioPage() {
       }
       return true;
     });
-  }, [sedeData, selectedCourse, selectedTeacher, search]);
+  }, [sedeData, selectedTeacher, search]);
+
+  const filteredData = useMemo(() => {
+    if (!selectedCourse) return gridData;
+    return gridData.filter(entry => entry.course === selectedCourse);
+  }, [gridData, selectedCourse]);
 
   const visibleDays = useMemo(
     () => DAYS.filter(d => selectedDays.includes(d)),
@@ -491,7 +503,7 @@ export default function HorarioPage() {
   }
 
   function getEntry(day: string, time: string, sala: number): ClassEntry | undefined {
-    return filteredData.find(
+    return gridData.find(
       e => e.day === day && e.time === time && e.sala === sala
     );
   }
@@ -625,6 +637,27 @@ export default function HorarioPage() {
                   </button>
                 ))}
               </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Curso:</span>
+                {courses.map((c) => {
+                  const solidBg = COURSE_SOLID_COLORS[c];
+                  const isActive = selectedCourse === c;
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setSelectedCourse(isActive ? "" : c)}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                        isActive
+                          ? `${solidBg ?? "bg-slate-500"} text-white border-transparent shadow-sm scale-105`
+                          : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
@@ -692,6 +725,8 @@ export default function HorarioPage() {
                                       entry={entry}
                                       onSelect={setSelectedEntry}
                                       selected={liveSelectedEntry?.classCode === entry.classCode}
+                                      highlighted={!!selectedCourse && entry.course === selectedCourse}
+                                      dimmed={!!selectedCourse && entry.course !== selectedCourse}
                                     />
                                   ) : (
                                     <div className="p-1.5 text-center text-muted-foreground/20 text-[10px] select-none min-h-[28px]">
