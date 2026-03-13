@@ -495,11 +495,16 @@ export default function HorarioPage() {
   }
 
   function toggleDay(day: string) {
-    setSelectedDays(prev =>
-      prev.includes(day)
-        ? prev.length > 1 ? prev.filter(d => d !== day) : prev
-        : [...prev, day].sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b))
-    );
+    setSelectedDays(prev => {
+      const allSelected = prev.length === DAYS.length;
+      if (allSelected) {
+        return [day];
+      }
+      if (prev.includes(day)) {
+        return prev.length > 1 ? prev.filter(d => d !== day) : DAYS;
+      }
+      return [...prev, day].sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b));
+    });
   }
 
   function getEntry(day: string, time: string, sala: number): ClassEntry | undefined {
@@ -629,14 +634,26 @@ export default function HorarioPage() {
                     Días
                   </span>
                   <div className="flex gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => setSelectedDays(DAYS)}
+                      className={`px-4 py-1.5 text-xs font-bold rounded-lg border transition-all duration-150 ${
+                        selectedDays.length === DAYS.length
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary"
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <span className="w-px bg-border/60 self-stretch mx-0.5" />
                     {DAYS.map((day) => {
-                      const active = selectedDays.includes(day);
+                      const allActive = selectedDays.length === DAYS.length;
+                      const highlighted = !allActive && selectedDays.includes(day);
                       return (
                         <button
                           key={day}
                           onClick={() => toggleDay(day)}
                           className={`px-4 py-1.5 text-xs font-bold rounded-lg border transition-all duration-150 ${
-                            active
+                            highlighted
                               ? "bg-primary text-primary-foreground border-primary shadow-sm"
                               : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary"
                           }`}
