@@ -559,47 +559,24 @@ export default function HorarioPage() {
               ))}
             </div>
 
-            <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-4 mb-4 space-y-3">
-              <div className="flex flex-wrap gap-3">
-                <div className="relative flex-1 min-w-48">
+            <div className="bg-card rounded-2xl border border-border/50 shadow-sm mb-4 overflow-hidden">
+              <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border/40">
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Buscar alumno o materia..."
-                    className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
                   />
                 </div>
-
-                <select
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="px-4 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground min-w-44"
-                >
-                  <option value="">Todas las materias</option>
-                  {courses.map((c) => (
-                    <option key={c} value={c}>{COURSE_FULL_NAMES[c] ?? c}</option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedTeacher}
-                  onChange={(e) => setSelectedTeacher(e.target.value)}
-                  className="px-4 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground min-w-40"
-                >
-                  <option value="">Todos los profesores</option>
-                  {teachers.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-
-                <div className="flex rounded-xl overflow-hidden border border-border/50 shadow-sm">
+                <div className="flex rounded-xl overflow-hidden border border-border/60 shadow-sm shrink-0">
                   {SEDES.map((sede) => (
                     <button
                       key={sede}
                       onClick={() => setActiveSede(sede)}
-                      className={`px-5 py-2.5 text-sm font-semibold transition-colors ${
+                      className={`px-5 py-2 text-sm font-semibold transition-colors ${
                         activeSede === sede
                           ? "bg-primary text-primary-foreground"
                           : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -609,54 +586,91 @@ export default function HorarioPage() {
                     </button>
                   ))}
                 </div>
-
                 {hasFilters && (
                   <button
                     onClick={clearFilters}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-destructive border border-destructive/20 rounded-xl bg-destructive/5 hover:bg-destructive/10 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-destructive border border-destructive/20 rounded-xl bg-destructive/5 hover:bg-destructive/10 transition-colors shrink-0"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                     Limpiar
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Días:</span>
-                {DAYS.map((day) => (
-                  <button
-                    key={day}
-                    onClick={() => toggleDay(day)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                      selectedDays.includes(day)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-                    }`}
-                  >
-                    {DAY_LABELS[day]}
-                  </button>
-                ))}
-              </div>
+              <div className="divide-y divide-border/30">
+                <div className="flex items-start gap-4 px-4 py-3">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pt-1 w-24 shrink-0">
+                    Asignaturas
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {courses.map((c) => {
+                      const colorClass = COURSE_SOLID_COLORS[c] ?? "bg-slate-500";
+                      const isActive = selectedCourse === c;
+                      return (
+                        <button
+                          key={c}
+                          onClick={() => setSelectedCourse(isActive ? "" : c)}
+                          title={COURSE_FULL_NAMES[c] ?? c}
+                          className={`px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all duration-150 ${
+                            isActive
+                              ? `${colorClass} text-white border-transparent shadow-md scale-105`
+                              : "bg-background border-border text-foreground/70 hover:text-foreground hover:border-primary/40 hover:bg-muted/50"
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Curso:</span>
-                {courses.map((c) => {
-                  const solidBg = COURSE_SOLID_COLORS[c];
-                  const isActive = selectedCourse === c;
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setSelectedCourse(isActive ? "" : c)}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                        isActive
-                          ? `${solidBg ?? "bg-slate-500"} text-white border-transparent shadow-sm scale-105`
-                          : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  );
-                })}
+                <div className="flex items-center gap-4 px-4 py-3">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest w-24 shrink-0">
+                    Días
+                  </span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {DAYS.map((day) => {
+                      const active = selectedDays.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => toggleDay(day)}
+                          className={`px-4 py-1.5 text-xs font-bold rounded-lg border transition-all duration-150 ${
+                            active
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary"
+                          }`}
+                        >
+                          {DAY_LABELS[day]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 px-4 py-3">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pt-1 w-24 shrink-0">
+                    Profesor
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {teachers.map((t) => {
+                      const isActive = selectedTeacher === t;
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedTeacher(isActive ? "" : t)}
+                          className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg border transition-all duration-150 ${
+                            isActive
+                              ? "bg-secondary text-secondary-foreground border-transparent shadow-md ring-2 ring-offset-1 ring-secondary"
+                              : "bg-background text-muted-foreground border-border hover:border-secondary/60 hover:text-secondary"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 
