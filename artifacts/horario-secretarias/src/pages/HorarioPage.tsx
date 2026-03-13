@@ -147,7 +147,7 @@ function ClassCell({
         <ul>
           {entry.students.map((s, i) => (
             <li key={i} className="text-[10px] text-foreground leading-4 truncate">
-              {s}
+              <span className="text-muted-foreground font-semibold">{i + 1}.</span> {s}
             </li>
           ))}
           {Array.from({ length: Math.max(0, MAX_STUDENTS - count) }).map((_, i) => (
