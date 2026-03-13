@@ -19,28 +19,52 @@ const SEDE_ROOMS: Record<string, number> = {
   "INES DE SUAREZ": 5,
 };
 
+const COURSE_SOLID_COLORS: Record<string, string> = {
+  "M1":      "bg-blue-600",
+  "M1 INT":  "bg-blue-500",
+  "M2":      "bg-violet-600",
+  "M2 INT":  "bg-violet-500",
+  "MT":      "bg-fuchsia-600",
+  "MS":      "bg-fuchsia-500",
+  "MP":      "bg-purple-600",
+  "FIS":     "bg-emerald-600",
+  "FIS INT": "bg-emerald-500",
+  "BIO":     "bg-teal-600",
+  "BIO INT": "bg-teal-500",
+  "QUI":     "bg-amber-600",
+  "QUI INT": "bg-amber-500",
+  "LN":      "bg-orange-600",
+  "LN INT":  "bg-orange-500",
+  "LT":      "bg-orange-400",
+  "LS":      "bg-orange-700",
+  "LP":      "bg-red-500",
+  "HS":      "bg-rose-600",
+  "HS INT":  "bg-rose-500",
+  "CS":      "bg-slate-500",
+};
+
 const COURSE_BADGE_COLORS: Record<string, string> = {
-  "M1": "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50",
-  "M1 INT": "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50",
-  "M2": "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50",
-  "M2 INT": "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50",
-  "MT": "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-800/50",
-  "MS": "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-800/50",
-  "MP": "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50",
-  "FIS": "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50",
+  "M1":      "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50",
+  "M1 INT":  "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50",
+  "M2":      "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50",
+  "M2 INT":  "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50",
+  "MT":      "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-800/50",
+  "MS":      "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-800/50",
+  "MP":      "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/50",
+  "FIS":     "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50",
   "FIS INT": "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50",
-  "BIO": "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800/50",
+  "BIO":     "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800/50",
   "BIO INT": "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800/50",
-  "QUI": "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/50",
+  "QUI":     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/50",
   "QUI INT": "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/50",
-  "LN": "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
-  "LN INT": "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
-  "LT": "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
-  "LS": "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
-  "LP": "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50",
-  "HS": "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50",
-  "HS INT": "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50",
-  "CS": "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  "LN":      "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
+  "LN INT":  "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
+  "LT":      "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
+  "LS":      "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800/50",
+  "LP":      "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50",
+  "HS":      "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50",
+  "HS INT":  "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50",
+  "CS":      "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
 };
 
 const MAX_STUDENTS = 7;
@@ -54,47 +78,46 @@ function ClassCell({
   onSelect: (e: ClassEntry) => void;
   selected: boolean;
 }) {
-  const badge = COURSE_BADGE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
+  const solidBg = COURSE_SOLID_COLORS[entry.course] ?? "bg-slate-500";
   const count = entry.students.length;
   const isFull = count >= MAX_STUDENTS;
+
   return (
     <button
       onClick={() => onSelect(entry)}
-      className={`w-full text-left rounded-2xl border p-3 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer bg-card ${
-        selected ? "ring-2 ring-primary ring-offset-2 border-primary/30" : "border-border/60 hover:border-primary/30"
+      className={`w-full text-left align-top cursor-pointer transition-all duration-150 ${
+        selected ? "bg-primary/5 outline outline-2 outline-primary outline-offset-[-2px]" : "hover:bg-muted/60"
       }`}
     >
-      <div className="flex items-center justify-between mb-1.5 gap-1">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border shrink-0 ${badge}`}>
-          {entry.course}
-        </span>
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ${
-          isFull
-            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-            : count === 0
-            ? "bg-muted text-muted-foreground"
-            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-        }`}>
-          {count}/{MAX_STUDENTS}
-        </span>
-      </div>
-      <div className="text-[10px] text-muted-foreground font-medium mb-1.5 truncate">Prof. {entry.teacher}</div>
-      {entry.students.length > 0 && (
-        <ul className="space-y-0.5">
+      <div className="p-1.5">
+        <div className="flex items-center justify-between gap-1 mb-1">
+          <span className={`${solidBg} text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-tight`}>
+            {entry.course}
+          </span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-tight ${
+            isFull
+              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+          }`}>
+            {count}/{MAX_STUDENTS}
+          </span>
+        </div>
+        <div className="text-[10px] text-muted-foreground font-medium mb-1 truncate">
+          {entry.teacher}
+        </div>
+        <ul>
           {entry.students.map((s, i) => (
-            <li key={i} className="text-[10px] text-foreground leading-tight truncate">
+            <li key={i} className="text-[10px] text-foreground leading-4 truncate">
               {s}
             </li>
           ))}
-        </ul>
-      )}
-      {count < MAX_STUDENTS && (
-        <div className="mt-1.5 flex gap-1 flex-wrap">
           {Array.from({ length: MAX_STUDENTS - count }).map((_, i) => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full bg-border" />
+            <li key={`empty-${i}`} className="text-[10px] text-muted-foreground/30 leading-4">
+              —
+            </li>
           ))}
-        </div>
-      )}
+        </ul>
+      </div>
     </button>
   );
 }
@@ -388,36 +411,31 @@ export default function HorarioPage() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full">
+            <table className="w-full border-collapse text-[11px]">
               <thead>
-                <tr className="border-b border-border/30">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider w-32 sticky left-0 bg-card z-10">
+                <tr>
+                  <th className="sticky left-0 z-10 bg-muted/80 border border-border px-2 py-2 text-center font-bold text-[11px] text-foreground min-w-[100px] w-[100px]">
                     Horario
                   </th>
                   {Array.from({ length: numSalas }, (_, i) => (
-                    <th key={i} className="px-3 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[150px]">
+                    <th key={i} className="border border-border px-1 py-2 text-center font-semibold text-[10px] text-muted-foreground bg-muted/60 min-w-[110px] w-[110px]">
                       Sala {i + 1}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {TIME_SLOTS.map((time, ti) => {
+                {TIME_SLOTS.map((time) => {
                   const rowEntries = Array.from({ length: numSalas }, (_, i) =>
                     getEntry(selectedDay, time, currentSede, i + 1)
                   );
                   return (
-                    <tr
-                      key={time}
-                      className={`border-b border-border/20 ${ti % 2 === 0 ? "" : "bg-muted/20"}`}
-                    >
-                      <td className="px-4 py-3 sticky left-0 bg-inherit z-10">
-                        <span className="text-xs font-mono font-semibold text-muted-foreground whitespace-nowrap">
-                          {time}
-                        </span>
+                    <tr key={time}>
+                      <td className="sticky left-0 z-10 bg-muted/80 border border-border px-2 py-1 text-center font-bold text-[11px] text-foreground align-top min-w-[100px] w-[100px] whitespace-nowrap">
+                        {time}
                       </td>
                       {rowEntries.map((entry, i) => (
-                        <td key={i} className="px-2 py-2 align-top">
+                        <td key={i} className="border border-border p-0 align-top">
                           {entry ? (
                             <ClassCell
                               entry={entry}
@@ -429,8 +447,8 @@ export default function HorarioPage() {
                               }
                             />
                           ) : (
-                            <div className="w-full min-h-[90px] rounded-2xl border border-dashed border-border/30 flex items-center justify-center">
-                              <span className="text-[10px] text-border font-medium">libre</span>
+                            <div className="p-1.5 text-center text-muted-foreground/30 text-[10px] select-none">
+                              —
                             </div>
                           )}
                         </td>
