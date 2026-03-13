@@ -14,7 +14,8 @@ const SEDE_ROOMS_MIN: Record<string, number> = {
   "INES DE SUAREZ": 1,
 };
 
-const MAX_STUDENTS = 7;
+const NORMAL_CAPACITY = 7;
+const MAX_STUDENTS = 8;
 
 const COURSE_SOLID_COLORS: Record<string, string> = {
   // Matemática → familia amarillo/ámbar (cada uno distinto)
@@ -158,7 +159,7 @@ function ClassCell({
   const solidBg = COURSE_SOLID_COLORS[entry.course] ?? "bg-slate-500";
   const count = entry.students.length;
   const isFull = count >= MAX_STUDENTS;
-  const isOverCapacity = count > MAX_STUDENTS;
+  const isOverCapacity = count > NORMAL_CAPACITY;
 
   return (
     <button
@@ -194,11 +195,11 @@ function ClassCell({
         <ul>
           {entry.students.map((s, i) => (
             <li key={i} className={`text-[10px] leading-4 truncate rounded px-0.5 ${
-              i >= MAX_STUDENTS
+              i >= NORMAL_CAPACITY
                 ? "bg-amber-200 text-amber-900 font-semibold"
                 : "text-foreground"
             }`}>
-              <span className={`font-semibold ${i >= MAX_STUDENTS ? "text-amber-700" : "text-muted-foreground"}`}>{i + 1}.</span> {s}
+              <span className={`font-semibold ${i >= NORMAL_CAPACITY ? "text-amber-700" : "text-muted-foreground"}`}>{i + 1}.</span> {s}
             </li>
           ))}
           {Array.from({ length: Math.max(0, MAX_STUDENTS - count) }).map((_, i) => (
@@ -258,7 +259,7 @@ function DetailPanel({
   }, [conflicts]);
 
   const isFull = entry.students.length >= MAX_STUDENTS;
-  const isOverCapacity = entry.students.length > MAX_STUDENTS;
+  const isOverCapacity = entry.students.length > NORMAL_CAPACITY;
 
   // Detectar conflictos en tiempo real mientras se escribe
   const previewConflicts = useMemo(() => {
@@ -506,12 +507,12 @@ function DetailPanel({
             {isOverCapacity && (
               <div className="mb-3 flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2 font-medium">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                Clase sobre el cupo — tiene {entry.students.length} alumnos (máximo 7). Los alumnos destacados superan el límite.
+                Clase sobre el cupo — tiene {entry.students.length} alumnos (máximo {MAX_STUDENTS}). Los alumnos resaltados superan el cupo normal.
               </div>
             )}
             {!isOverCapacity && isFull && (
               <div className="mb-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 font-medium">
-                Clase completa — máximo 7 alumnos alcanzado.
+                Clase completa — máximo {MAX_STUDENTS} alumnos alcanzado.
               </div>
             )}
 
@@ -524,7 +525,7 @@ function DetailPanel({
                 {entry.students.map((s, i) => {
                   const hasConflict = conflictMap.has(s);
                   const isRemoving = removingStudent === s;
-                  const isExtraStudent = i >= MAX_STUDENTS;
+                  const isExtraStudent = i >= NORMAL_CAPACITY;
                   return (
                     <li
                       key={i}
@@ -550,7 +551,7 @@ function DetailPanel({
                           {s}
                         </span>
                         {isExtraStudent && (
-                          <div className="text-[11px] text-amber-700 font-medium mt-0.5">Alumno #{i + 1} — sobre el cupo máximo</div>
+                          <div className="text-[11px] text-amber-700 font-medium mt-0.5">Alumno #{i + 1} — fuera del cupo normal (7)</div>
                         )}
                         {hasConflict && conflictMap.get(s)!.map((c, ci) => (
                           <div key={ci} className="text-[11px] text-amber-600 mt-0.5">
