@@ -43,6 +43,8 @@ const COURSE_BADGE_COLORS: Record<string, string> = {
   "CS": "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
 };
 
+const MAX_STUDENTS = 7;
+
 function ClassCell({
   entry,
   onSelect,
@@ -53,6 +55,8 @@ function ClassCell({
   selected: boolean;
 }) {
   const badge = COURSE_BADGE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
+  const count = entry.students.length;
+  const isFull = count >= MAX_STUDENTS;
   return (
     <button
       onClick={() => onSelect(entry)}
@@ -60,14 +64,35 @@ function ClassCell({
         selected ? "ring-2 ring-primary ring-offset-2 border-primary/30" : "border-border/60 hover:border-primary/30"
       }`}
     >
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border mb-1.5 ${badge}`}>
-        {entry.course}
-      </span>
-      <div className="text-xs text-muted-foreground font-medium">Prof. {entry.teacher}</div>
+      <div className="flex items-center justify-between mb-1.5 gap-1">
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border shrink-0 ${badge}`}>
+          {entry.course}
+        </span>
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ${
+          isFull
+            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            : count === 0
+            ? "bg-muted text-muted-foreground"
+            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+        }`}>
+          {count}/{MAX_STUDENTS}
+        </span>
+      </div>
+      <div className="text-[10px] text-muted-foreground font-medium mb-1.5 truncate">Prof. {entry.teacher}</div>
       {entry.students.length > 0 && (
-        <div className="flex items-center gap-1 mt-1">
-          <Users className="w-3 h-3 text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground">{entry.students.length}</span>
+        <ul className="space-y-0.5">
+          {entry.students.map((s, i) => (
+            <li key={i} className="text-[10px] text-foreground leading-tight truncate">
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+      {count < MAX_STUDENTS && (
+        <div className="mt-1.5 flex gap-1 flex-wrap">
+          {Array.from({ length: MAX_STUDENTS - count }).map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-border" />
+          ))}
         </div>
       )}
     </button>
@@ -370,7 +395,7 @@ export default function HorarioPage() {
                     Horario
                   </th>
                   {Array.from({ length: numSalas }, (_, i) => (
-                    <th key={i} className="px-3 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[120px]">
+                    <th key={i} className="px-3 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[150px]">
                       Sala {i + 1}
                     </th>
                   ))}
@@ -404,7 +429,9 @@ export default function HorarioPage() {
                               }
                             />
                           ) : (
-                            <div className="w-full h-16 rounded-2xl border border-dashed border-border/30" />
+                            <div className="w-full min-h-[90px] rounded-2xl border border-dashed border-border/30 flex items-center justify-center">
+                              <span className="text-[10px] text-border font-medium">libre</span>
+                            </div>
                           )}
                         </td>
                       ))}
