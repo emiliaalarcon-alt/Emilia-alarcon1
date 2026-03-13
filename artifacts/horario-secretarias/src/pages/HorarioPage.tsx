@@ -131,7 +131,7 @@ function ClassCell({
       <div className="p-1.5">
         <div className="flex items-start justify-between gap-1 mb-1">
           <span className={`${solidBg} text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-tight`}>
-            {COURSE_FULL_NAMES[entry.course] ?? entry.course}
+            {entry.classCode}
           </span>
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-tight shrink-0 ${
             isFull
