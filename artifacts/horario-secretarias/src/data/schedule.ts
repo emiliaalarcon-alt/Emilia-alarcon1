@@ -82,39 +82,39 @@ export const TEACHER_NAMES: Record<string, string> = {
 };
 
 export const COURSE_COLORS: Record<string, string> = {
-  // Matemática → amarillo
-  'M1':       'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'M1 INT':   'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'M1 CONT':  'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'M2':       'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'M2 INT':   'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'MT':       'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'MS':       'bg-yellow-100 text-yellow-800 border-yellow-300',
-  'MP':       'bg-yellow-100 text-yellow-800 border-yellow-300',
-  // Lenguaje → rojo
+  // Matemática
+  'M1':       'bg-yellow-100 text-yellow-800 border-yellow-200',
+  'M1 INT':   'bg-yellow-200 text-yellow-900 border-yellow-300',
+  'M1 CONT':  'bg-yellow-300 text-yellow-900 border-yellow-400',
+  'M2':       'bg-amber-100 text-amber-800 border-amber-200',
+  'M2 INT':   'bg-amber-200 text-amber-900 border-amber-300',
+  'MT':       'bg-lime-100 text-lime-800 border-lime-200',
+  'MS':       'bg-amber-100 text-amber-900 border-amber-300',
+  'MP':       'bg-yellow-50 text-yellow-700 border-yellow-200',
+  // Lenguaje
   'LN':       'bg-red-100 text-red-800 border-red-200',
-  'LN INT':   'bg-red-100 text-red-800 border-red-200',
-  'LN CONT':  'bg-red-100 text-red-800 border-red-200',
-  'LT':       'bg-red-100 text-red-800 border-red-200',
-  'LS':       'bg-red-100 text-red-800 border-red-200',
-  'LP':       'bg-red-100 text-red-800 border-red-200',
-  // Física → naranja
+  'LN INT':   'bg-red-200 text-red-900 border-red-300',
+  'LN CONT':  'bg-red-300 text-red-900 border-red-400',
+  'LT':       'bg-rose-100 text-rose-800 border-rose-200',
+  'LS':       'bg-rose-100 text-rose-900 border-rose-300',
+  'LP':       'bg-red-50 text-red-700 border-red-200',
+  // Física
   'FIS':      'bg-orange-100 text-orange-800 border-orange-200',
-  'FIS INT':  'bg-orange-100 text-orange-800 border-orange-200',
-  'FIS CONT': 'bg-orange-100 text-orange-800 border-orange-200',
-  // Química → calipso
+  'FIS INT':  'bg-orange-200 text-orange-900 border-orange-300',
+  'FIS CONT': 'bg-orange-300 text-orange-900 border-orange-400',
+  // Química
   'QUI':      'bg-cyan-100 text-cyan-800 border-cyan-200',
-  'QUI INT':  'bg-cyan-100 text-cyan-800 border-cyan-200',
-  'QUI CONT': 'bg-cyan-100 text-cyan-800 border-cyan-200',
-  // Biología → verde
+  'QUI INT':  'bg-cyan-200 text-cyan-900 border-cyan-300',
+  'QUI CONT': 'bg-teal-100 text-teal-800 border-teal-200',
+  // Biología
   'BIO':      'bg-green-100 text-green-800 border-green-200',
-  'BIO INT':  'bg-green-100 text-green-800 border-green-200',
-  'BIO CONT': 'bg-green-100 text-green-800 border-green-200',
-  // Historia → gris
-  'HS':       'bg-gray-100 text-gray-700 border-gray-200',
-  'HS INT':   'bg-gray-100 text-gray-700 border-gray-200',
+  'BIO INT':  'bg-green-200 text-green-900 border-green-300',
+  'BIO CONT': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  // Historia
+  'HS':       'bg-gray-100 text-gray-600 border-gray-200',
+  'HS INT':   'bg-gray-200 text-gray-700 border-gray-300',
   'HIS':      'bg-gray-100 text-gray-700 border-gray-200',
-  'HIS INT':  'bg-gray-100 text-gray-700 border-gray-200',
+  'HIS INT':  'bg-gray-200 text-gray-800 border-gray-300',
   // Otros
   'CS':       'bg-slate-100 text-slate-800 border-slate-200',
 };
