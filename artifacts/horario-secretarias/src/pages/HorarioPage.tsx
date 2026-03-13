@@ -601,6 +601,64 @@ export default function HorarioPage() {
   const zoomIn  = () => setGridZoom(z => Math.min(z + 10, 150));
   const zoomOut = () => setGridZoom(z => Math.max(z - 10, 50));
 
+  // ── Presencia colaborativa ──────────────────────────────────────────────────
+  const [sessionId] = useState<string>(() => {
+    const stored = sessionStorage.getItem("horario-session-id");
+    if (stored) return stored;
+    const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessionStorage.setItem("horario-session-id", id);
+    return id;
+  });
+  const [myName, setMyName] = useState<string>(() =>
+    sessionStorage.getItem("horario-session-name") ?? ""
+  );
+  const [showNameModal, setShowNameModal] = useState<boolean>(() =>
+    !sessionStorage.getItem("horario-session-name")
+  );
+  const [nameInput, setNameInput] = useState("");
+  const [activePeers, setActivePeers] = useState<Array<{ name: string }>>([]);
+
+  const sendHeartbeat = useCallback(async (name: string) => {
+    try {
+      await fetch("/api/schedule/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, name }),
+      });
+    } catch {}
+  }, [sessionId]);
+
+  const fetchPresence = useCallback(async () => {
+    try {
+      const res = await fetch("/api/schedule/presence");
+      if (!res.ok) return;
+      const all: Array<{ name: string }> = await res.json();
+      setActivePeers(all.filter(s => true));
+    } catch {}
+  }, []);
+
+  const handleSetName = (name: string) => {
+    const trimmed = name.trim() || "Secretaria";
+    sessionStorage.setItem("horario-session-name", trimmed);
+    setMyName(trimmed);
+    setShowNameModal(false);
+    sendHeartbeat(trimmed);
+  };
+
+  useEffect(() => {
+    if (!myName) return;
+    sendHeartbeat(myName);
+    const hb = setInterval(() => sendHeartbeat(myName), 10_000);
+    return () => clearInterval(hb);
+  }, [myName, sendHeartbeat]);
+
+  useEffect(() => {
+    fetchPresence();
+    const interval = setInterval(fetchPresence, 5_000);
+    return () => clearInterval(interval);
+  }, [fetchPresence]);
+  // ────────────────────────────────────────────────────────────────────────────
+
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/schedule");
@@ -617,7 +675,7 @@ export default function HorarioPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -749,6 +807,40 @@ export default function HorarioPage() {
 
   return (
     <div className="min-h-screen pb-24 md:pb-8">
+
+      {/* ── Modal de nombre de sesión ──────────────────────────────────────── */}
+      {showNameModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-card rounded-3xl shadow-2xl border border-border/50 p-8 w-full max-w-sm mx-4">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-display font-bold text-foreground text-lg">¿Cómo te identificas?</h2>
+                <p className="text-xs text-muted-foreground">Se mostrará a las otras secretarias conectadas</p>
+              </div>
+            </div>
+            <input
+              type="text"
+              autoFocus
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSetName(nameInput)}
+              placeholder="Ej: María, Secretaria Las Encinas..."
+              className="w-full px-4 py-3 text-sm border border-border rounded-2xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground mb-4"
+              maxLength={32}
+            />
+            <button
+              onClick={() => handleSetName(nameInput)}
+              className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-2xl hover:bg-primary/90 transition-colors"
+            >
+              Entrar al horario
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-full px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6 flex items-start justify-between">
           <div>
@@ -757,12 +849,31 @@ export default function HorarioPage() {
               Haz clic en una celda para ver o gestionar alumnos.
             </p>
           </div>
-          {lastUpdated && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-              <RefreshCw className="w-3 h-3" />
-              Actualizado {lastUpdated.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          <div className="flex flex-col items-end gap-2">
+            {/* Badge de presencia */}
+            <div className="flex items-center gap-2">
+              {activePeers.length > 0 && (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-700">
+                    {activePeers.length === 1 ? "1 secretaria activa" : `${activePeers.length} secretarias activas`}
+                  </span>
+                  <span className="text-xs text-emerald-600 hidden sm:inline">
+                    — {activePeers.map(p => p.name).join(", ")}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
+            {lastUpdated && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <RefreshCw className="w-3 h-3" />
+                Actualizado {lastUpdated.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </div>
+            )}
+          </div>
         </div>
 
         {loading && allData.length === 0 ? (

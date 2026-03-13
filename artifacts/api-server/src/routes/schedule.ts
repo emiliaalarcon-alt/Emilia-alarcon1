@@ -11,6 +11,34 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
 
+// ─── Presencia en tiempo real (en memoria) ───────────────────────────────────
+const presenceSessions = new Map<string, { name: string; seenAt: number }>();
+const PRESENCE_TTL = 30_000; // 30 segundos sin heartbeat = desconectado
+
+function getActiveSessions() {
+  const now = Date.now();
+  for (const [id, s] of presenceSessions) {
+    if (now - s.seenAt > PRESENCE_TTL) presenceSessions.delete(id);
+  }
+  return [...presenceSessions.values()];
+}
+
+router.get("/schedule/presence", (_req, res) => {
+  res.json(getActiveSessions());
+});
+
+router.post("/schedule/presence", (req, res) => {
+  const { sessionId, name } = req.body as { sessionId?: string; name?: string };
+  if (!sessionId) return res.status(400).json({ error: "sessionId required" });
+  presenceSessions.set(sessionId, { name: name ?? "Secretaria", seenAt: Date.now() });
+  res.json({ active: getActiveSessions().length });
+});
+
+router.delete("/schedule/presence/:sessionId", (req, res) => {
+  presenceSessions.delete(req.params.sessionId);
+  res.json({ ok: true });
+});
+
 const DAY_TOKEN_MAP: Record<string, string> = {
   LUN: "LUNES", MAR: "MARTES", MIE: "MIERCOLES", JUE: "JUEVES", VIE: "VIERNES",
 };
