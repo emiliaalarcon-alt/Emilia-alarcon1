@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Trash2, RefreshCw, Pencil, Check } from "lucide-react";
 import {
   DAYS,
   DAY_LABELS,
@@ -133,6 +133,15 @@ async function apiRemoveStudent(classCode: string, name: string): Promise<{ ok?:
   return res.json();
 }
 
+async function apiUpdateSala(classCode: string, sala: number): Promise<{ ok?: boolean; error?: string }> {
+  const res = await fetch(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sala }),
+  });
+  return res.json();
+}
+
 function ClassCell({
   entry,
   onSelect,
@@ -213,6 +222,23 @@ function DetailPanel({
   const [addError, setAddError] = useState("");
   const [removingStudent, setRemovingStudent] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [editingSala, setEditingSala] = useState(false);
+  const [salaInput, setSalaInput] = useState(String(entry.sala));
+  const [savingSala, setSavingSala] = useState(false);
+  const [salaError, setSalaError] = useState("");
+
+  async function handleSaveSala() {
+    const num = parseInt(salaInput, 10);
+    if (!num || num < 1 || num > 20) { setSalaError("Número inválido"); return; }
+    setSavingSala(true);
+    setSalaError("");
+    try {
+      const result = await apiUpdateSala(entry.classCode, num);
+      if (result.error) { setSalaError(result.error); }
+      else { setEditingSala(false); onStudentChange(); }
+    } catch { setSalaError("Error de conexión"); }
+    finally { setSavingSala(false); }
+  }
 
   const conflicts = useMemo(() => getConflicts(entry, allData), [entry, allData]);
   const conflictMap = useMemo(() => {
@@ -309,7 +335,6 @@ function DetailPanel({
           <div className="grid grid-cols-2 gap-3">
             {[
               { icon: MapPin, label: "Sede", value: entry.sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas" },
-              { icon: MapPin, label: "Sala", value: `Sala ${entry.sala}` },
               { icon: Clock, label: "Horario", value: entry.time },
               { icon: Users, label: "Día", value: DAY_LABELS[entry.day] ?? entry.day },
             ].map(({ icon: Icon, label, value }) => (
@@ -321,6 +346,53 @@ function DetailPanel({
                 <div className="font-semibold text-sm text-foreground">{value}</div>
               </div>
             ))}
+
+            {/* Sala — editable inline */}
+            <div className="bg-muted/50 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground font-medium">Sala</span>
+              </div>
+              {editingSala ? (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={salaInput}
+                    onChange={e => { setSalaInput(e.target.value); setSalaError(""); }}
+                    onKeyDown={e => { if (e.key === "Enter") handleSaveSala(); if (e.key === "Escape") setEditingSala(false); }}
+                    className="w-14 px-2 py-1 text-sm font-bold border border-primary rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveSala}
+                    disabled={savingSala}
+                    className="p-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {savingSala ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => { setEditingSala(false); setSalaInput(String(entry.sala)); setSalaError(""); }}
+                    className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-semibold text-sm text-foreground">Sala {entry.sala}</span>
+                  <button
+                    onClick={() => { setEditingSala(true); setSalaInput(String(entry.sala)); }}
+                    className="p-1 rounded-lg hover:bg-muted/80 transition-colors text-muted-foreground/60 hover:text-primary"
+                    title="Cambiar sala"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+              {salaError && <p className="text-[10px] text-destructive mt-1">{salaError}</p>}
+            </div>
           </div>
 
           <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-2xl p-4 border border-primary/20">
