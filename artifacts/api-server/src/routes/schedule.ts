@@ -568,24 +568,37 @@ router.delete("/schedule/classes", async (req, res) => {
   }
 });
 
+const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as const;
+
 // POST /api/schedule/import — import students from Excel (.xlsx)
-// Accepts multipart fields: file (xlsx), horario (optional, defaults to TEMUCO)
+// Processes ALL campuses from the same file in a single upload
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    const horarioId = (req.body?.horario as string | undefined)?.toUpperCase() ?? "TEMUCO";
-    const { byCode, totalStudents } = importExcelBuffer(req.file.buffer, horarioId);
-    const result = await upsertFromParsed(byCode, horarioId);
+    let totalCreated = 0, totalUpdated = 0, totalSkipped = 0, totalStudents = 0;
+    const allParseErrors: string[] = [];
+    const perCampus: Record<string, { students: number; created: number; updated: number }> = {};
+
+    for (const horarioId of ALL_HORARIO_IDS) {
+      const { byCode, totalStudents: ts } = importExcelBuffer(req.file.buffer, horarioId);
+      const result = await upsertFromParsed(byCode, horarioId);
+      totalCreated   += result.created;
+      totalUpdated   += result.updated;
+      totalSkipped   += result.skipped;
+      totalStudents  += ts;
+      allParseErrors.push(...result.parseErrors);
+      perCampus[horarioId] = { students: ts, created: result.created, updated: result.updated };
+    }
 
     res.json({
       ok: true,
-      horario: horarioId,
-      created: result.created,
-      updated: result.updated,
-      skipped: result.skipped,
+      created: totalCreated,
+      updated: totalUpdated,
+      skipped: totalSkipped,
       totalStudents,
-      parseErrors: result.parseErrors.slice(0, 20),
+      perCampus,
+      parseErrors: allParseErrors.slice(0, 20),
     });
   } catch (err) {
     console.error(err);

@@ -118,7 +118,8 @@ export default function AdminPage() {
   const [filterCourse, setFilterCourse] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
-    created: number; updated: number; skipped: number; totalStudents: number; parseErrors: string[]; horario?: string;
+    created: number; updated: number; skipped: number; totalStudents: number; parseErrors: string[];
+    perCampus?: Record<string, { students: number; created: number; updated: number }>;
   } | null>(null);
   const [importError, setImportError] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -254,7 +255,6 @@ export default function AdminPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("horario", horarioId);
       const res = await fetch("/api/schedule/import", { method: "POST", body: formData });
       const json = await res.json();
       if (json.error) {
@@ -346,12 +346,12 @@ export default function AdminPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-display font-bold text-foreground">Importar desde Excel</h2>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-                    {horario.label}
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200">
+                    Todos los campus
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Sube el exportado del sistema — solo se cargarán los alumnos de las sedes <strong>{horario.sedes.join(" / ")}</strong>.
+                  Sube el exportado del sistema y se cargan automáticamente Temuco, D. Almagro, Villarrica y Av. Alemania.
                 </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -382,23 +382,35 @@ export default function AdminPage() {
             {/* Resultado de importación */}
             {importResult && (
               <div className="px-6 pb-5">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-wrap gap-6 items-start">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="text-sm font-bold text-emerald-800">
-                      Importación completada — {horario.label}
-                    </span>
+                    <span className="text-sm font-bold text-emerald-800">Importación completada — todos los campus</span>
                   </div>
-                  <div className="flex flex-wrap gap-6 text-sm">
+                  <div className="flex flex-wrap gap-5 text-sm">
+                    <div><span className="font-bold text-emerald-700">{importResult.totalStudents}</span><span className="text-emerald-600"> alumnos procesados</span></div>
                     {importResult.created > 0 && (
-                      <div><span className="font-bold text-emerald-700">{importResult.created}</span><span className="text-emerald-600"> clases creadas</span></div>
+                      <div><span className="font-bold text-emerald-700">{importResult.created}</span><span className="text-emerald-600"> clases nuevas</span></div>
                     )}
                     <div><span className="font-bold text-emerald-700">{importResult.updated}</span><span className="text-emerald-600"> clases actualizadas</span></div>
-                    <div><span className="font-bold text-emerald-700">{importResult.totalStudents}</span><span className="text-emerald-600"> alumnos procesados</span></div>
                     {importResult.skipped > 0 && (
-                      <div><span className="font-bold text-amber-700">{importResult.skipped}</span><span className="text-amber-600"> clases omitidas</span></div>
+                      <div><span className="font-bold text-amber-700">{importResult.skipped}</span><span className="text-amber-600"> omitidas</span></div>
                     )}
                   </div>
+                  {importResult.perCampus && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                      {Object.entries(importResult.perCampus).map(([id, data]) => {
+                        const labels: Record<string, string> = { TEMUCO: "Temuco", ALMAGRO: "D. Almagro", VILLARRICA: "Villarrica", AV_ALEMANIA: "Av. Alemania" };
+                        return (
+                          <div key={id} className="bg-white border border-emerald-200 rounded-xl px-3 py-2">
+                            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">{labels[id] ?? id}</p>
+                            <p className="text-lg font-display font-bold text-foreground">{data.students}</p>
+                            <p className="text-[10px] text-muted-foreground">alumnos</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {importResult.parseErrors.length > 0 && (
                     <details className="w-full">
                       <summary className="text-xs text-amber-700 cursor-pointer font-medium">
