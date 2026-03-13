@@ -227,6 +227,23 @@ function DetailPanel({
 
   const isFull = entry.students.length >= MAX_STUDENTS;
 
+  // Detectar conflictos en tiempo real mientras se escribe
+  const previewConflicts = useMemo(() => {
+    const name = newStudentName.trim().toLowerCase();
+    if (!name) return [];
+    const results: { classEntry: ClassEntry; matchedName: string }[] = [];
+    for (const e of allData) {
+      if (e.classCode === entry.classCode) continue;
+      if (getBaseCourse(e.course) !== getBaseCourse(entry.course)) continue;
+      for (const s of e.students) {
+        if (s.toLowerCase().includes(name)) {
+          results.push({ classEntry: e, matchedName: s });
+        }
+      }
+    }
+    return results;
+  }, [newStudentName, allData, entry]);
+
   async function handleAdd() {
     const name = newStudentName.trim();
     if (!name) return;
@@ -359,7 +376,11 @@ function DetailPanel({
                     onChange={e => { setNewStudentName(e.target.value); setAddError(""); }}
                     onKeyDown={handleKeyDown}
                     placeholder="Nombre del alumno..."
-                    className="flex-1 px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+                    className={`flex-1 px-3 py-2 text-sm border rounded-xl bg-background focus:outline-none focus:ring-2 placeholder:text-muted-foreground transition-colors ${
+                      previewConflicts.length > 0
+                        ? "border-amber-400 focus:ring-amber-300"
+                        : "border-border focus:ring-primary/50"
+                    }`}
                     disabled={adding}
                   />
                   <button
@@ -371,6 +392,32 @@ function DetailPanel({
                     Agregar
                   </button>
                 </div>
+
+                {/* Aviso en tiempo real: alumno ya inscrito en otra clase del mismo ramo */}
+                {previewConflicts.length > 0 && (
+                  <div className="mt-2 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2.5 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span className="text-xs font-bold text-amber-800">
+                        Ya inscrito en {entry.course}
+                      </span>
+                    </div>
+                    {previewConflicts.map((pc, i) => (
+                      <div key={i} className="text-xs text-amber-700 bg-amber-100/70 rounded-lg px-2.5 py-1.5 leading-snug">
+                        <span className="font-semibold">{pc.matchedName}</span>
+                        {" — "}
+                        <span className="font-medium">{DAY_LABELS[pc.classEntry.day] ?? pc.classEntry.day}</span>
+                        {" · "}
+                        {pc.classEntry.time}
+                        {" · "}
+                        Sala {pc.classEntry.sala}
+                        {" · "}
+                        Profe {pc.classEntry.teacher}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {addError && (
                   <p className="mt-2 text-xs text-destructive font-medium">{addError}</p>
                 )}
