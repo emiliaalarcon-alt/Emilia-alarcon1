@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import HomePage from "@/pages/HomePage";
 import HorarioPage from "@/pages/HorarioPage";
 import AdminPage from "@/pages/AdminPage";
+import GuiasPage from "@/pages/GuiasPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -19,6 +20,7 @@ function Router() {
           <Route path="/" component={HomePage} />
           <Route path="/horarios" component={HorarioPage} />
           <Route path="/admin" component={AdminPage} />
+          <Route path="/guias" component={GuiasPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
