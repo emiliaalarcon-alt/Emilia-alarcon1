@@ -149,12 +149,14 @@ function ClassCell({
   selected,
   highlighted,
   dimmed,
+  typingBy,
 }: {
   entry: ClassEntry;
   onSelect: (e: ClassEntry) => void;
   selected: boolean;
   highlighted?: boolean;
   dimmed?: boolean;
+  typingBy?: string;
 }) {
   const solidBg = COURSE_SOLID_COLORS[entry.course] ?? "bg-slate-500";
   const count = entry.students.length;
@@ -213,6 +215,18 @@ function ClassCell({
             </li>
           ))}
         </ul>
+
+        {typingBy && (
+          <div className="mt-1.5 flex items-center gap-1 bg-violet-100 border border-violet-200 rounded-md px-1.5 py-0.5">
+            <Pencil className="w-2.5 h-2.5 text-violet-500 shrink-0" />
+            <span className="text-[9px] font-semibold text-violet-700 truncate">{typingBy}</span>
+            <span className="flex gap-[2px] shrink-0 ml-0.5">
+              <span className="w-[3px] h-[3px] rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-[3px] h-[3px] rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-[3px] h-[3px] rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -223,11 +237,19 @@ function DetailPanel({
   allData,
   onClose,
   onStudentChange,
+  sessionId,
+  myName,
+  onTypingStart,
+  onTypingStop,
 }: {
   entry: ClassEntry;
   allData: ClassEntry[];
   onClose: () => void;
   onStudentChange: () => void;
+  sessionId: string;
+  myName: string;
+  onTypingStart: (classCode: string) => void;
+  onTypingStop: () => void;
 }) {
   const badge = COURSE_BADGE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
   const [newStudentName, setNewStudentName] = useState("");
@@ -296,6 +318,7 @@ function DetailPanel({
         setAddError(result.message ?? "Error al agregar alumno.");
       } else {
         setNewStudentName("");
+        onTypingStop();
         onStudentChange();
       }
     } catch {
@@ -323,7 +346,7 @@ function DetailPanel({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" onClick={() => { onTypingStop(); onClose(); }} />
       <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-card shadow-2xl border-l border-border z-50 flex flex-col">
         <div className="p-6 border-b border-border/50">
           <div className="flex items-start justify-between">
@@ -337,7 +360,7 @@ function DetailPanel({
               <p className="text-muted-foreground text-sm mt-1">{entry.classCode}</p>
             </div>
             <button
-              onClick={onClose}
+              onClick={() => { onTypingStop(); onClose(); }}
               className="p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground"
             >
               <X className="w-5 h-5" />
@@ -458,7 +481,13 @@ function DetailPanel({
                     ref={inputRef}
                     type="text"
                     value={newStudentName}
-                    onChange={e => { setNewStudentName(e.target.value); setAddError(""); }}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setNewStudentName(val);
+                      setAddError("");
+                      if (val.trim()) onTypingStart(entry.classCode);
+                      else onTypingStop();
+                    }}
                     onKeyDown={handleKeyDown}
                     placeholder="Nombre del alumno..."
                     className={`flex-1 px-3 py-2 text-sm border rounded-xl bg-background focus:outline-none focus:ring-2 placeholder:text-muted-foreground transition-colors ${
@@ -657,6 +686,40 @@ export default function HorarioPage() {
     const interval = setInterval(fetchPresence, 5_000);
     return () => clearInterval(interval);
   }, [fetchPresence]);
+
+  // ── Indicadores de escritura en tiempo real ─────────────────────────────────
+  const [typingMap, setTypingMap] = useState<Map<string, string>>(new Map());
+
+  const fetchTyping = useCallback(async () => {
+    try {
+      const res = await fetch("/api/schedule/typing");
+      if (!res.ok) return;
+      const all: Array<{ classCode: string; name: string }> = await res.json();
+      const m = new Map<string, string>();
+      for (const t of all) {
+        if (t.name !== myName) m.set(t.classCode, t.name);
+      }
+      setTypingMap(m);
+    } catch {}
+  }, [myName]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchTyping, 2_000);
+    return () => clearInterval(interval);
+  }, [fetchTyping]);
+
+  const handleTypingStart = useCallback((classCode: string) => {
+    if (!myName) return;
+    fetch("/api/schedule/typing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, classCode, name: myName }),
+    }).catch(() => {});
+  }, [sessionId, myName]);
+
+  const handleTypingStop = useCallback(() => {
+    fetch(`/api/schedule/typing/${sessionId}`, { method: "DELETE" }).catch(() => {});
+  }, [sessionId]);
   // ────────────────────────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
@@ -1120,6 +1183,7 @@ export default function HorarioPage() {
                                       selected={liveSelectedEntry?.classCode === entry.classCode}
                                       highlighted={!!selectedCourse && entry.course === selectedCourse}
                                       dimmed={!!selectedCourse && entry.course !== selectedCourse}
+                                      typingBy={typingMap.get(entry.classCode)}
                                     />
                                   ) : (
                                     <div className="p-1.5 text-center text-muted-foreground/20 text-[10px] select-none min-h-[28px]">
@@ -1147,6 +1211,10 @@ export default function HorarioPage() {
           allData={allData}
           onClose={() => setSelectedEntry(null)}
           onStudentChange={fetchData}
+          sessionId={sessionId}
+          myName={myName}
+          onTypingStart={handleTypingStart}
+          onTypingStop={handleTypingStop}
         />
       )}
     </div>
