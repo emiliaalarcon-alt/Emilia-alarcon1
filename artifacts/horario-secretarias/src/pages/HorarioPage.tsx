@@ -9,9 +9,9 @@ import {
   type ClassEntry,
 } from "@/data/schedule";
 
-const SEDE_ROOMS: Record<string, number> = {
-  "LAS ENCINAS": 7,
-  "INES DE SUAREZ": 5,
+const SEDE_ROOMS_MIN: Record<string, number> = {
+  "LAS ENCINAS": 1,
+  "INES DE SUAREZ": 1,
 };
 
 const MAX_STUDENTS = 7;
@@ -664,7 +664,51 @@ export default function HorarioPage() {
     return allData.find(e => e.classCode === selectedEntry.classCode) ?? null;
   }, [selectedEntry, allData]);
 
-  const numSalas = SEDE_ROOMS[activeSede];
+  const salasPerDay = useMemo(() => {
+    const map: Record<string, number> = {};
+    const minSalas = SEDE_ROOMS_MIN[activeSede] ?? 1;
+    for (const day of DAYS) {
+      const dayEntries = sedeData.filter(e => e.day === day);
+      const maxSala = dayEntries.reduce((mx, e) => Math.max(mx, e.sala), 0);
+      map[day] = Math.max(maxSala, minSalas);
+    }
+    return map;
+  }, [sedeData, activeSede]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
+  const hasMoved = useRef(false);
+
+  function handleMouseDown(e: React.MouseEvent) {
+    if (!scrollRef.current) return;
+    isDragging.current = true;
+    hasMoved.current = false;
+    dragStartX.current = e.clientX;
+    scrollStartX.current = scrollRef.current.scrollLeft;
+    scrollRef.current.style.cursor = "grabbing";
+    scrollRef.current.style.userSelect = "none";
+  }
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!isDragging.current || !scrollRef.current) return;
+    const dx = e.clientX - dragStartX.current;
+    if (Math.abs(dx) > 4) hasMoved.current = true;
+    scrollRef.current.scrollLeft = scrollStartX.current - dx;
+  }
+  function handleMouseUp() {
+    if (!scrollRef.current) return;
+    isDragging.current = false;
+    scrollRef.current.style.cursor = "grab";
+    scrollRef.current.style.removeProperty("user-select");
+  }
+  function handleClickCapture(e: React.MouseEvent) {
+    if (hasMoved.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      hasMoved.current = false;
+    }
+  }
 
   const totalStats = useMemo(() => ({
     classes: allData.length,
@@ -848,20 +892,28 @@ export default function HorarioPage() {
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
+              <div
+                ref={scrollRef}
+                className="overflow-x-auto cursor-grab"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onClickCapture={handleClickCapture}
+              >
                 <table className="border-collapse text-[11px]" style={{ tableLayout: "fixed" }}>
                   <thead>
                     <tr>
                       <th
                         rowSpan={2}
-                        className="sticky left-0 z-30 bg-muted/90 border border-border px-2 py-2 text-center font-bold text-[11px] text-foreground w-[96px] min-w-[96px] align-middle"
+                        className="sticky left-0 z-30 bg-card border border-border px-2 py-2 text-center font-bold text-[11px] text-foreground w-[96px] min-w-[96px] align-middle"
                       >
                         Horario
                       </th>
                       {visibleDays.map((day) => (
                         <th
                           key={day}
-                          colSpan={numSalas}
+                          colSpan={salasPerDay[day] || 1}
                           className="border border-border px-2 py-2 text-center font-display font-bold text-[12px] text-primary bg-primary/10"
                         >
                           {DAY_LABELS[day]}
@@ -870,10 +922,10 @@ export default function HorarioPage() {
                     </tr>
                     <tr>
                       {visibleDays.map((day) =>
-                        Array.from({ length: numSalas }, (_, i) => (
+                        Array.from({ length: salasPerDay[day] || 1 }, (_, i) => (
                           <th
                             key={`${day}-sala-${i}`}
-                            className="border border-border px-1 py-1.5 text-center font-semibold text-[10px] text-muted-foreground bg-muted/60 w-[110px] min-w-[110px]"
+                            className="border border-border px-1 py-1.5 text-center font-semibold text-[10px] text-muted-foreground bg-muted w-[110px] min-w-[110px]"
                           >
                             Sala {i + 1}
                           </th>
@@ -884,16 +936,16 @@ export default function HorarioPage() {
                   <tbody>
                     {TIME_SLOTS.map((time) => {
                       const hasAny = visibleDays.some((day) =>
-                        Array.from({ length: numSalas }, (_, i) => getEntry(day, time, i + 1)).some(Boolean)
+                        Array.from({ length: salasPerDay[day] || 1 }, (_, i) => getEntry(day, time, i + 1)).some(Boolean)
                       );
                       if (!hasAny && hasFilters) return null;
                       return (
                         <tr key={time}>
-                          <td className="sticky left-0 z-10 bg-muted/60 border border-border px-2 py-1 text-center font-bold text-[10px] text-muted-foreground align-middle whitespace-nowrap w-[96px] min-w-[96px]">
+                          <td className="sticky left-0 z-10 bg-card border border-border px-2 py-1 text-center font-bold text-[10px] text-muted-foreground align-middle whitespace-nowrap w-[96px] min-w-[96px]">
                             {time}
                           </td>
                           {visibleDays.map((day) =>
-                            Array.from({ length: numSalas }, (_, i) => {
+                            Array.from({ length: salasPerDay[day] || 1 }, (_, i) => {
                               const entry = getEntry(day, time, i + 1);
                               return (
                                 <td key={`${day}-${i}`} className="border border-border p-0 align-top w-[110px] min-w-[110px]">
