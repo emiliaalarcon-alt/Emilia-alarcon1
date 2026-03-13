@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HorarioProvider } from "@/context/HorarioContext";
 import Navbar from "@/components/Navbar";
 import HomePage from "@/pages/HomePage";
 import HorarioPage from "@/pages/HorarioPage";
@@ -13,18 +14,20 @@ const queryClient = new QueryClient();
 
 function Router() {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      <main className="flex-1">
-        <Switch>
-          <Route path="/" component={HomePage} />
-          <Route path="/horarios" component={HorarioPage} />
-          <Route path="/admin" component={AdminPage} />
-          <Route path="/guias" component={GuiasPage} />
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-    </div>
+    <HorarioProvider>
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <main className="flex-1">
+          <Switch>
+            <Route path="/" component={HomePage} />
+            <Route path="/horarios" component={HorarioPage} />
+            <Route path="/admin" component={AdminPage} />
+            <Route path="/guias" component={GuiasPage} />
+            <Route component={NotFound} />
+          </Switch>
+        </main>
+      </div>
+    </HorarioProvider>
   );
 }
 

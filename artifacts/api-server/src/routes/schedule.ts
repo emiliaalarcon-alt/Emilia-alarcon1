@@ -129,7 +129,7 @@ function importExcelBuffer(buffer: Buffer) {
   return { byCode, totalStudents: temuco.length };
 }
 
-async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>) {
+async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
   const existingClasses = await db.select({ classCode: scheduleClassesTable.classCode }).from(scheduleClassesTable);
   const existingCodes = new Set(existingClasses.map(c => c.classCode));
   let created = 0, updated = 0, skipped = 0;
@@ -146,6 +146,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
       try {
         await db.insert(scheduleClassesTable).values({
           classCode,
+          horario,
           course: parsed.course,
           day: parsed.day,
           time: parsed.time,
@@ -314,6 +315,7 @@ async function seedIfEmpty() {
   for (const entry of SEED_DATA) {
     await db.insert(scheduleClassesTable).values({
       classCode: entry.classCode,
+      horario: "TEMUCO",
       day: entry.day,
       time: entry.time,
       sede: entry.sede,
@@ -342,12 +344,14 @@ async function seedIfEmpty() {
   }
 })().catch(console.error);
 
-// GET /api/schedule?sede=LAS+ENCINAS
+// GET /api/schedule?horario=TEMUCO&sede=LAS+ENCINAS
 router.get("/schedule", async (req, res) => {
   try {
-    const { sede } = req.query;
+    const { sede, horario } = req.query;
+    const horarioFilter = (typeof horario === "string" && horario) ? horario : "TEMUCO";
 
-    const classes = await db.select().from(scheduleClassesTable);
+    const classes = await db.select().from(scheduleClassesTable)
+      .where(eq(scheduleClassesTable.horario, horarioFilter));
     const students = await db.select().from(scheduleStudentsTable);
 
     const studentsByClass: Record<string, string[]> = {};
@@ -440,10 +444,11 @@ router.delete("/schedule/:classCode/students/:name", async (req, res) => {
 // POST /api/schedule/classes — create a new class
 router.post("/schedule/classes", async (req, res) => {
   try {
-    const { day, time, sede, sala, course, teacher } = req.body;
+    const { day, time, sede, sala, course, teacher, horario } = req.body;
     if (!day || !time || !sede || !sala || !course || !teacher) {
       return res.status(400).json({ error: "Todos los campos son obligatorios" });
     }
+    const horarioVal = (typeof horario === "string" && horario) ? horario.toUpperCase() : "TEMUCO";
     const dayShortMap: Record<string, string> = {
       LUNES: "LUN", MARTES: "MAR", MIERCOLES: "MIE", JUEVES: "JUE", VIERNES: "VIE",
     };
@@ -458,6 +463,7 @@ router.post("/schedule/classes", async (req, res) => {
 
     await db.insert(scheduleClassesTable).values({
       classCode,
+      horario: horarioVal,
       day: day.toUpperCase(),
       time,
       sede: sede.toUpperCase(),
@@ -504,12 +510,21 @@ router.delete("/schedule/classes/:classCode", async (req, res) => {
   }
 });
 
-// DELETE /api/schedule/classes — delete ALL classes (reset for new year)
+// DELETE /api/schedule/classes?horario=TEMUCO — delete ALL classes for a horario (reset)
 router.delete("/schedule/classes", async (req, res) => {
   try {
-    await db.delete(scheduleStudentsTable);
-    await db.delete(scheduleClassesTable);
-    res.json({ ok: true });
+    const { horario } = req.query;
+    const horarioFilter = (typeof horario === "string" && horario) ? horario : "TEMUCO";
+    const classesInHorario = await db.select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable).where(eq(scheduleClassesTable.horario, horarioFilter));
+    const codes = classesInHorario.map(c => c.classCode);
+    if (codes.length > 0) {
+      for (const code of codes) {
+        await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, code));
+      }
+      await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.horario, horarioFilter));
+    }
+    res.json({ ok: true, deleted: codes.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });

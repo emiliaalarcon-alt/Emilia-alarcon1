@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer } from "lucide-react";
+import { useHorario } from "@/context/HorarioContext";
 
 const navLinks = [
   { href: "/", label: "Inicio", icon: Home },
@@ -9,9 +10,17 @@ const navLinks = [
   { href: "/admin", label: "Admin", icon: Settings },
 ];
 
+const HORARIO_SHORT: Record<string, string> = {
+  TEMUCO:      "Temuco",
+  ALMAGRO:     "D. Almagro",
+  VILLARRICA:  "Villarrica",
+  AV_ALEMANIA: "Av. Alemania",
+};
+
 export default function Navbar() {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
+  const { horarioId, horario } = useHorario();
 
   return (
     <>
@@ -22,30 +31,47 @@ export default function Navbar() {
               <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-md group-hover:shadow-primary/20 transition-all duration-300 group-hover:scale-105">
                 <CalendarDays className="w-5 h-5 text-white" />
               </div>
-              <span className="font-display font-bold text-xl tracking-tight text-foreground hidden sm:block">
-                Horario Temuco
-              </span>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="font-display font-bold text-xl tracking-tight text-foreground">
+                  {horario.label}
+                </span>
+                {horarioId !== "TEMUCO" && (
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
+                    {HORARIO_SHORT[horarioId] ?? horarioId}
+                  </span>
+                )}
+              </div>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map(({ href, label, icon: Icon }) => {
-                const active = location === href;
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      active
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
+            <div className="hidden md:flex items-center gap-2">
+              <nav className="flex items-center gap-1">
+                {navLinks.map(({ href, label, icon: Icon }) => {
+                  const active = location === href;
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        active
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {label}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <Link
+                href="/"
+                title="Cambiar sede"
+                className="ml-2 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold hover:bg-primary/20 transition-colors shrink-0"
+              >
+                {HORARIO_SHORT[horarioId] ?? horarioId}
+              </Link>
+            </div>
 
             <button
               onClick={() => setOpen(!open)}
@@ -58,6 +84,12 @@ export default function Navbar() {
 
         {open && (
           <div className="md:hidden border-t border-border/50 px-4 py-3 space-y-1">
+            <div className="px-4 py-2 mb-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Campus activo
+              </span>
+              <p className="text-sm font-bold text-primary mt-0.5">{horario.label}</p>
+            </div>
             {navLinks.map(({ href, label, icon: Icon }) => {
               const active = location === href;
               return (
@@ -76,6 +108,14 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            <Link
+              href="/"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+            >
+              <CalendarDays className="w-5 h-5" />
+              Cambiar campus
+            </Link>
           </div>
         )}
       </header>

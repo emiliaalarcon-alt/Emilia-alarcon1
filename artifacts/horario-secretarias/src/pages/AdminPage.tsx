@@ -4,9 +4,21 @@ import {
   Search, X, CheckCircle, ChevronDown, Upload, FileSpreadsheet,
 } from "lucide-react";
 import {
-  DAYS, DAY_LABELS, TIME_SLOTS, SEDES, COURSE_FULL_NAMES,
+  DAYS, DAY_LABELS, TIME_SLOTS, COURSE_FULL_NAMES,
   type ClassEntry,
 } from "@/data/schedule";
+import { useHorario } from "@/context/HorarioContext";
+
+const SEDE_DISPLAY: Record<string, string> = {
+  "LAS ENCINAS": "Las Encinas",
+  "INES DE SUAREZ": "Inés de Suárez",
+  "D. ALMAGRO": "D. Almagro",
+  "VILLARRICA": "Villarrica",
+  "AV. ALEMANIA": "Av. Alemania",
+};
+function displaySede(sede: string): string {
+  return SEDE_DISPLAY[sede] ?? sede;
+}
 
 const COURSES = Object.keys(COURSE_FULL_NAMES);
 
@@ -59,7 +71,7 @@ function generateClassCode(course: string, day: string, time: string, teacher: s
 }
 
 async function apiCreateClass(data: {
-  day: string; time: string; sede: string; sala: number; course: string; teacher: string;
+  day: string; time: string; sede: string; sala: number; course: string; teacher: string; horario: string;
 }) {
   const res = await fetch("/api/schedule/classes", {
     method: "POST",
@@ -76,8 +88,8 @@ async function apiDeleteClass(classCode: string) {
   return res.json();
 }
 
-async function apiResetAll() {
-  const res = await fetch("/api/schedule/classes", { method: "DELETE" });
+async function apiResetAll(horarioId: string) {
+  const res = await fetch(`/api/schedule/classes?horario=${horarioId}`, { method: "DELETE" });
   return res.json();
 }
 
@@ -91,9 +103,10 @@ const emptyForm = {
 };
 
 export default function AdminPage() {
+  const { horarioId, horario } = useHorario();
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => ({ ...emptyForm, sede: horario.sedes[0] }));
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
@@ -113,16 +126,25 @@ export default function AdminPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/schedule");
+      const res = await fetch(`/api/schedule?horario=${horarioId}`);
       const json = await res.json();
       setAllData(json);
     } catch {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [horarioId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    setAllData([]);
+    setLoading(true);
+    setForm({ ...emptyForm, sede: horario.sedes[0] });
+    setSearch("");
+    setFilterSede("");
+    setFilterCourse("");
+  }, [horarioId, horario.sedes]);
 
   const preview = useMemo(() => {
     if (!form.course || !form.day || !form.time || !form.teacher) return "";
@@ -182,6 +204,7 @@ export default function AdminPage() {
         sala: Number(form.sala),
         course: form.course,
         teacher: form.teacher,
+        horario: horarioId,
       });
       if (result.error === "duplicate") {
         setFormError(`Ya existe la clase "${result.message?.split('"')[1] ?? preview}".`);
@@ -212,7 +235,7 @@ export default function AdminPage() {
   async function handleReset() {
     setResetting(true);
     try {
-      await apiResetAll();
+      await apiResetAll(horarioId);
       setConfirmReset(false);
       fetchData();
     } finally {
@@ -414,7 +437,7 @@ export default function AdminPage() {
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Sede</label>
                   <div className="flex rounded-xl overflow-hidden border border-border/60">
-                    {SEDES.map(s => (
+                    {horario.sedes.map(s => (
                       <button
                         key={s}
                         type="button"
@@ -425,7 +448,7 @@ export default function AdminPage() {
                             : "bg-background text-muted-foreground hover:bg-muted"
                         }`}
                       >
-                        {s === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+                        {displaySede(s)}
                       </button>
                     ))}
                   </div>
@@ -575,8 +598,8 @@ export default function AdminPage() {
                   className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
                 >
                   <option value="">Todas las sedes</option>
-                  {SEDES.map(s => (
-                    <option key={s} value={s}>{s === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}</option>
+                  {horario.sedes.map(s => (
+                    <option key={s} value={s}>{displaySede(s)}</option>
                   ))}
                 </select>
                 <select
