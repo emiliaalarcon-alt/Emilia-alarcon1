@@ -39,6 +39,34 @@ router.delete("/schedule/presence/:sessionId", (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Indicadores de "escribiendo" en tiempo real ──────────────────────────────
+const typingSessions = new Map<string, { classCode: string; name: string; seenAt: number }>();
+const TYPING_TTL = 5_000; // 5 s sin refresh = ya no está escribiendo
+
+function getActiveTyping() {
+  const now = Date.now();
+  for (const [id, t] of typingSessions) {
+    if (now - t.seenAt > TYPING_TTL) typingSessions.delete(id);
+  }
+  return [...typingSessions.values()];
+}
+
+router.get("/schedule/typing", (_req, res) => {
+  res.json(getActiveTyping());
+});
+
+router.post("/schedule/typing", (req, res) => {
+  const { sessionId, classCode, name } = req.body as { sessionId?: string; classCode?: string; name?: string };
+  if (!sessionId || !classCode) return res.status(400).json({ error: "required" });
+  typingSessions.set(sessionId, { classCode, name: name ?? "Secretaria", seenAt: Date.now() });
+  res.json({ ok: true });
+});
+
+router.delete("/schedule/typing/:sessionId", (req, res) => {
+  typingSessions.delete(req.params.sessionId);
+  res.json({ ok: true });
+});
+
 const DAY_TOKEN_MAP: Record<string, string> = {
   LUN: "LUNES", MAR: "MARTES", MIE: "MIERCOLES", JUE: "JUEVES", VIE: "VIERNES",
 };
