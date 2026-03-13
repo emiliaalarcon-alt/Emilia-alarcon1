@@ -239,4 +239,65 @@ router.delete("/schedule/:classCode/students/:name", async (req, res) => {
   }
 });
 
+// POST /api/schedule/classes — create a new class
+router.post("/schedule/classes", async (req, res) => {
+  try {
+    const { day, time, sede, sala, course, teacher } = req.body;
+    if (!day || !time || !sede || !sala || !course || !teacher) {
+      return res.status(400).json({ error: "Todos los campos son obligatorios" });
+    }
+    const dayShortMap: Record<string, string> = {
+      LUNES: "LUN", MARTES: "MAR", MIERCOLES: "MIE", JUEVES: "JUE", VIERNES: "VIE",
+    };
+    const dayShort = dayShortMap[day.toUpperCase()] ?? day.slice(0, 3).toUpperCase();
+    const timeShort = String(time).split(/[\s\-–]+/)[0].replace(":", ".");
+    const classCode = `${course.toUpperCase()} ${dayShort} ${timeShort} ${teacher.toUpperCase()}`;
+
+    const existing = await db.select().from(scheduleClassesTable).where(eq(scheduleClassesTable.classCode, classCode));
+    if (existing.length) {
+      return res.status(409).json({ error: "duplicate", message: `El código ${classCode} ya existe` });
+    }
+
+    await db.insert(scheduleClassesTable).values({
+      classCode,
+      day: day.toUpperCase(),
+      time,
+      sede: sede.toUpperCase(),
+      sala: Number(sala),
+      teacher: teacher.toUpperCase(),
+      course: course.toUpperCase(),
+    });
+
+    res.json({ ok: true, classCode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /api/schedule/classes/:classCode — delete a class and its students
+router.delete("/schedule/classes/:classCode", async (req, res) => {
+  try {
+    const classCode = decodeURIComponent(req.params.classCode);
+    await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
+    await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.classCode, classCode));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /api/schedule/classes — delete ALL classes (reset for new year)
+router.delete("/schedule/classes", async (req, res) => {
+  try {
+    await db.delete(scheduleStudentsTable);
+    await db.delete(scheduleClassesTable);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

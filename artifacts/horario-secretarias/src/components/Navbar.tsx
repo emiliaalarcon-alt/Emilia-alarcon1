@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { CalendarDays, Home, Grid3x3, Menu, X } from "lucide-react";
+import { CalendarDays, Home, Grid3x3, Settings, Menu, X } from "lucide-react";
 
 const navLinks = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/horarios", label: "Horarios", icon: Grid3x3 },
+  { href: "/admin", label: "Admin", icon: Settings },
 ];
 
 export default function Navbar() {
