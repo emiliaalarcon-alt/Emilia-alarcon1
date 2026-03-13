@@ -1,0 +1,537 @@
+import { useState, useMemo, useEffect, useCallback } from "react";
+import {
+  Plus, Trash2, RefreshCw, AlertTriangle, BookOpen,
+  Search, X, CheckCircle, ChevronDown,
+} from "lucide-react";
+import {
+  DAYS, DAY_LABELS, TIME_SLOTS, SEDES, COURSE_FULL_NAMES,
+  type ClassEntry,
+} from "@/data/schedule";
+
+const COURSES = Object.keys(COURSE_FULL_NAMES);
+
+const COURSE_COLORS: Record<string, string> = {
+  "M1": "bg-blue-100 text-blue-800 border-blue-200",
+  "M1 INT": "bg-blue-100 text-blue-800 border-blue-200",
+  "M2": "bg-violet-100 text-violet-800 border-violet-200",
+  "M2 INT": "bg-violet-100 text-violet-800 border-violet-200",
+  "MT": "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200",
+  "MS": "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200",
+  "MP": "bg-purple-100 text-purple-800 border-purple-200",
+  "FIS": "bg-emerald-100 text-emerald-800 border-emerald-200",
+  "FIS INT": "bg-emerald-100 text-emerald-800 border-emerald-200",
+  "BIO": "bg-teal-100 text-teal-800 border-teal-200",
+  "BIO INT": "bg-teal-100 text-teal-800 border-teal-200",
+  "QUI": "bg-amber-100 text-amber-800 border-amber-200",
+  "QUI INT": "bg-amber-100 text-amber-800 border-amber-200",
+  "LN": "bg-orange-100 text-orange-800 border-orange-200",
+  "LN INT": "bg-orange-100 text-orange-800 border-orange-200",
+  "LT": "bg-orange-100 text-orange-800 border-orange-200",
+  "LS": "bg-orange-100 text-orange-800 border-orange-200",
+  "LP": "bg-red-100 text-red-800 border-red-200",
+  "HS": "bg-rose-100 text-rose-800 border-rose-200",
+  "HS INT": "bg-rose-100 text-rose-800 border-rose-200",
+  "CS": "bg-slate-100 text-slate-800 border-slate-200",
+};
+
+const DAY_SHORT: Record<string, string> = {
+  LUNES: "LUN", MARTES: "MAR", MIERCOLES: "MIE", JUEVES: "JUE", VIERNES: "VIE",
+};
+
+function generateClassCode(course: string, day: string, time: string, teacher: string) {
+  const dayShort = DAY_SHORT[day] ?? day.slice(0, 3);
+  const timeShort = time.split(/[\s\-–]+/)[0].replace(":", ".");
+  return `${course} ${dayShort} ${timeShort} ${teacher}`.toUpperCase();
+}
+
+async function apiCreateClass(data: {
+  day: string; time: string; sede: string; sala: number; course: string; teacher: string;
+}) {
+  const res = await fetch("/api/schedule/classes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+async function apiDeleteClass(classCode: string) {
+  const res = await fetch(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
+    method: "DELETE",
+  });
+  return res.json();
+}
+
+async function apiResetAll() {
+  const res = await fetch("/api/schedule/classes", { method: "DELETE" });
+  return res.json();
+}
+
+const emptyForm = {
+  sede: "LAS ENCINAS" as string,
+  course: "",
+  day: "",
+  time: "",
+  sala: "",
+  teacher: "",
+};
+
+export default function AdminPage() {
+  const [allData, setAllData] = useState<ClassEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [deletingCode, setDeletingCode] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterSede, setFilterSede] = useState("");
+  const [filterCourse, setFilterCourse] = useState("");
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/schedule");
+      const json = await res.json();
+      setAllData(json);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const preview = useMemo(() => {
+    if (!form.course || !form.day || !form.time || !form.teacher) return "";
+    return generateClassCode(form.course, form.day, form.time, form.teacher);
+  }, [form.course, form.day, form.time, form.teacher]);
+
+  const filteredList = useMemo(() => {
+    return allData.filter(e => {
+      if (filterSede && e.sede !== filterSede) return false;
+      if (filterCourse && e.course !== filterCourse) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (
+          !e.classCode.toLowerCase().includes(q) &&
+          !e.course.toLowerCase().includes(q) &&
+          !e.teacher.toLowerCase().includes(q) &&
+          !DAY_LABELS[e.day]?.toLowerCase().includes(q)
+        ) return false;
+      }
+      return true;
+    });
+  }, [allData, filterSede, filterCourse, search]);
+
+  const statsBySede = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of allData) {
+      map[e.sede] = (map[e.sede] ?? 0) + 1;
+    }
+    return map;
+  }, [allData]);
+
+  const existingCourses = useMemo(
+    () => [...new Set(allData.map(e => e.course))].sort(),
+    [allData]
+  );
+
+  function setField(key: keyof typeof form, value: string) {
+    setForm(f => ({ ...f, [key]: value }));
+    setFormError("");
+    setFormSuccess("");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.course || !form.day || !form.time || !form.teacher || !form.sala) {
+      setFormError("Completa todos los campos.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError("");
+    setFormSuccess("");
+    try {
+      const result = await apiCreateClass({
+        day: form.day,
+        time: form.time,
+        sede: form.sede,
+        sala: Number(form.sala),
+        course: form.course,
+        teacher: form.teacher,
+      });
+      if (result.error === "duplicate") {
+        setFormError(`Ya existe la clase "${result.message?.split('"')[1] ?? preview}".`);
+      } else if (result.error) {
+        setFormError(result.message ?? "Error al crear la clase.");
+      } else {
+        setFormSuccess(`Clase "${result.classCode}" creada correctamente.`);
+        setForm(f => ({ ...f, course: "", teacher: "", sala: "" }));
+        fetchData();
+      }
+    } catch {
+      setFormError("Error de conexión.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(classCode: string) {
+    setDeletingCode(classCode);
+    try {
+      await apiDeleteClass(classCode);
+      fetchData();
+    } finally {
+      setDeletingCode(null);
+    }
+  }
+
+  async function handleReset() {
+    setResetting(true);
+    try {
+      await apiResetAll();
+      setConfirmReset(false);
+      fetchData();
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen pb-24 md:pb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-display font-bold text-foreground mb-1">Panel Administrativo</h1>
+            <p className="text-muted-foreground text-sm">Crea y gestiona los cursos del año académico.</p>
+          </div>
+
+          {!confirmReset ? (
+            <button
+              onClick={() => setConfirmReset(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-destructive border border-destructive/30 rounded-xl bg-destructive/5 hover:bg-destructive/10 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Limpiar todo — Nuevo año
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-2.5">
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+              <span className="text-sm font-medium text-destructive">¿Eliminar TODAS las clases?</span>
+              <button
+                onClick={handleReset}
+                disabled={resetting}
+                className="ml-2 px-3 py-1 text-xs font-bold bg-destructive text-white rounded-lg hover:bg-destructive/90 transition-colors disabled:opacity-60"
+              >
+                {resetting ? "Eliminando..." : "Confirmar"}
+              </button>
+              <button
+                onClick={() => setConfirmReset(false)}
+                className="px-3 py-1 text-xs font-bold bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">
+            <div className="text-2xl font-display font-bold text-primary">{allData.length}</div>
+            <div className="text-xs text-muted-foreground mt-1">Clases totales</div>
+          </div>
+          <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">
+            <div className="text-2xl font-display font-bold text-secondary">{statsBySede["LAS ENCINAS"] ?? 0}</div>
+            <div className="text-xs text-muted-foreground mt-1">Las Encinas</div>
+          </div>
+          <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">
+            <div className="text-2xl font-display font-bold text-secondary">{statsBySede["INES DE SUAREZ"] ?? 0}</div>
+            <div className="text-xs text-muted-foreground mt-1">Inés de Suárez</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <div className="lg:col-span-1">
+            <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden sticky top-24">
+              <div className="px-6 py-5 border-b border-border/50 bg-gradient-to-r from-primary/5 to-secondary/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="font-display font-bold text-foreground">Nueva Clase</h2>
+                    <p className="text-xs text-muted-foreground">Completa los campos para agregar</p>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Sede</label>
+                  <div className="flex rounded-xl overflow-hidden border border-border/60">
+                    {SEDES.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setField("sede", s)}
+                        className={`flex-1 py-2 text-xs font-bold transition-colors ${
+                          form.sede === s
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {s === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Asignatura</label>
+                  <div className="relative">
+                    <select
+                      value={form.course}
+                      onChange={e => setField("course", e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground appearance-none pr-8"
+                    >
+                      <option value="">Seleccionar asignatura...</option>
+                      {COURSES.map(c => (
+                        <option key={c} value={c}>{c} — {COURSE_FULL_NAMES[c]}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Día</label>
+                    <div className="relative">
+                      <select
+                        value={form.day}
+                        onChange={e => setField("day", e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground appearance-none pr-8"
+                      >
+                        <option value="">Día...</option>
+                        {DAYS.map(d => (
+                          <option key={d} value={d}>{DAY_LABELS[d]}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Sala</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={form.sala}
+                      onChange={e => setField("sala", e.target.value)}
+                      placeholder="Nº sala"
+                      className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Horario</label>
+                  <div className="relative">
+                    <select
+                      value={form.time}
+                      onChange={e => setField("time", e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground appearance-none pr-8"
+                    >
+                      <option value="">Seleccionar horario...</option>
+                      {TIME_SLOTS.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Profesor (iniciales)</label>
+                  <input
+                    type="text"
+                    value={form.teacher}
+                    onChange={e => setField("teacher", e.target.value.toUpperCase())}
+                    placeholder="Ej: JR, PF, DE..."
+                    maxLength={4}
+                    className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground uppercase"
+                  />
+                </div>
+
+                {preview && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Código generado</div>
+                    <div className="font-display font-bold text-primary text-sm">{preview}</div>
+                  </div>
+                )}
+
+                {formError && (
+                  <div className="flex items-start gap-2 bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2.5 text-xs text-destructive">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    {formError}
+                  </div>
+                )}
+
+                {formSuccess && (
+                  <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 text-xs text-emerald-700">
+                    <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    {formSuccess}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3 text-sm font-bold bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm shadow-primary/20"
+                >
+                  {submitting ? (
+                    <><RefreshCw className="w-4 h-4 animate-spin" /> Creando...</>
+                  ) : (
+                    <><Plus className="w-4 h-4" /> Crear clase</>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
+              <div className="px-6 py-5 border-b border-border/50 flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-4 h-4 text-secondary" />
+                  </div>
+                  <div>
+                    <h2 className="font-display font-bold text-foreground">Todas las clases</h2>
+                    <p className="text-xs text-muted-foreground">{filteredList.length} de {allData.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-b border-border/30 flex flex-wrap gap-2">
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Buscar clase, profesor, día..."
+                    className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
+                  />
+                </div>
+                <select
+                  value={filterSede}
+                  onChange={e => setFilterSede(e.target.value)}
+                  className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                >
+                  <option value="">Todas las sedes</option>
+                  {SEDES.map(s => (
+                    <option key={s} value={s}>{s === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}</option>
+                  ))}
+                </select>
+                <select
+                  value={filterCourse}
+                  onChange={e => setFilterCourse(e.target.value)}
+                  className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                >
+                  <option value="">Todos los cursos</option>
+                  {existingCourses.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                {(search || filterSede || filterCourse) && (
+                  <button
+                    onClick={() => { setSearch(""); setFilterSede(""); setFilterCourse(""); }}
+                    className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Cargando...
+                </div>
+              ) : filteredList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <BookOpen className="w-10 h-10 mb-3 opacity-20" />
+                  <p className="text-sm font-medium">No hay clases aún</p>
+                  <p className="text-xs mt-1">Usa el formulario para crear las clases del año.</p>
+                </div>
+              ) : (
+                <div className="overflow-y-auto max-h-[640px]">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-muted/70 border-b border-border/50 text-left">
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Código</th>
+                        <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Sede</th>
+                        <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Día</th>
+                        <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Horario</th>
+                        <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Sala</th>
+                        <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Prof.</th>
+                        <th className="px-3 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {filteredList.map(entry => {
+                        const badge = COURSE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
+                        const isDeleting = deletingCode === entry.classCode;
+                        return (
+                          <tr key={entry.classCode} className={`hover:bg-muted/30 transition-colors ${isDeleting ? "opacity-40" : ""}`}>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border ${badge}`}>
+                                {entry.course}
+                              </span>
+                              <div className="text-xs text-muted-foreground mt-0.5 font-mono">{entry.classCode}</div>
+                            </td>
+                            <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                              {entry.sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+                            </td>
+                            <td className="px-3 py-3 text-xs font-medium text-foreground whitespace-nowrap">
+                              {DAY_LABELS[entry.day] ?? entry.day}
+                            </td>
+                            <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">{entry.time}</td>
+                            <td className="px-3 py-3 text-xs text-center font-semibold text-foreground">{entry.sala}</td>
+                            <td className="px-3 py-3">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-muted text-xs font-bold text-foreground">
+                                {entry.teacher}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-right">
+                              <button
+                                onClick={() => handleDelete(entry.classCode)}
+                                disabled={isDeleting}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+                                title="Eliminar clase"
+                              >
+                                {isDeleting
+                                  ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  : <Trash2 className="w-3.5 h-3.5" />
+                                }
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
