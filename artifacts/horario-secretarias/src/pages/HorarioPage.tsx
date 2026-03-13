@@ -158,6 +158,7 @@ function ClassCell({
   const solidBg = COURSE_SOLID_COLORS[entry.course] ?? "bg-slate-500";
   const count = entry.students.length;
   const isFull = count >= MAX_STUDENTS;
+  const isOverCapacity = count > MAX_STUDENTS;
 
   return (
     <button
@@ -178,7 +179,9 @@ function ClassCell({
             {entry.classCode}
           </span>
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-tight shrink-0 ${
-            isFull
+            isOverCapacity
+              ? "bg-amber-200 text-amber-800 animate-pulse"
+              : isFull
               ? "bg-red-100 text-red-700"
               : "bg-emerald-100 text-emerald-700"
           }`}>
@@ -190,8 +193,12 @@ function ClassCell({
         </div>
         <ul>
           {entry.students.map((s, i) => (
-            <li key={i} className="text-[10px] text-foreground leading-4 truncate">
-              <span className="text-muted-foreground font-semibold">{i + 1}.</span> {s}
+            <li key={i} className={`text-[10px] leading-4 truncate rounded px-0.5 ${
+              i >= MAX_STUDENTS
+                ? "bg-amber-200 text-amber-900 font-semibold"
+                : "text-foreground"
+            }`}>
+              <span className={`font-semibold ${i >= MAX_STUDENTS ? "text-amber-700" : "text-muted-foreground"}`}>{i + 1}.</span> {s}
             </li>
           ))}
           {Array.from({ length: Math.max(0, MAX_STUDENTS - count) }).map((_, i) => (
@@ -251,6 +258,7 @@ function DetailPanel({
   }, [conflicts]);
 
   const isFull = entry.students.length >= MAX_STUDENTS;
+  const isOverCapacity = entry.students.length > MAX_STUDENTS;
 
   // Detectar conflictos en tiempo real mientras se escribe
   const previewConflicts = useMemo(() => {
@@ -431,7 +439,7 @@ function DetailPanel({
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-display font-bold text-foreground">Alumnos inscritos</h3>
               <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                isFull ? "bg-red-100 text-red-700" : "bg-primary/10 text-primary"
+                isOverCapacity ? "bg-amber-200 text-amber-800" : isFull ? "bg-red-100 text-red-700" : "bg-primary/10 text-primary"
               }`}>
                 {entry.students.length}/{MAX_STUDENTS}
               </span>
@@ -495,7 +503,13 @@ function DetailPanel({
               </div>
             )}
 
-            {isFull && (
+            {isOverCapacity && (
+              <div className="mb-3 flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2 font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                Clase sobre el cupo — tiene {entry.students.length} alumnos (máximo 7). Los alumnos destacados superan el límite.
+              </div>
+            )}
+            {!isOverCapacity && isFull && (
               <div className="mb-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 font-medium">
                 Clase completa — máximo 7 alumnos alcanzado.
               </div>
@@ -510,26 +524,34 @@ function DetailPanel({
                 {entry.students.map((s, i) => {
                   const hasConflict = conflictMap.has(s);
                   const isRemoving = removingStudent === s;
+                  const isExtraStudent = i >= MAX_STUDENTS;
                   return (
                     <li
                       key={i}
                       className={`flex items-center gap-3 p-3 rounded-xl transition-colors group ${
-                        hasConflict
+                        isExtraStudent
+                          ? "bg-amber-100 border border-amber-300"
+                          : hasConflict
                           ? "bg-amber-50 border border-amber-200"
                           : "bg-muted/40 hover:bg-muted/70"
                       }`}
                     >
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                        hasConflict
+                        isExtraStudent
+                          ? "bg-amber-400 text-white"
+                          : hasConflict
                           ? "bg-amber-100 text-amber-700"
                           : "bg-primary/10 text-primary"
                       }`}>
-                        {hasConflict ? <AlertTriangle className="w-3.5 h-3.5" /> : i + 1}
+                        {isExtraStudent ? "!" : hasConflict ? <AlertTriangle className="w-3.5 h-3.5" /> : i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className={`text-sm font-medium ${hasConflict ? "text-amber-800" : "text-foreground"}`}>
+                        <span className={`text-sm font-medium ${isExtraStudent ? "text-amber-900 font-semibold" : hasConflict ? "text-amber-800" : "text-foreground"}`}>
                           {s}
                         </span>
+                        {isExtraStudent && (
+                          <div className="text-[11px] text-amber-700 font-medium mt-0.5">Alumno #{i + 1} — sobre el cupo máximo</div>
+                        )}
                         {hasConflict && conflictMap.get(s)!.map((c, ci) => (
                           <div key={ci} className="text-[11px] text-amber-600 mt-0.5">
                             También en {c.otherEntry.course} · {c.otherEntry.sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"} Sala {c.otherEntry.sala}
