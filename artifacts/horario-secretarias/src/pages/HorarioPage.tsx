@@ -942,7 +942,7 @@ export default function HorarioPage() {
                         <th
                           key={day}
                           colSpan={salasPerDay[day] || 1}
-                          className="border border-border px-2 py-2 text-center font-display font-bold text-[12px] text-primary bg-primary/10"
+                          className="border border-border border-l-2 border-l-gray-900 px-2 py-2 text-center font-display font-bold text-[12px] text-primary bg-primary/10"
                         >
                           {DAY_LABELS[day]}
                         </th>
@@ -953,7 +953,7 @@ export default function HorarioPage() {
                         Array.from({ length: salasPerDay[day] || 1 }, (_, i) => (
                           <th
                             key={`${day}-sala-${i}`}
-                            className="border border-border px-1 py-1.5 text-center font-semibold text-[10px] text-muted-foreground bg-muted w-[110px] min-w-[110px]"
+                            className={`border border-border px-1 py-1.5 text-center font-semibold text-[10px] text-muted-foreground bg-muted w-[110px] min-w-[110px] ${i === 0 ? "border-l-2 border-l-gray-900" : ""}`}
                           >
                             Sala {i + 1}
                           </th>
@@ -976,7 +976,7 @@ export default function HorarioPage() {
                             Array.from({ length: salasPerDay[day] || 1 }, (_, i) => {
                               const entry = getEntry(day, time, i + 1);
                               return (
-                                <td key={`${day}-${i}`} className="border border-border p-0 align-top w-[110px] min-w-[110px]">
+                                <td key={`${day}-${i}`} className={`border border-border p-0 align-top w-[110px] min-w-[110px] ${i === 0 ? "border-l-2 border-l-gray-900" : ""}`}>
                                   {entry ? (
                                     <ClassCell
                                       entry={entry}
