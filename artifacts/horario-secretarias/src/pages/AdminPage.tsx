@@ -118,7 +118,7 @@ export default function AdminPage() {
   const [filterCourse, setFilterCourse] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
-    created: number; updated: number; skipped: number; totalStudents: number; parseErrors: string[];
+    created: number; updated: number; skipped: number; totalStudents: number; parseErrors: string[]; horario?: string;
   } | null>(null);
   const [importError, setImportError] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -254,6 +254,7 @@ export default function AdminPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("horario", horarioId);
       const res = await fetch("/api/schedule/import", { method: "POST", body: formData });
       const json = await res.json();
       if (json.error) {
@@ -343,9 +344,14 @@ export default function AdminPage() {
                 <FileSpreadsheet className="w-5 h-5 text-emerald-700" />
               </div>
               <div className="flex-1">
-                <h2 className="font-display font-bold text-foreground">Importar desde Excel</h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-display font-bold text-foreground">Importar desde Excel</h2>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                    {horario.label}
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Arrastra el archivo exportado del sistema o haz clic para seleccionarlo. Actualiza los alumnos de cada clase automáticamente.
+                  Sube el exportado del sistema — solo se cargarán los alumnos de las sedes <strong>{horario.sedes.join(" / ")}</strong>.
                 </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -379,7 +385,9 @@ export default function AdminPage() {
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-wrap gap-6 items-start">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="text-sm font-bold text-emerald-800">Importación completada</span>
+                    <span className="text-sm font-bold text-emerald-800">
+                      Importación completada — {horario.label}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-6 text-sm">
                     {importResult.created > 0 && (
