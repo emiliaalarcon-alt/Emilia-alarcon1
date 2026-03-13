@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 
 export const scheduleClassesTable = pgTable("schedule_classes", {
   classCode: text("class_code").primaryKey(),
+  horario: text("horario").notNull().default("TEMUCO"),
   day: text("day").notNull(),
   time: text("time").notNull(),
   sede: text("sede").notNull(),

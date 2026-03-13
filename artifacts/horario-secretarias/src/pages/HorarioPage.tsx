@@ -4,10 +4,21 @@ import {
   DAYS,
   DAY_LABELS,
   TIME_SLOTS,
-  SEDES,
   COURSE_FULL_NAMES,
   type ClassEntry,
 } from "@/data/schedule";
+import { useHorario } from "@/context/HorarioContext";
+
+const SEDE_DISPLAY_NAMES: Record<string, string> = {
+  "LAS ENCINAS": "Las Encinas",
+  "INES DE SUAREZ": "Inés de Suárez",
+  "D. ALMAGRO": "D. Almagro",
+  "VILLARRICA": "Villarrica",
+  "AV. ALEMANIA": "Av. Alemania",
+};
+function displaySede(sede: string): string {
+  return SEDE_DISPLAY_NAMES[sede] ?? sede.split(" ").map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+}
 
 const SEDE_ROOMS_MIN: Record<string, number> = {
   "LAS ENCINAS": 1,
@@ -617,18 +628,26 @@ function DetailPanel({
 }
 
 export default function HorarioPage() {
+  const { horarioId, horario } = useHorario();
   const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [selectedTeacher, setSelectedTeacher] = useState<string>("");
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
   const [search, setSearch] = useState<string>("");
   const [selectedEntry, setSelectedEntry] = useState<ClassEntry | null>(null);
-  const [activeSede, setActiveSede] = useState<string>("LAS ENCINAS");
+  const [activeSede, setActiveSede] = useState<string>(() => horario.sedes[0]);
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [gridZoom, setGridZoom] = useState(100);
   const zoomIn  = () => setGridZoom(z => Math.min(z + 10, 150));
   const zoomOut = () => setGridZoom(z => Math.max(z - 10, 50));
+
+  useEffect(() => {
+    setActiveSede(horario.sedes[0]);
+    setSelectedEntry(null);
+    setAllData([]);
+    setLoading(true);
+  }, [horarioId, horario.sedes]);
 
   // ── Presencia colaborativa ──────────────────────────────────────────────────
   const [sessionId] = useState<string>(() => {
@@ -724,7 +743,7 @@ export default function HorarioPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/schedule");
+      const res = await fetch(`/api/schedule?horario=${horarioId}`);
       if (!res.ok) throw new Error("API error");
       const data: ClassEntry[] = await res.json();
       setAllData(data);
@@ -734,7 +753,7 @@ export default function HorarioPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [horarioId]);
 
   useEffect(() => {
     fetchData();
@@ -972,7 +991,7 @@ export default function HorarioPage() {
                   />
                 </div>
                 <div className="flex rounded-xl overflow-hidden border border-border/60 shadow-sm shrink-0">
-                  {SEDES.map((sede) => (
+                  {horario.sedes.map((sede) => (
                     <button
                       key={sede}
                       onClick={() => setActiveSede(sede)}
@@ -982,7 +1001,7 @@ export default function HorarioPage() {
                           : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      {sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+                      {displaySede(sede)}
                     </button>
                   ))}
                 </div>
@@ -1090,7 +1109,7 @@ export default function HorarioPage() {
               <div className="px-6 py-4 border-b border-border/50 flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary" />
                 <span className="font-display font-bold text-foreground">
-                  {activeSede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"} — Semana completa
+                  {displaySede(activeSede)} — Semana completa
                 </span>
                 <span className="ml-auto text-sm text-muted-foreground">
                   {filteredData.length} clase{filteredData.length !== 1 ? "s" : ""}

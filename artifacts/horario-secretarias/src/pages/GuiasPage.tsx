@@ -3,16 +3,22 @@ import { BookOpen, Printer, Users, Hash, ChevronDown, ChevronUp, RefreshCw } fro
 import {
   DAYS,
   DAY_LABELS,
-  SEDES,
   COURSE_FULL_NAMES,
   COURSE_COLORS,
   type ClassEntry,
 } from "@/data/schedule";
+import { useHorario } from "@/context/HorarioContext";
 
 const SEDE_LABELS: Record<string, string> = {
   "LAS ENCINAS":    "Las Encinas",
   "INES DE SUAREZ": "Inés de Suárez",
+  "D. ALMAGRO":     "D. Almagro",
+  "VILLARRICA":     "Villarrica",
+  "AV. ALEMANIA":   "Av. Alemania",
 };
+function displaySede(sede: string): string {
+  return SEDE_LABELS[sede] ?? sede;
+}
 
 interface GuiaGroup {
   course: string;
@@ -22,25 +28,25 @@ interface GuiaGroup {
 }
 
 export default function GuiasPage() {
+  const { horarioId, horario } = useHorario();
   const [allData, setAllData]     = useState<ClassEntry[]>([]);
   const [loading, setLoading]     = useState(true);
   const [selectedDay, setSelectedDay] = useState<string>(DAYS[0]);
-  const [expandedSede, setExpandedSede] = useState<Record<string, boolean>>({
-    "LAS ENCINAS": true,
-    "INES DE SUAREZ": true,
-  });
+  const [expandedSede, setExpandedSede] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(horario.sedes.map(s => [s, true]))
+  );
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/schedule");
+      const res = await fetch(`/api/schedule?horario=${horarioId}`);
       if (!res.ok) throw new Error("API error");
       const data: ClassEntry[] = await res.json();
       setAllData(data);
       setLastUpdated(new Date());
     } catch {}
     finally { setLoading(false); }
-  }, []);
+  }, [horarioId]);
 
   useEffect(() => {
     fetchData();
@@ -52,7 +58,7 @@ export default function GuiasPage() {
     const dayClasses = allData.filter(c => c.day === selectedDay);
     const result: Record<string, GuiaGroup[]> = {};
 
-    for (const sede of SEDES) {
+    for (const sede of horario.sedes) {
       const sedeClasses = dayClasses.filter(c => c.sede === sede);
       const courseMap = new Map<string, ClassEntry[]>();
       for (const cls of sedeClasses) {
@@ -71,19 +77,25 @@ export default function GuiasPage() {
       result[sede] = groups;
     }
     return result;
-  }, [allData, selectedDay]);
+  }, [allData, selectedDay, horario.sedes]);
+
+  useEffect(() => {
+    setExpandedSede(Object.fromEntries(horario.sedes.map(s => [s, true])));
+    setAllData([]);
+    setLoading(true);
+  }, [horarioId, horario.sedes]);
 
   const totalDayStudents = useMemo(() => {
-    return SEDES.reduce((sum, sede) =>
+    return horario.sedes.reduce((sum, sede) =>
       sum + (groupsBySede[sede] ?? []).reduce((s, g) => s + g.totalStudents, 0), 0
     );
-  }, [groupsBySede]);
+  }, [groupsBySede, horario.sedes]);
 
   const totalDayGuides = useMemo(() => {
-    return SEDES.reduce((sum, sede) =>
+    return horario.sedes.reduce((sum, sede) =>
       sum + (groupsBySede[sede] ?? []).reduce((s, g) => s + g.totalStudents, 0), 0
     );
-  }, [groupsBySede]);
+  }, [groupsBySede, horario.sedes]);
 
   if (loading) {
     return (
@@ -169,7 +181,7 @@ export default function GuiasPage() {
       </div>
 
       {/* Secciones por sede */}
-      {SEDES.map(sede => {
+      {horario.sedes.map(sede => {
         const groups = groupsBySede[sede] ?? [];
         const sedeTotal = groups.reduce((sum, g) => sum + g.totalStudents, 0);
         const expanded = expandedSede[sede] ?? true;
@@ -185,10 +197,10 @@ export default function GuiasPage() {
                 <div className="w-2 h-8 rounded-full bg-gradient-to-b from-primary to-secondary" />
                 <div className="text-left">
                   <h2 className="text-lg font-display font-bold text-foreground">
-                    {SEDE_LABELS[sede]}
+                    {displaySede(sede)}
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    {groups.length} ramos · {sedeTotal} guías
+                    {groups.length} ramos · {sedeTotal} guías en {displaySede(sede)}
                   </p>
                 </div>
               </div>
@@ -275,7 +287,7 @@ export default function GuiasPage() {
                   {/* Totalizador */}
                   <div className="flex items-center justify-between px-6 py-3 bg-muted/40">
                     <span className="text-sm font-semibold text-foreground">
-                      Total {SEDE_LABELS[sede]}
+                      Total {displaySede(sede)}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Printer className="w-4 h-4 text-primary" />
@@ -306,7 +318,7 @@ export default function GuiasPage() {
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${COURSE_COLORS[cls.course] ?? "bg-slate-100 text-slate-800 border-slate-200"}`}>
                   {cls.course}
                 </span>
-                <span className="text-xs text-muted-foreground shrink-0">{SEDE_LABELS[cls.sede]}</span>
+                <span className="text-xs text-muted-foreground shrink-0">{displaySede(cls.sede)}</span>
                 <span className="text-xs text-muted-foreground">{cls.time}</span>
                 <span className="text-xs text-muted-foreground flex-1 truncate">Prof. {cls.teacher}</span>
                 <span className={`text-sm font-bold shrink-0 ${cls.students.length === 0 ? "text-muted-foreground" : "text-foreground"}`}>

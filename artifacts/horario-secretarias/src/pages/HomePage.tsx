@@ -1,96 +1,98 @@
-import { Link } from "wouter";
-import { ArrowRight, CalendarDays, Filter, Users } from "lucide-react";
+import { useLocation } from "wouter";
+import { CalendarDays, MapPin, ArrowRight, Building2, School } from "lucide-react";
+import { HORARIOS, type HorarioId } from "@/data/schedule";
+import { useHorario } from "@/context/HorarioContext";
 
-const features = [
-  {
-    icon: CalendarDays,
-    iconBg: "bg-blue-100 dark:bg-blue-900/30",
-    iconColor: "text-blue-600 dark:text-blue-400",
-    title: "Grilla Semanal",
-    description:
-      "Visualiza todos los horarios por sede y sala. Navega entre Las Encinas e Inés de Suárez con un clic.",
-    link: "/horarios",
-    linkLabel: "Ver grilla",
-    linkColor: "text-primary",
-  },
-  {
-    icon: Filter,
-    iconBg: "bg-teal-100 dark:bg-teal-900/30",
-    iconColor: "text-teal-600 dark:text-teal-400",
-    title: "Filtrar por Asignatura",
-    description:
-      "Selecciona un curso (M1, LN, FIS, BIO...) y revisa todos los horarios disponibles en ambas sedes.",
-    link: "/horarios",
-    linkLabel: "Explorar cursos",
-    linkColor: "text-secondary",
-  },
-  {
-    icon: Users,
-    iconBg: "bg-purple-100 dark:bg-purple-900/30",
-    iconColor: "text-purple-600 dark:text-purple-400",
-    title: "Gestión de Alumnos",
-    description:
-      "Haz clic en cualquier clase para ver la lista de alumnos inscritos, la sala y el profesor asignado.",
-    link: "/horarios",
-    linkLabel: "Ver alumnos",
-    linkColor: "text-purple-600 dark:text-purple-400",
-  },
-];
+const CAMPUS_ICONS: Record<HorarioId, typeof CalendarDays> = {
+  TEMUCO:      School,
+  ALMAGRO:     Building2,
+  VILLARRICA:  MapPin,
+  AV_ALEMANIA: Building2,
+};
+
+const CAMPUS_COLORS: Record<HorarioId, { gradient: string; border: string; badge: string; text: string }> = {
+  TEMUCO:      { gradient: "from-primary to-secondary", border: "border-primary/30", badge: "bg-primary/10 text-primary", text: "text-primary" },
+  ALMAGRO:     { gradient: "from-violet-500 to-indigo-500", border: "border-violet-300/50", badge: "bg-violet-100 text-violet-700", text: "text-violet-600 dark:text-violet-400" },
+  VILLARRICA:  { gradient: "from-teal-500 to-emerald-500", border: "border-teal-300/50", badge: "bg-teal-100 text-teal-700", text: "text-teal-600 dark:text-teal-400" },
+  AV_ALEMANIA: { gradient: "from-orange-400 to-amber-500", border: "border-orange-300/50", badge: "bg-orange-100 text-orange-700", text: "text-orange-600 dark:text-orange-400" },
+};
+
+const CAMPUS_DESCRIPTIONS: Record<HorarioId, string> = {
+  TEMUCO:      "Sedes Las Encinas e Inés de Suárez — grilla semanal colaborativa en tiempo real.",
+  ALMAGRO:     "Sede Diego de Almagro — horarios y matrícula de alumnos en tiempo real.",
+  VILLARRICA:  "Sede Villarrica — grilla semanal y gestión de inscripciones.",
+  AV_ALEMANIA: "Sede Av. Alemania — horarios, salas y seguimiento de matrículas.",
+};
+
+const HORARIO_IDS = Object.keys(HORARIOS) as HorarioId[];
 
 export default function HomePage() {
+  const { setHorarioId } = useHorario();
+  const [, navigate] = useLocation();
+
+  function handleSelect(id: HorarioId) {
+    setHorarioId(id);
+    navigate("/horarios");
+  }
+
   return (
-    <div className="relative overflow-hidden">
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center">
-        <div className="inline-block py-1 px-4 rounded-full bg-primary/10 text-primary text-sm font-bold tracking-wide mb-6 border border-primary/20">
-          Las Encinas · Inés de Suárez
+    <div className="relative overflow-hidden min-h-[calc(100vh-5rem)] flex flex-col justify-center pb-24 md:pb-0">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8 text-center">
+        <div className="inline-flex items-center gap-2 py-1 px-4 rounded-full bg-primary/10 text-primary text-sm font-bold tracking-wide mb-6 border border-primary/20">
+          <MapPin className="w-4 h-4" />
+          Selecciona tu campus
         </div>
 
-        <h1 className="text-5xl md:text-7xl font-display font-extrabold text-foreground mb-6 leading-tight">
+        <h1 className="text-5xl md:text-7xl font-display font-extrabold text-foreground mb-4 leading-tight">
           Sistema de{" "}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
             Horarios
           </span>
         </h1>
-
-        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-          Consulta la grilla semanal, filtra por asignatura y gestiona las inscripciones de alumnos desde un solo lugar.
+        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
+          Elige el campus que quieres gestionar para acceder a su grilla, matrícula y guías de impresión.
         </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/horarios"
-            className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold bg-primary text-primary-foreground shadow-xl shadow-primary/25 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2 group"
-          >
-            Ver Horarios
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pb-32 md:pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="bg-card rounded-3xl p-8 border border-border/50 shadow-xl shadow-black/5 hover:shadow-2xl hover:border-primary/30 transition-all duration-300 group"
-            >
-              <div
-                className={`w-14 h-14 rounded-2xl ${f.iconBg} flex items-center justify-center ${f.iconColor} mb-6 group-hover:scale-110 transition-transform`}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {HORARIO_IDS.map(id => {
+            const horario = HORARIOS[id];
+            const colors   = CAMPUS_COLORS[id];
+            const Icon     = CAMPUS_ICONS[id];
+            return (
+              <button
+                key={id}
+                onClick={() => handleSelect(id)}
+                className={`group relative bg-card rounded-3xl p-7 border ${colors.border} shadow-xl shadow-black/5 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 text-left focus:outline-none focus:ring-2 focus:ring-primary/50`}
               >
-                <f.icon className="w-7 h-7" />
-              </div>
-              <h3 className="text-2xl font-display font-bold mb-3 text-foreground">
-                {f.title}
-              </h3>
-              <p className="text-muted-foreground mb-6">{f.description}</p>
-              <Link
-                href={f.link}
-                className={`font-bold ${f.linkColor} flex items-center gap-1 hover:gap-2 transition-all`}
-              >
-                {f.linkLabel} <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          ))}
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center mb-5 shadow-md group-hover:scale-110 transition-transform duration-300`}>
+                  <Icon className="w-7 h-7 text-white" />
+                </div>
+
+                <h2 className="font-display font-extrabold text-xl text-foreground mb-1 leading-tight">
+                  {horario.label}
+                </h2>
+
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {horario.sedes.map(s => (
+                    <span key={s} className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${colors.badge}`}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                  {CAMPUS_DESCRIPTIONS[id]}
+                </p>
+
+                <span className={`flex items-center gap-1.5 text-sm font-bold ${colors.text} group-hover:gap-2.5 transition-all`}>
+                  Ir a horarios
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

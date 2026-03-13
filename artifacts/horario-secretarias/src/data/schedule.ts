@@ -30,6 +30,59 @@ export const TIME_SLOTS = [
 
 export const SEDES = ['LAS ENCINAS', 'INES DE SUAREZ'];
 
+export type HorarioId = 'TEMUCO' | 'ALMAGRO' | 'VILLARRICA' | 'AV_ALEMANIA';
+
+export interface HorarioConfig {
+  id: HorarioId;
+  label: string;
+  subtitle: string;
+  sedes: string[];
+  gradient: string;
+  accentColor: string;
+  emoji: string;
+}
+
+export const HORARIOS: Record<HorarioId, HorarioConfig> = {
+  TEMUCO: {
+    id: 'TEMUCO',
+    label: 'Temuco',
+    subtitle: 'Las Encinas · Inés de Suárez',
+    sedes: ['LAS ENCINAS', 'INES DE SUAREZ'],
+    gradient: 'from-violet-500 to-purple-600',
+    accentColor: 'violet',
+    emoji: '🏙️',
+  },
+  ALMAGRO: {
+    id: 'ALMAGRO',
+    label: 'D. Almagro',
+    subtitle: 'Diego de Almagro',
+    sedes: ['D. ALMAGRO'],
+    gradient: 'from-blue-500 to-indigo-600',
+    accentColor: 'blue',
+    emoji: '📍',
+  },
+  VILLARRICA: {
+    id: 'VILLARRICA',
+    label: 'Villarrica',
+    subtitle: 'Sede Villarrica',
+    sedes: ['VILLARRICA'],
+    gradient: 'from-teal-500 to-emerald-600',
+    accentColor: 'teal',
+    emoji: '🌿',
+  },
+  AV_ALEMANIA: {
+    id: 'AV_ALEMANIA',
+    label: 'Av. Alemania',
+    subtitle: 'Sede Av. Alemania',
+    sedes: ['AV. ALEMANIA'],
+    gradient: 'from-orange-500 to-rose-500',
+    accentColor: 'orange',
+    emoji: '🌆',
+  },
+};
+
+export const HORARIO_LIST: HorarioConfig[] = Object.values(HORARIOS);
+
 export const COURSE_FULL_NAMES: Record<string, string> = {
   'M1':       'Matemática 1',
   'M1 INT':   'Matemática 1 Intensivo',
