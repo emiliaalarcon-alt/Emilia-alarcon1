@@ -347,8 +347,8 @@ router.post("/schedule/:classCode/students", async (req, res) => {
     const existing = await db.select().from(scheduleStudentsTable)
       .where(eq(scheduleStudentsTable.classCode, classCode));
 
-    if (existing.length >= 7) {
-      return res.status(409).json({ error: "class_full", message: "La clase ya tiene 7 alumnos" });
+    if (existing.length >= 8) {
+      return res.status(409).json({ error: "class_full", message: "La clase ya tiene 8 alumnos" });
     }
 
     await db.insert(scheduleStudentsTable).values({
