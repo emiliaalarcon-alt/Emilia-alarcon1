@@ -91,6 +91,17 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/horario-secretarias` (`@workspace/horario-secretarias`)
+
+React + Vite + Tailwind CSS web app for school schedule management (Temuco 2026).
+
+- Campuses: Las Encinas (7 salas) and Inés de Suárez (5 salas)
+- Full weekly grid (Mon–Fri) with all time slots, like an Excel sheet
+- Fetches live data from `/api/schedule` with 5-second polling for real-time collaboration
+- Click any class cell to open a detail panel with add/remove student management
+- Duplicate enrollment detection (warns if same student appears in same course type across both campuses)
+- Design: DM Sans + Outfit fonts, purple/teal theme, glass navbar, rounded cards
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
