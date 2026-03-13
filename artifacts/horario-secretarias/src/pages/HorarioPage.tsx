@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Search, X, ChevronRight, Users, MapPin, Clock, AlertTriangle } from "lucide-react";
+import { useState, useMemo, Fragment } from "react";
+import { Search, X, MapPin, Clock, Users, AlertTriangle } from "lucide-react";
 import {
   scheduleData,
   filterSchedule,
@@ -18,6 +18,8 @@ const SEDE_ROOMS: Record<string, number> = {
   "LAS ENCINAS": 7,
   "INES DE SUAREZ": 5,
 };
+
+const MAX_STUDENTS = 7;
 
 const COURSE_SOLID_COLORS: Record<string, string> = {
   "M1":      "bg-blue-600",
@@ -67,8 +69,6 @@ const COURSE_BADGE_COLORS: Record<string, string> = {
   "CS":      "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
 };
 
-const MAX_STUDENTS = 7;
-
 function ClassCell({
   entry,
   onSelect,
@@ -85,8 +85,10 @@ function ClassCell({
   return (
     <button
       onClick={() => onSelect(entry)}
-      className={`w-full text-left align-top cursor-pointer transition-all duration-150 ${
-        selected ? "bg-primary/5 outline outline-2 outline-primary outline-offset-[-2px]" : "hover:bg-muted/60"
+      className={`w-full h-full text-left align-top cursor-pointer transition-all duration-150 ${
+        selected
+          ? "bg-primary/5 outline outline-2 outline-primary outline-offset-[-2px]"
+          : "hover:bg-muted/60"
       }`}
     >
       <div className="p-1.5">
@@ -264,41 +266,36 @@ function DetailPanel({ entry, onClose }: { entry: ClassEntry; onClose: () => voi
 
 export default function HorarioPage() {
   const [selectedCourse, setSelectedCourse] = useState<string>("");
-  const [selectedSede, setSelectedSede] = useState<string>("");
-  const [selectedDay, setSelectedDay] = useState<string>("LUNES");
   const [search, setSearch] = useState<string>("");
   const [selectedEntry, setSelectedEntry] = useState<ClassEntry | null>(null);
   const [activeSede, setActiveSede] = useState<string>("LAS ENCINAS");
 
   const courses = useMemo(() => getUniqueCourses(), []);
 
-  const filtered = useMemo(
+  const allData = useMemo(
     () =>
       filterSchedule({
         course: selectedCourse || undefined,
-        sede: selectedSede || undefined,
-        day: selectedDay || undefined,
+        sede: activeSede,
         search: search || undefined,
       }),
-    [selectedCourse, selectedSede, selectedDay, search]
+    [selectedCourse, activeSede, search]
   );
 
-  const hasFilters = selectedCourse || selectedSede || search;
+  const hasFilters = !!(selectedCourse || search);
 
   function clearFilters() {
     setSelectedCourse("");
-    setSelectedSede("");
     setSearch("");
   }
 
-  function getEntry(day: string, time: string, sede: string, sala: number): ClassEntry | undefined {
-    return filtered.find(
-      (e) => e.day === day && e.time === time && e.sede === sede && e.sala === sala
+  function getEntry(day: string, time: string, sala: number): ClassEntry | undefined {
+    return allData.find(
+      (e) => e.day === day && e.time === time && e.sala === sala
     );
   }
 
-  const currentSede = selectedSede || activeSede;
-  const numSalas = SEDE_ROOMS[currentSede];
+  const numSalas = SEDE_ROOMS[activeSede];
 
   const totalStats = {
     classes: scheduleData.length,
@@ -329,7 +326,7 @@ export default function HorarioPage() {
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
@@ -363,58 +360,38 @@ export default function HorarioPage() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {DAYS.map((day) => (
+        <div className="flex rounded-2xl overflow-hidden border border-border/50 w-fit shadow-sm mb-4">
+          {SEDES.map((sede) => (
             <button
-              key={day}
-              onClick={() => setSelectedDay(day)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                selectedDay === day
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-                  : "bg-card border border-border text-foreground hover:border-primary/50 hover:text-primary"
+              key={sede}
+              onClick={() => setActiveSede(sede)}
+              className={`px-6 py-2.5 text-sm font-semibold transition-colors ${
+                activeSede === sede
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
-              {DAY_LABELS[day]}
+              {sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
             </button>
           ))}
         </div>
-
-        {!selectedSede && (
-          <div className="flex rounded-2xl overflow-hidden border border-border/50 w-fit shadow-sm mb-4">
-            {SEDES.map((sede) => (
-              <button
-                key={sede}
-                onClick={() => setActiveSede(sede)}
-                className={`px-6 py-2.5 text-sm font-semibold transition-colors ${
-                  activeSede === sede
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                {sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
-                <span className="ml-2 opacity-70 text-xs">
-                  ({filtered.filter(e => e.sede === sede && e.day === selectedDay).length})
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
           <div className="px-6 py-4 border-b border-border/50 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-primary" />
             <span className="font-display font-bold text-foreground">
-              {DAY_LABELS[selectedDay]} — {currentSede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+              {activeSede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"} — Semana completa
             </span>
             <span className="ml-auto text-sm text-muted-foreground">
-              {filtered.filter(e => e.day === selectedDay && e.sede === currentSede).length} clase{filtered.filter(e => e.day === selectedDay && e.sede === currentSede).length !== 1 ? "s" : ""}
+              {allData.length} clase{allData.length !== 1 ? "s" : ""}
             </span>
           </div>
+
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[11px]">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-10 bg-muted/80 border border-border px-2 py-2 text-center font-bold text-[11px] text-foreground min-w-[100px] w-[100px]">
+                  <th className="sticky left-0 z-20 bg-muted/80 border border-border px-2 py-2 text-center font-bold text-[11px] text-foreground min-w-[110px] w-[110px]">
                     Horario
                   </th>
                   {Array.from({ length: numSalas }, (_, i) => (
@@ -425,85 +402,53 @@ export default function HorarioPage() {
                 </tr>
               </thead>
               <tbody>
-                {TIME_SLOTS.map((time) => {
-                  const rowEntries = Array.from({ length: numSalas }, (_, i) =>
-                    getEntry(selectedDay, time, currentSede, i + 1)
-                  );
-                  return (
-                    <tr key={time}>
-                      <td className="sticky left-0 z-10 bg-muted/80 border border-border px-2 py-1 text-center font-bold text-[11px] text-foreground align-top min-w-[100px] w-[100px] whitespace-nowrap">
-                        {time}
+                {DAYS.map((day) => (
+                  <Fragment key={day}>
+                    <tr>
+                      <td
+                        colSpan={numSalas + 1}
+                        className="border border-border bg-primary/10 px-3 py-1.5 font-display font-bold text-[12px] text-primary sticky left-0"
+                      >
+                        {DAY_LABELS[day]}
                       </td>
-                      {rowEntries.map((entry, i) => (
-                        <td key={i} className="border border-border p-0 align-top">
-                          {entry ? (
-                            <ClassCell
-                              entry={entry}
-                              onSelect={setSelectedEntry}
-                              selected={
-                                selectedEntry?.classCode === entry.classCode &&
-                                selectedEntry.day === entry.day &&
-                                selectedEntry.time === entry.time
-                              }
-                            />
-                          ) : (
-                            <div className="p-1.5 text-center text-muted-foreground/30 text-[10px] select-none">
-                              —
-                            </div>
-                          )}
-                        </td>
-                      ))}
                     </tr>
-                  );
-                })}
+                    {TIME_SLOTS.map((time) => {
+                      const rowEntries = Array.from({ length: numSalas }, (_, i) =>
+                        getEntry(day, time, i + 1)
+                      );
+                      return (
+                        <tr key={`${day}-${time}`}>
+                          <td className="sticky left-0 z-10 bg-muted/60 border border-border px-2 py-1 text-center font-bold text-[10px] text-muted-foreground align-middle whitespace-nowrap min-w-[110px] w-[110px]">
+                            {time}
+                          </td>
+                          {rowEntries.map((entry, i) => (
+                            <td key={i} className="border border-border p-0 align-top">
+                              {entry ? (
+                                <ClassCell
+                                  entry={entry}
+                                  onSelect={setSelectedEntry}
+                                  selected={
+                                    selectedEntry?.classCode === entry.classCode &&
+                                    selectedEntry.day === entry.day &&
+                                    selectedEntry.time === entry.time
+                                  }
+                                />
+                              ) : (
+                                <div className="p-1.5 text-center text-muted-foreground/20 text-[10px] select-none min-h-[28px]">
+                                  —
+                                </div>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
-
-        {selectedCourse && (
-          <div className="mt-6 bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
-            <div className="px-6 py-4 border-b border-border/50">
-              <h2 className="font-display font-bold text-foreground">
-                Todos los horarios de{" "}
-                <span className="text-primary">{selectedCourse}</span>
-              </h2>
-            </div>
-            <div className="p-4">
-              <div className="space-y-2">
-                {filtered.map((entry, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedEntry(entry)}
-                    className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-muted/60 transition-colors text-left group"
-                  >
-                    <div className={`px-2.5 py-1 rounded-xl text-xs font-bold border ${COURSE_BADGE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200"}`}>
-                      {entry.course}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-foreground">
-                        {DAY_LABELS[entry.day]} · {entry.time}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {entry.sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"} · Sala {entry.sala} · Prof. {entry.teacher}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Users className="w-4 h-4" />
-                      <span className="text-sm">{entry.students.length}</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </button>
-                ))}
-                {filtered.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No se encontraron clases
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {selectedEntry && (
