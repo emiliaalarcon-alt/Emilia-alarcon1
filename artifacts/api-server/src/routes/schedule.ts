@@ -342,25 +342,45 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
       return /LAS ENCINAS|INES DE SUAREZ/i.test(clase);
     });
 
-    // Group students and sala by classCode
-    const byCode: Map<string, { students: string[]; sala: number | null }> = new Map();
+    // Day tokens used in classCodes
+    const DAY_TOKENS = ["LUN", "MAR", "MIE", "JUE", "VIE"];
+
+    // Parse classCode "M1 INT LUN 10.30 JR" → { course, day, time, teacher }
+    function parseClassCode(code: string): { course: string; day: string; time: string; teacher: string } | null {
+      const parts = code.split(/\s+/);
+      const dayIdx = parts.findIndex(p => DAY_TOKENS.includes(p.toUpperCase()));
+      if (dayIdx < 1) return null;
+      return {
+        course: parts.slice(0, dayIdx).join(" "),
+        day: parts[dayIdx].toUpperCase(),
+        time: parts[dayIdx + 1] ?? "",
+        teacher: parts[dayIdx + 2] ?? "",
+      };
+    }
+
+    // Group students, sala and sede by classCode
+    const byCode: Map<string, { students: string[]; sala: number | null; sede: string }> = new Map();
     for (const r of temuco) {
       const clase = String(r[2]).trim();
       const parts = clase.split(sedePattern);
       const rawCode = parts[0].trim();
-      // Normalize time: "16.45" stays, "16:45" → "16.45"
+      // Normalize time: "16:45" → "16.45"
       const classCode = rawCode.replace(/(\d{2}):(\d{2})/g, "$1.$2");
       const nombre = String(r[3] ?? "").trim();
       const apellido = String(r[4] ?? "").trim();
       if (!nombre && !apellido) continue;
       const fullName = `${nombre} ${apellido}`.trim();
 
-      // Extract sala from "- SALA 6" or "- SALA 6 " at end
+      // Extract sala from "SALA 6"
       let sala: number | null = null;
       const salaMatch = clase.match(/SALA\s+(\d+)/i);
       if (salaMatch) sala = parseInt(salaMatch[1], 10);
 
-      if (!byCode.has(classCode)) byCode.set(classCode, { students: [], sala });
+      // Extract sede
+      const sedeMatch = clase.match(/LAS ENCINAS|INES DE SUAREZ/i);
+      const sede = sedeMatch ? sedeMatch[0].toUpperCase() : "LAS ENCINAS";
+
+      if (!byCode.has(classCode)) byCode.set(classCode, { students: [], sala, sede });
       byCode.get(classCode)!.students.push(fullName);
     }
 
@@ -369,23 +389,47 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
       .from(scheduleClassesTable);
     const existingCodes = new Set(existingClasses.map(c => c.classCode));
 
+    let created = 0;
     let updated = 0;
     let skipped = 0;
-    const notFound: string[] = [];
+    const parseErrors: string[] = [];
 
-    for (const [classCode, { students, sala }] of byCode.entries()) {
+    for (const [classCode, { students, sala, sede }] of byCode.entries()) {
       if (!existingCodes.has(classCode)) {
-        notFound.push(classCode);
-        skipped++;
-        continue;
+        // Try to create the class by parsing the classCode
+        const parsed = parseClassCode(classCode);
+        if (!parsed || !parsed.course || !parsed.day || !parsed.time) {
+          parseErrors.push(classCode);
+          skipped++;
+          continue;
+        }
+        try {
+          await db.insert(scheduleClassesTable).values({
+            classCode,
+            course: parsed.course,
+            day: parsed.day,
+            time: parsed.time,
+            teacher: parsed.teacher,
+            sede,
+            sala: sala ?? 1,
+          });
+          existingCodes.add(classCode);
+          created++;
+        } catch {
+          parseErrors.push(classCode);
+          skipped++;
+          continue;
+        }
+      } else {
+        // Update sala if provided
+        if (sala !== null) {
+          await db.update(scheduleClassesTable)
+            .set({ sala })
+            .where(eq(scheduleClassesTable.classCode, classCode));
+        }
       }
-      // Update sala if provided
-      if (sala !== null) {
-        await db.update(scheduleClassesTable)
-          .set({ sala })
-          .where(eq(scheduleClassesTable.classCode, classCode));
-      }
-      // Replace student list for this class
+
+      // Replace student list
       await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
       if (students.length > 0) {
         await db.insert(scheduleStudentsTable).values(
@@ -397,10 +441,11 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
 
     res.json({
       ok: true,
+      created,
       updated,
       skipped,
       totalStudents: temuco.length,
-      notFound: notFound.slice(0, 20),
+      parseErrors: parseErrors.slice(0, 20),
     });
   } catch (err) {
     console.error(err);

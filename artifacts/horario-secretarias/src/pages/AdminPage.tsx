@@ -105,7 +105,7 @@ export default function AdminPage() {
   const [filterCourse, setFilterCourse] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
-    updated: number; skipped: number; totalStudents: number; notFound: string[];
+    created: number; updated: number; skipped: number; totalStudents: number; parseErrors: string[];
   } | null>(null);
   const [importError, setImportError] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -358,20 +358,23 @@ export default function AdminPage() {
                     <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span className="text-sm font-bold text-emerald-800">Importación completada</span>
                   </div>
-                  <div className="flex gap-6 text-sm">
+                  <div className="flex flex-wrap gap-6 text-sm">
+                    {importResult.created > 0 && (
+                      <div><span className="font-bold text-emerald-700">{importResult.created}</span><span className="text-emerald-600"> clases creadas</span></div>
+                    )}
                     <div><span className="font-bold text-emerald-700">{importResult.updated}</span><span className="text-emerald-600"> clases actualizadas</span></div>
                     <div><span className="font-bold text-emerald-700">{importResult.totalStudents}</span><span className="text-emerald-600"> alumnos procesados</span></div>
                     {importResult.skipped > 0 && (
-                      <div><span className="font-bold text-amber-700">{importResult.skipped}</span><span className="text-amber-600"> clases no encontradas</span></div>
+                      <div><span className="font-bold text-amber-700">{importResult.skipped}</span><span className="text-amber-600"> clases omitidas</span></div>
                     )}
                   </div>
-                  {importResult.notFound.length > 0 && (
+                  {importResult.parseErrors.length > 0 && (
                     <details className="w-full">
                       <summary className="text-xs text-amber-700 cursor-pointer font-medium">
-                        Ver clases no encontradas ({importResult.notFound.length})
+                        Ver clases omitidas ({importResult.parseErrors.length})
                       </summary>
                       <ul className="mt-2 space-y-0.5">
-                        {importResult.notFound.map((c, i) => (
+                        {importResult.parseErrors.map((c, i) => (
                           <li key={i} className="text-xs text-amber-600 font-mono">{c}</li>
                         ))}
                       </ul>
