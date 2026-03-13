@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Trash2, RefreshCw, Pencil, Check } from "lucide-react";
+import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Minus, Trash2, RefreshCw, Pencil, Check } from "lucide-react";
 import {
   DAYS,
   DAY_LABELS,
@@ -597,6 +597,9 @@ export default function HorarioPage() {
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [gridZoom, setGridZoom] = useState(100);
+  const zoomIn  = () => setGridZoom(z => Math.min(z + 10, 150));
+  const zoomOut = () => setGridZoom(z => Math.max(z - 10, 50));
 
   const fetchData = useCallback(async () => {
     try {
@@ -918,11 +921,33 @@ export default function HorarioPage() {
                 <span className="ml-auto text-sm text-muted-foreground">
                   {filteredData.length} clase{filteredData.length !== 1 ? "s" : ""}
                 </span>
+                <div className="flex items-center gap-1 ml-3 border border-border rounded-xl overflow-hidden">
+                  <button
+                    onClick={zoomOut}
+                    disabled={gridZoom <= 50}
+                    className="px-2.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30"
+                    title="Reducir"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="px-2 py-1 text-xs font-semibold text-foreground tabular-nums select-none min-w-[38px] text-center border-x border-border">
+                    {gridZoom}%
+                  </span>
+                  <button
+                    onClick={zoomIn}
+                    disabled={gridZoom >= 150}
+                    className="px-2.5 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30"
+                    title="Ampliar"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
               <div
                 ref={scrollRef}
                 className="overflow-x-auto cursor-grab"
+                style={{ zoom: `${gridZoom}%` }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
