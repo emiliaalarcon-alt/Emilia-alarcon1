@@ -11,27 +11,41 @@ import {
 const COURSES = Object.keys(COURSE_FULL_NAMES);
 
 const COURSE_COLORS: Record<string, string> = {
-  "M1": "bg-blue-100 text-blue-800 border-blue-200",
-  "M1 INT": "bg-blue-100 text-blue-800 border-blue-200",
-  "M2": "bg-violet-100 text-violet-800 border-violet-200",
-  "M2 INT": "bg-violet-100 text-violet-800 border-violet-200",
-  "MT": "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200",
-  "MS": "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200",
-  "MP": "bg-purple-100 text-purple-800 border-purple-200",
-  "FIS": "bg-emerald-100 text-emerald-800 border-emerald-200",
-  "FIS INT": "bg-emerald-100 text-emerald-800 border-emerald-200",
-  "BIO": "bg-teal-100 text-teal-800 border-teal-200",
-  "BIO INT": "bg-teal-100 text-teal-800 border-teal-200",
-  "QUI": "bg-amber-100 text-amber-800 border-amber-200",
-  "QUI INT": "bg-amber-100 text-amber-800 border-amber-200",
-  "LN": "bg-orange-100 text-orange-800 border-orange-200",
-  "LN INT": "bg-orange-100 text-orange-800 border-orange-200",
-  "LT": "bg-orange-100 text-orange-800 border-orange-200",
-  "LS": "bg-orange-100 text-orange-800 border-orange-200",
-  "LP": "bg-red-100 text-red-800 border-red-200",
-  "HS": "bg-rose-100 text-rose-800 border-rose-200",
-  "HS INT": "bg-rose-100 text-rose-800 border-rose-200",
-  "CS": "bg-slate-100 text-slate-800 border-slate-200",
+  // Matemática → amarillo
+  "M1":       "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "M1 INT":   "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "M1 CONT":  "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "M2":       "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "M2 INT":   "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "MT":       "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "MS":       "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "MP":       "bg-yellow-100 text-yellow-800 border-yellow-300",
+  // Lenguaje → rojo
+  "LN":       "bg-red-100 text-red-800 border-red-200",
+  "LN INT":   "bg-red-100 text-red-800 border-red-200",
+  "LN CONT":  "bg-red-100 text-red-800 border-red-200",
+  "LT":       "bg-red-100 text-red-800 border-red-200",
+  "LS":       "bg-red-100 text-red-800 border-red-200",
+  "LP":       "bg-red-100 text-red-800 border-red-200",
+  // Física → naranja
+  "FIS":      "bg-orange-100 text-orange-800 border-orange-200",
+  "FIS INT":  "bg-orange-100 text-orange-800 border-orange-200",
+  "FIS CONT": "bg-orange-100 text-orange-800 border-orange-200",
+  // Química → calipso
+  "QUI":      "bg-cyan-100 text-cyan-800 border-cyan-200",
+  "QUI INT":  "bg-cyan-100 text-cyan-800 border-cyan-200",
+  "QUI CONT": "bg-cyan-100 text-cyan-800 border-cyan-200",
+  // Biología → verde
+  "BIO":      "bg-green-100 text-green-800 border-green-200",
+  "BIO INT":  "bg-green-100 text-green-800 border-green-200",
+  "BIO CONT": "bg-green-100 text-green-800 border-green-200",
+  // Historia → gris
+  "HS":       "bg-gray-100 text-gray-700 border-gray-200",
+  "HS INT":   "bg-gray-100 text-gray-700 border-gray-200",
+  "HIS":      "bg-gray-100 text-gray-700 border-gray-200",
+  "HIS INT":  "bg-gray-100 text-gray-700 border-gray-200",
+  // Otros
+  "CS":       "bg-slate-100 text-slate-800 border-slate-200",
 };
 
 const DAY_SHORT: Record<string, string> = {
