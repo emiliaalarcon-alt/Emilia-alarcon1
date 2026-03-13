@@ -1,16 +1,17 @@
 import { useState, useMemo } from "react";
-import { Search, X, ChevronRight, Users, MapPin, Clock } from "lucide-react";
+import { Search, X, ChevronRight, Users, MapPin, Clock, AlertTriangle } from "lucide-react";
 import {
   scheduleData,
   filterSchedule,
   getUniqueCourses,
+  getConflictsForEntry,
   DAYS,
   DAY_LABELS,
   TIME_SLOTS,
   SEDES,
-  COURSE_COLORS,
   COURSE_FULL_NAMES,
   type ClassEntry,
+  type DuplicateConflict,
 } from "@/data/schedule";
 
 const SEDE_ROOMS: Record<string, number> = {
@@ -75,6 +76,17 @@ function ClassCell({
 
 function DetailPanel({ entry, onClose }: { entry: ClassEntry; onClose: () => void }) {
   const badge = COURSE_BADGE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
+
+  const conflicts = useMemo(() => getConflictsForEntry(entry), [entry]);
+  const conflictMap = useMemo(() => {
+    const map = new Map<string, DuplicateConflict[]>();
+    for (const c of conflicts) {
+      if (!map.has(c.student)) map.set(c.student, []);
+      map.get(c.student)!.push(c);
+    }
+    return map;
+  }, [conflicts]);
+
   return (
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50" onClick={onClose} />
@@ -122,6 +134,33 @@ function DetailPanel({ entry, onClose }: { entry: ClassEntry; onClose: () => voi
             <div className="font-display font-bold text-lg text-foreground">{entry.teacher}</div>
           </div>
 
+          {conflictMap.size > 0 && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="text-sm font-bold text-amber-800 dark:text-amber-300">
+                  {conflictMap.size} alumno{conflictMap.size !== 1 ? "s" : ""} con inscripción duplicada
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {Array.from(conflictMap.entries()).map(([student, cs]) =>
+                  cs.map((c, ci) => (
+                    <li key={`${student}-${ci}`} className="text-xs text-amber-700 dark:text-amber-300 bg-amber-100/60 dark:bg-amber-900/30 rounded-xl px-3 py-2">
+                      <span className="font-semibold">{student}</span> ya está en{" "}
+                      <span className="font-bold">{c.otherEntry.course}</span>
+                      {" · "}
+                      {c.otherEntry.sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+                      {" · "}
+                      Sala {c.otherEntry.sala}
+                      {" · "}
+                      {DAY_LABELS[c.otherEntry.day] ?? c.otherEntry.day} {c.otherEntry.time}
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+          )}
+
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-display font-bold text-foreground">Alumnos inscritos</h3>
@@ -135,17 +174,37 @@ function DetailPanel({ entry, onClose }: { entry: ClassEntry; onClose: () => voi
               </div>
             ) : (
               <ul className="space-y-2">
-                {entry.students.map((s, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
-                      {i + 1}
-                    </div>
-                    <span className="text-sm text-foreground">{s}</span>
-                  </li>
-                ))}
+                {entry.students.map((s, i) => {
+                  const hasConflict = conflictMap.has(s);
+                  return (
+                    <li
+                      key={i}
+                      className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${
+                        hasConflict
+                          ? "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50"
+                          : "bg-muted/40 hover:bg-muted/70"
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                        hasConflict
+                          ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                          : "bg-primary/10 text-primary"
+                      }`}>
+                        {hasConflict ? <AlertTriangle className="w-3.5 h-3.5" /> : i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-medium ${hasConflict ? "text-amber-800 dark:text-amber-200" : "text-foreground"}`}>
+                          {s}
+                        </span>
+                        {hasConflict && conflictMap.get(s)!.map((c, ci) => (
+                          <div key={ci} className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                            También en {c.otherEntry.course} · {c.otherEntry.sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"} Sala {c.otherEntry.sala}
+                          </div>
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

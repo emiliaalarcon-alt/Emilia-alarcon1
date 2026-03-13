@@ -268,3 +268,31 @@ export function filterSchedule(filters: {
     return true;
   });
 }
+
+export function getBaseCourse(course: string): string {
+  return course.split(' ')[0];
+}
+
+export interface DuplicateConflict {
+  student: string;
+  otherEntry: ClassEntry;
+}
+
+export function getConflictsForEntry(entry: ClassEntry): DuplicateConflict[] {
+  const baseCourse = getBaseCourse(entry.course);
+  const conflicts: DuplicateConflict[] = [];
+
+  for (const student of entry.students) {
+    const otherEntries = scheduleData.filter(
+      e =>
+        e !== entry &&
+        getBaseCourse(e.course) === baseCourse &&
+        e.students.includes(student)
+    );
+    for (const other of otherEntries) {
+      conflicts.push({ student, otherEntry: other });
+    }
+  }
+
+  return conflicts;
+}
