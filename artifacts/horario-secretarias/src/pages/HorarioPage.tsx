@@ -824,8 +824,8 @@ export default function HorarioPage() {
     });
   }
 
-  function getEntry(day: string, time: string, sala: number): ClassEntry | undefined {
-    return gridData.find(
+  function getEntries(day: string, time: string, sala: number): ClassEntry[] {
+    return gridData.filter(
       e => e.day === day && e.time === time && e.sala === sala
     );
   }
@@ -1182,7 +1182,7 @@ export default function HorarioPage() {
                   <tbody>
                     {TIME_SLOTS.map((time) => {
                       const hasAny = visibleDays.some((day) =>
-                        Array.from({ length: salasPerDay[day] || 1 }, (_, i) => getEntry(day, time, i + 1)).some(Boolean)
+                        Array.from({ length: salasPerDay[day] || 1 }, (_, i) => getEntries(day, time, i + 1)).some(arr => arr.length > 0)
                       );
                       if (!hasAny && hasFilters) return null;
                       return (
@@ -1192,18 +1192,23 @@ export default function HorarioPage() {
                           </td>
                           {visibleDays.map((day) =>
                             Array.from({ length: salasPerDay[day] || 1 }, (_, i) => {
-                              const entry = getEntry(day, time, i + 1);
+                              const entries = getEntries(day, time, i + 1);
                               return (
                                 <td key={`${day}-${i}`} className={`border border-border p-0 align-top w-[110px] min-w-[110px] ${i === 0 ? "border-l-2 border-l-gray-900" : ""}`}>
-                                  {entry ? (
-                                    <ClassCell
-                                      entry={entry}
-                                      onSelect={setSelectedEntry}
-                                      selected={liveSelectedEntry?.classCode === entry.classCode}
-                                      highlighted={!!selectedCourse && entry.course === selectedCourse}
-                                      dimmed={!!selectedCourse && entry.course !== selectedCourse}
-                                      typingBy={typingMap.get(entry.classCode)}
-                                    />
+                                  {entries.length > 0 ? (
+                                    <div className={entries.length > 1 ? "flex flex-col gap-0.5" : ""}>
+                                      {entries.map((entry) => (
+                                        <ClassCell
+                                          key={entry.classCode}
+                                          entry={entry}
+                                          onSelect={setSelectedEntry}
+                                          selected={liveSelectedEntry?.classCode === entry.classCode}
+                                          highlighted={!!selectedCourse && entry.course === selectedCourse}
+                                          dimmed={!!selectedCourse && entry.course !== selectedCourse}
+                                          typingBy={typingMap.get(entry.classCode)}
+                                        />
+                                      ))}
+                                    </div>
                                   ) : (
                                     <div className="p-1.5 text-center text-muted-foreground/20 text-[10px] select-none min-h-[28px]">
                                       —
