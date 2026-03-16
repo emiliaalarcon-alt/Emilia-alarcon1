@@ -4,67 +4,74 @@ import { Camera, Download, Loader2 } from "lucide-react";
 import { DAYS, DAY_LABELS, TIME_SLOTS, type ClassEntry } from "@/data/schedule";
 import { useHorario } from "@/context/HorarioContext";
 
-// ─── Hex values matching EXACTLY the Tailwind classes in COURSE_COLORS ────────
-// Each entry mirrors: schedule.ts COURSE_COLORS bg-*/text-* → Tailwind v3 hex
+// ─── Pastel colors for photo export (TV display) ─────────────────────────────
+// Horario view keeps vivid Tailwind colors; here everything is soft pastel.
+// Groups: AMARILLO · ROJO · NARANJA · CALIPSO · VERDE · MORADO · GRIS
+
+const AMARILLO_BG   = "#FFF9A3";   // soft golden yellow
+const AMARILLO_TEXT = "#7B5B00";
+const ROJO_BG       = "#FFCDD2";   // soft pink-red
+const ROJO_TEXT     = "#8B1A1A";
+const NARANJA_BG    = "#FFE0B2";   // soft peach-orange
+const NARANJA_TEXT  = "#8B4000";
+const CALIPSO_BG    = "#B2EBF2";   // soft turquoise/calypso
+const CALIPSO_TEXT  = "#005F6B";
+const VERDE_BG      = "#C8E6C9";   // soft mint-green
+const VERDE_TEXT    = "#1A5E20";
+const MORADO_BG     = "#E1BEE7";   // soft lavender-purple
+const MORADO_TEXT   = "#5B1F7F";
+const GRIS_BG       = "#EEEEEE";   // light gray
+const GRIS_TEXT     = "#424242";
+
 const COURSE_BG: Record<string, string> = {
-  "M1":       "#fef9c3",  // bg-yellow-100
-  "M1 INT":   "#fef08a",  // bg-yellow-200
-  "M1 CONT":  "#fde047",  // bg-yellow-300
-  "M2":       "#fef3c7",  // bg-amber-100
-  "M2 INT":   "#fde68a",  // bg-amber-200
-  "MT":       "#ecfccb",  // bg-lime-100
-  "MS":       "#fef3c7",  // bg-amber-100
-  "MP":       "#fefce8",  // bg-yellow-50
-  "LN":       "#fee2e2",  // bg-red-100
-  "LN INT":   "#fecaca",  // bg-red-200
-  "LN CONT":  "#fca5a5",  // bg-red-300
-  "LT":       "#ffe4e6",  // bg-rose-100
-  "LS":       "#ffe4e6",  // bg-rose-100
-  "LP":       "#fef2f2",  // bg-red-50
-  "FIS":      "#ffedd5",  // bg-orange-100
-  "FIS INT":  "#fed7aa",  // bg-orange-200
-  "FIS CONT": "#fdba74",  // bg-orange-300
-  "QUI":      "#cffafe",  // bg-cyan-100
-  "QUI INT":  "#a5f3fc",  // bg-cyan-200
-  "QUI CONT": "#ccfbf1",  // bg-teal-100
-  "BIO":      "#dcfce7",  // bg-green-100
-  "BIO INT":  "#bbf7d0",  // bg-green-200
-  "BIO CONT": "#d1fae5",  // bg-emerald-100
-  "HS":       "#f3f4f6",  // bg-gray-100
-  "HS INT":   "#e5e7eb",  // bg-gray-200
-  "HIS":      "#f3f4f6",  // bg-gray-100
-  "HIS INT":  "#e5e7eb",  // bg-gray-200
-  "CS":       "#f1f5f9",  // bg-slate-100
+  // Matemática → AMARILLO
+  "M1":       AMARILLO_BG,
+  "M1 INT":   AMARILLO_BG,
+  "M1 CONT":  AMARILLO_BG,
+  "M2":       AMARILLO_BG,
+  "M2 INT":   AMARILLO_BG,
+  "MT":       AMARILLO_BG,
+  "MS":       AMARILLO_BG,
+  "MP":       AMARILLO_BG,
+  // Lenguaje → ROJO
+  "LN":       ROJO_BG,
+  "LN INT":   ROJO_BG,
+  "LN CONT":  ROJO_BG,
+  "LT":       ROJO_BG,
+  "LS":       ROJO_BG,
+  "LP":       ROJO_BG,
+  // Física → NARANJA
+  "FIS":      NARANJA_BG,
+  "FIS INT":  NARANJA_BG,
+  "FIS CONT": NARANJA_BG,
+  // Química → CALIPSO
+  "QUI":      CALIPSO_BG,
+  "QUI INT":  CALIPSO_BG,
+  "QUI CONT": CALIPSO_BG,
+  // Biología → VERDE
+  "BIO":      VERDE_BG,
+  "BIO INT":  VERDE_BG,
+  "BIO CONT": VERDE_BG,
+  // Historia → MORADO CLARO
+  "HS":       MORADO_BG,
+  "HS INT":   MORADO_BG,
+  "HIS":      MORADO_BG,
+  "HIS INT":  MORADO_BG,
+  // Otros
+  "CS":       GRIS_BG,
 };
 const COURSE_TEXT: Record<string, string> = {
-  "M1":       "#854d0e",  // text-yellow-800
-  "M1 INT":   "#713f12",  // text-yellow-900
-  "M1 CONT":  "#713f12",  // text-yellow-900
-  "M2":       "#92400e",  // text-amber-800
-  "M2 INT":   "#78350f",  // text-amber-900
-  "MT":       "#3f6212",  // text-lime-800
-  "MS":       "#78350f",  // text-amber-900
-  "MP":       "#a16207",  // text-yellow-700
-  "LN":       "#991b1b",  // text-red-800
-  "LN INT":   "#7f1d1d",  // text-red-900
-  "LN CONT":  "#7f1d1d",  // text-red-900
-  "LT":       "#9f1239",  // text-rose-800
-  "LS":       "#881337",  // text-rose-900
-  "LP":       "#b91c1c",  // text-red-700
-  "FIS":      "#9a3412",  // text-orange-800
-  "FIS INT":  "#7c2d12",  // text-orange-900
-  "FIS CONT": "#7c2d12",  // text-orange-900
-  "QUI":      "#155e75",  // text-cyan-800
-  "QUI INT":  "#164e63",  // text-cyan-900
-  "QUI CONT": "#115e59",  // text-teal-800
-  "BIO":      "#166534",  // text-green-800
-  "BIO INT":  "#14532d",  // text-green-900
-  "BIO CONT": "#065f46",  // text-emerald-800
-  "HS":       "#4b5563",  // text-gray-600
-  "HS INT":   "#374151",  // text-gray-700
-  "HIS":      "#374151",  // text-gray-700
-  "HIS INT":  "#1f2937",  // text-gray-800
-  "CS":       "#1e293b",  // text-slate-800
+  "M1":       AMARILLO_TEXT, "M1 INT":   AMARILLO_TEXT, "M1 CONT":  AMARILLO_TEXT,
+  "M2":       AMARILLO_TEXT, "M2 INT":   AMARILLO_TEXT,
+  "MT":       AMARILLO_TEXT, "MS":       AMARILLO_TEXT, "MP":       AMARILLO_TEXT,
+  "LN":       ROJO_TEXT,     "LN INT":   ROJO_TEXT,     "LN CONT":  ROJO_TEXT,
+  "LT":       ROJO_TEXT,     "LS":       ROJO_TEXT,     "LP":       ROJO_TEXT,
+  "FIS":      NARANJA_TEXT,  "FIS INT":  NARANJA_TEXT,  "FIS CONT": NARANJA_TEXT,
+  "QUI":      CALIPSO_TEXT,  "QUI INT":  CALIPSO_TEXT,  "QUI CONT": CALIPSO_TEXT,
+  "BIO":      VERDE_TEXT,    "BIO INT":  VERDE_TEXT,    "BIO CONT": VERDE_TEXT,
+  "HS":       MORADO_TEXT,   "HS INT":   MORADO_TEXT,
+  "HIS":      MORADO_TEXT,   "HIS INT":  MORADO_TEXT,
+  "CS":       GRIS_TEXT,
 };
 
 function cellBg(course: string) { return COURSE_BG[course] ?? "#f8fafc"; }
