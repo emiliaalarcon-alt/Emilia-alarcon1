@@ -4,30 +4,67 @@ import { Camera, Download, Loader2 } from "lucide-react";
 import { DAYS, DAY_LABELS, TIME_SLOTS, type ClassEntry } from "@/data/schedule";
 import { useHorario } from "@/context/HorarioContext";
 
-// ─── plain hex colors per course (used in inline styles for png export) ───────
+// ─── Hex values matching EXACTLY the Tailwind classes in COURSE_COLORS ────────
+// Each entry mirrors: schedule.ts COURSE_COLORS bg-*/text-* → Tailwind v3 hex
 const COURSE_BG: Record<string, string> = {
-  "M1":       "#fef9c3", "M1 INT":   "#fef08a", "M1 CONT":  "#fde047",
-  "M2":       "#fef3c7", "M2 INT":   "#fde68a",
-  "MT":       "#f0fdf4", "MS":       "#fef9c3", "MP":       "#fefce8",
-  "LN":       "#fee2e2", "LN INT":   "#fecaca", "LN CONT":  "#fca5a5",
-  "LT":       "#ffe4e6", "LS":       "#fecdd3", "LP":       "#fef2f2",
-  "FIS":      "#ffedd5", "FIS INT":  "#fed7aa", "FIS CONT": "#fdba74",
-  "QUI":      "#cffafe", "QUI INT":  "#a5f3fc", "QUI CONT": "#99f6e4",
-  "BIO":      "#dcfce7", "BIO INT":  "#bbf7d0", "BIO CONT": "#a7f3d0",
-  "HS":       "#f3f4f6", "HS INT":   "#e5e7eb", "HIS":      "#f3f4f6", "HIS INT": "#e5e7eb",
-  "CS":       "#f1f5f9",
+  "M1":       "#fef9c3",  // bg-yellow-100
+  "M1 INT":   "#fef08a",  // bg-yellow-200
+  "M1 CONT":  "#fde047",  // bg-yellow-300
+  "M2":       "#fef3c7",  // bg-amber-100
+  "M2 INT":   "#fde68a",  // bg-amber-200
+  "MT":       "#ecfccb",  // bg-lime-100
+  "MS":       "#fef3c7",  // bg-amber-100
+  "MP":       "#fefce8",  // bg-yellow-50
+  "LN":       "#fee2e2",  // bg-red-100
+  "LN INT":   "#fecaca",  // bg-red-200
+  "LN CONT":  "#fca5a5",  // bg-red-300
+  "LT":       "#ffe4e6",  // bg-rose-100
+  "LS":       "#ffe4e6",  // bg-rose-100
+  "LP":       "#fef2f2",  // bg-red-50
+  "FIS":      "#ffedd5",  // bg-orange-100
+  "FIS INT":  "#fed7aa",  // bg-orange-200
+  "FIS CONT": "#fdba74",  // bg-orange-300
+  "QUI":      "#cffafe",  // bg-cyan-100
+  "QUI INT":  "#a5f3fc",  // bg-cyan-200
+  "QUI CONT": "#ccfbf1",  // bg-teal-100
+  "BIO":      "#dcfce7",  // bg-green-100
+  "BIO INT":  "#bbf7d0",  // bg-green-200
+  "BIO CONT": "#d1fae5",  // bg-emerald-100
+  "HS":       "#f3f4f6",  // bg-gray-100
+  "HS INT":   "#e5e7eb",  // bg-gray-200
+  "HIS":      "#f3f4f6",  // bg-gray-100
+  "HIS INT":  "#e5e7eb",  // bg-gray-200
+  "CS":       "#f1f5f9",  // bg-slate-100
 };
 const COURSE_TEXT: Record<string, string> = {
-  "M1": "#713f12", "M1 INT": "#713f12", "M1 CONT": "#713f12",
-  "M2": "#92400e", "M2 INT": "#92400e",
-  "MT": "#166534", "MS": "#78350f", "MP": "#854d0e",
-  "LN": "#991b1b", "LN INT": "#991b1b", "LN CONT": "#7f1d1d",
-  "LT": "#9f1239", "LS": "#881337", "LP": "#b91c1c",
-  "FIS": "#9a3412", "FIS INT": "#9a3412", "FIS CONT": "#7c2d12",
-  "QUI": "#164e63", "QUI INT": "#155e75", "QUI CONT": "#134e4a",
-  "BIO": "#14532d", "BIO INT": "#166534", "BIO CONT": "#065f46",
-  "HS": "#374151", "HS INT": "#374151", "HIS": "#374151", "HIS INT": "#374151",
-  "CS": "#475569",
+  "M1":       "#854d0e",  // text-yellow-800
+  "M1 INT":   "#713f12",  // text-yellow-900
+  "M1 CONT":  "#713f12",  // text-yellow-900
+  "M2":       "#92400e",  // text-amber-800
+  "M2 INT":   "#78350f",  // text-amber-900
+  "MT":       "#3f6212",  // text-lime-800
+  "MS":       "#78350f",  // text-amber-900
+  "MP":       "#a16207",  // text-yellow-700
+  "LN":       "#991b1b",  // text-red-800
+  "LN INT":   "#7f1d1d",  // text-red-900
+  "LN CONT":  "#7f1d1d",  // text-red-900
+  "LT":       "#9f1239",  // text-rose-800
+  "LS":       "#881337",  // text-rose-900
+  "LP":       "#b91c1c",  // text-red-700
+  "FIS":      "#9a3412",  // text-orange-800
+  "FIS INT":  "#7c2d12",  // text-orange-900
+  "FIS CONT": "#7c2d12",  // text-orange-900
+  "QUI":      "#155e75",  // text-cyan-800
+  "QUI INT":  "#164e63",  // text-cyan-900
+  "QUI CONT": "#115e59",  // text-teal-800
+  "BIO":      "#166534",  // text-green-800
+  "BIO INT":  "#14532d",  // text-green-900
+  "BIO CONT": "#065f46",  // text-emerald-800
+  "HS":       "#4b5563",  // text-gray-600
+  "HS INT":   "#374151",  // text-gray-700
+  "HIS":      "#374151",  // text-gray-700
+  "HIS INT":  "#1f2937",  // text-gray-800
+  "CS":       "#1e293b",  // text-slate-800
 };
 
 function cellBg(course: string) { return COURSE_BG[course] ?? "#f8fafc"; }
