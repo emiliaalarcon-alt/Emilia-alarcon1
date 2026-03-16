@@ -110,47 +110,56 @@ function ScheduleGrid({ classes, sede }: GridProps) {
   const numSalas = SEDE_MAX_SALAS[sede] ?? 5;
   const salas = Array.from({ length: numSalas }, (_, i) => i + 1);
 
-  const byTimeAndSala: Record<string, Record<number, ClassEntry>> = {};
+  // Support multiple classes per (time, sala) — all stored in an array
+  const byTimeAndSala: Record<string, Record<number, ClassEntry[]>> = {};
   for (const cls of classes) {
     if (!byTimeAndSala[cls.time]) byTimeAndSala[cls.time] = {};
-    byTimeAndSala[cls.time][cls.sala] = cls;
+    if (!byTimeAndSala[cls.time][cls.sala]) byTimeAndSala[cls.time][cls.sala] = [];
+    byTimeAndSala[cls.time][cls.sala].push(cls);
   }
 
   // Always show all 7 time slots (including empty rows — matches reference image)
   const rows = TIME_SLOTS;
 
-  const HEADER_H = Math.round(IMG_H * 0.055);  // ~59px
+  const HEADER_H = Math.round(IMG_H * 0.055);
   const ROW_H    = Math.round((IMG_H - HEADER_H) / rows.length);
-  const TIME_W   = Math.round(IMG_W * 0.064);   // ~123px
+  const TIME_W   = Math.round(IMG_W * 0.064);
   const COL_W    = Math.floor((IMG_W - TIME_W) / numSalas);
 
-  // Maximum students in any single class — drives font size
-  const maxStudents = Math.max(
-    1,
-    ...classes.filter(c => c.students.length > 0).map(c => c.students.length)
-  );
+  // Find the busiest cell: max total students + max classes in a single cell
+  // This drives global font sizing so every cell fits without overflow
+  let maxTotalStudents = 1;
+  let maxClassesInCell = 1;
+  for (const salaMap of Object.values(byTimeAndSala)) {
+    for (const clsArr of Object.values(salaMap)) {
+      const active = clsArr.filter(c => c.students.length > 0);
+      const total  = active.reduce((s, c) => s + c.students.length, 0);
+      maxTotalStudents = Math.max(maxTotalStudents, total);
+      maxClassesInCell = Math.max(maxClassesInCell, active.length);
+    }
+  }
 
-  // Vertical space budget for names inside a row cell:
-  //   ROW_H  – (top+bottom padding)  – (class-code line + gap below it)
-  const cellPad      = Math.round(ROW_H * 0.06);         // ~9px top & bottom
-  const codeSize     = Math.max(12, Math.min(20, Math.floor(COL_W / 16)));
-  const codeAreaH    = Math.ceil(codeSize * 1.25) + Math.round(ROW_H * 0.04);
-  const namesAreaH   = ROW_H - 2 * cellPad - codeAreaH;
-
-  // Line height ratio for student names — compact but readable
   const LINE_H_RATIO = 1.28;
-  // nameSize that fits all maxStudents lines; also bounded by column width
-  const nameSizeByH  = Math.floor(namesAreaH / (maxStudents * LINE_H_RATIO));
-  const nameSizeByW  = Math.floor(COL_W / 20);
-  const nameSize     = Math.max(9, Math.min(nameSizeByH, nameSizeByW));
+  const cellPad   = Math.round(ROW_H * 0.06);
+  const codeSize  = Math.max(11, Math.min(18, Math.floor(COL_W / 17)));
+  const codeLineH = Math.ceil(codeSize * 1.25);
+  const codeGap   = Math.round(ROW_H * 0.025);
+  // separator between stacked classes
+  const sepH      = maxClassesInCell > 1 ? 4 * (maxClassesInCell - 1) : 0;
+  // total height used by code headers across all classes in the busiest cell
+  const totalCodeH = (codeLineH + codeGap) * maxClassesInCell;
+  const namesAreaH = ROW_H - 2 * cellPad - totalCodeH - sepH;
+
+  const nameSizeByH = Math.floor(namesAreaH / (maxTotalStudents * LINE_H_RATIO));
+  const nameSizeByW = Math.floor(COL_W / 20);
+  const nameSize    = Math.max(8, Math.min(nameSizeByH, nameSizeByW));
 
   const timeSize   = Math.max(10, Math.min(15, Math.floor(TIME_W / 9)));
   const headerSize = Math.max(13, Math.min(20, Math.floor(COL_W / 14)));
 
-  const border      = "1px solid #c8c8c8";
-  const headerBg    = "#ffffff";
-  const timeBg      = "#f5f5f5";
-  const emptyBg     = "#ffffff";
+  const border  = "1px solid #c8c8c8";
+  const timeBg  = "#f5f5f5";
+  const emptyBg = "#ffffff";
 
   return (
     <div style={{
@@ -172,20 +181,12 @@ function ScheduleGrid({ classes, sede }: GridProps) {
         flexShrink: 0,
         borderBottom: "1.5px solid #999",
       }}>
-        {/* blank top-left cell */}
-        <div style={{
-          width: TIME_W, minWidth: TIME_W, flexShrink: 0,
-          background: headerBg,
-          borderRight: border,
-        }} />
+        <div style={{ width: TIME_W, minWidth: TIME_W, flexShrink: 0, borderRight: border }} />
         {salas.map((s, i) => (
           <div key={s} style={{
             width: COL_W, minWidth: COL_W, flexShrink: 0,
-            background: headerBg,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 700,
-            fontSize: headerSize,
-            color: "#111",
+            fontWeight: 700, fontSize: headerSize, color: "#111",
             borderRight: i < salas.length - 1 ? border : undefined,
           }}>
             SALA {s}
@@ -207,58 +208,65 @@ function ScheduleGrid({ classes, sede }: GridProps) {
             background: timeBg,
             borderRight: border,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: timeSize,
-            fontWeight: 600,
-            color: "#333",
-            textAlign: "center",
-            padding: "0 8px",
-            lineHeight: 1.4,
-            whiteSpace: "pre-line",
+            fontSize: timeSize, fontWeight: 600, color: "#333",
+            textAlign: "center", padding: "0 8px",
+            lineHeight: 1.4, whiteSpace: "pre-line",
           }}>
             {time}
           </div>
 
-          {/* Sala cells */}
+          {/* Sala cells — each may contain 1 or more classes */}
           {salas.map((sala, si) => {
-            const cls = byTimeAndSala[time]?.[sala];
-            const hasStudents = cls && cls.students.length > 0;
-            const bg = hasStudents ? cellBg(cls!.course) : emptyBg;
-            const fg = hasStudents ? cellText(cls!.course) : "#111";
+            const clsArr = byTimeAndSala[time]?.[sala] ?? [];
+            const active = clsArr.filter(c => c.students.length > 0);
+
+            // Cell background: use first active class color (or white if empty)
+            const firstBg = active.length > 0 ? cellBg(active[0].course) : emptyBg;
+            // For single class: full cell colored; for multi-class: white with per-block colors
+            const cellBgColor = active.length === 1 ? firstBg : emptyBg;
+
             return (
               <div key={sala} style={{
                 width: COL_W, minWidth: COL_W, flexShrink: 0,
-                background: bg,
+                background: cellBgColor,
                 borderRight: si < salas.length - 1 ? border : undefined,
                 padding: `${cellPad}px ${Math.round(COL_W * 0.025)}px`,
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-start",
+                gap: active.length > 1 ? 4 : 0,
                 boxSizing: "border-box",
               }}>
-                {hasStudents && (
-                  <>
-                    <div style={{
-                      fontWeight: 700,
-                      fontSize: codeSize,
-                      color: fg,
-                      marginBottom: Math.round(ROW_H * 0.03),
-                      lineHeight: 1.2,
+                {active.map((cls, ci) => {
+                  const fg = cellText(cls.course);
+                  // Single class: use transparent bg (cell already colored).
+                  // Multi-class: each block has its own pastel background.
+                  const blockBg = active.length > 1 ? cellBg(cls.course) : "transparent";
+                  const blockPad = active.length > 1
+                    ? `${Math.round(cellPad * 0.4)}px ${Math.round(COL_W * 0.02)}px`
+                    : "0";
+                  return (
+                    <div key={ci} style={{
+                      background: blockBg,
+                      padding: blockPad,
+                      borderRadius: active.length > 1 ? 2 : 0,
                       flexShrink: 0,
                     }}>
-                      {cls!.classCode}
+                      <div style={{
+                        fontWeight: 700, fontSize: codeSize, color: fg,
+                        marginBottom: codeGap, lineHeight: 1.2,
+                      }}>
+                        {cls.classCode}
+                      </div>
+                      <div style={{ fontSize: nameSize, lineHeight: LINE_H_RATIO, color: fg }}>
+                        {cls.students.map((s, i) => (
+                          <div key={i}>{formatName(s)}</div>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{
-                      fontSize: nameSize,
-                      lineHeight: LINE_H_RATIO,
-                      color: fg,
-                    }}>
-                      {cls!.students.map((s, i) => (
-                        <div key={i}>{formatName(s)}</div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                  );
+                })}
               </div>
             );
           })}
