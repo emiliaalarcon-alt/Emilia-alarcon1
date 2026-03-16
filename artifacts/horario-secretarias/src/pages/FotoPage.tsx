@@ -9,19 +9,13 @@ import { useHorario } from "@/context/HorarioContext";
 // Groups: AMARILLO · ROJO · NARANJA · CALIPSO · VERDE · MORADO · GRIS
 
 const AMARILLO_BG   = "#FFF9A3";   // soft golden yellow
-const AMARILLO_TEXT = "#7B5B00";
 const ROJO_BG       = "#FFCDD2";   // soft pink-red
-const ROJO_TEXT     = "#8B1A1A";
 const NARANJA_BG    = "#FFE0B2";   // soft peach-orange
-const NARANJA_TEXT  = "#8B4000";
 const CALIPSO_BG    = "#B2EBF2";   // soft turquoise/calypso
-const CALIPSO_TEXT  = "#005F6B";
 const VERDE_BG      = "#C8E6C9";   // soft mint-green
-const VERDE_TEXT    = "#1A5E20";
 const MORADO_BG     = "#E1BEE7";   // soft lavender-purple
-const MORADO_TEXT   = "#5B1F7F";
 const GRIS_BG       = "#EEEEEE";   // light gray
-const GRIS_TEXT     = "#424242";
+const TEXT_BLACK    = "#000000";   // all text in black per user request
 
 const COURSE_BG: Record<string, string> = {
   // Matemática → AMARILLO
@@ -61,21 +55,21 @@ const COURSE_BG: Record<string, string> = {
   "CS":       GRIS_BG,
 };
 const COURSE_TEXT: Record<string, string> = {
-  "M1":       AMARILLO_TEXT, "M1 INT":   AMARILLO_TEXT, "M1 CONT":  AMARILLO_TEXT,
-  "M2":       AMARILLO_TEXT, "M2 INT":   AMARILLO_TEXT,
-  "MT":       AMARILLO_TEXT, "MS":       AMARILLO_TEXT, "MP":       AMARILLO_TEXT,
-  "LN":       ROJO_TEXT,     "LN INT":   ROJO_TEXT,     "LN CONT":  ROJO_TEXT,
-  "LT":       ROJO_TEXT,     "LS":       ROJO_TEXT,     "LP":       ROJO_TEXT,
-  "FIS":      NARANJA_TEXT,  "FIS INT":  NARANJA_TEXT,  "FIS CONT": NARANJA_TEXT,
-  "QUI":      CALIPSO_TEXT,  "QUI INT":  CALIPSO_TEXT,  "QUI CONT": CALIPSO_TEXT,
-  "BIO":      VERDE_TEXT,    "BIO INT":  VERDE_TEXT,    "BIO CONT": VERDE_TEXT,
-  "HS":       MORADO_TEXT,   "HS INT":   MORADO_TEXT,
-  "HIS":      MORADO_TEXT,   "HIS INT":  MORADO_TEXT,
-  "CS":       GRIS_TEXT,
+  "M1":       TEXT_BLACK, "M1 INT":   TEXT_BLACK, "M1 CONT":  TEXT_BLACK,
+  "M2":       TEXT_BLACK, "M2 INT":   TEXT_BLACK,
+  "MT":       TEXT_BLACK, "MS":       TEXT_BLACK, "MP":       TEXT_BLACK,
+  "LN":       TEXT_BLACK, "LN INT":   TEXT_BLACK, "LN CONT":  TEXT_BLACK,
+  "LT":       TEXT_BLACK, "LS":       TEXT_BLACK, "LP":       TEXT_BLACK,
+  "FIS":      TEXT_BLACK, "FIS INT":  TEXT_BLACK, "FIS CONT": TEXT_BLACK,
+  "QUI":      TEXT_BLACK, "QUI INT":  TEXT_BLACK, "QUI CONT": TEXT_BLACK,
+  "BIO":      TEXT_BLACK, "BIO INT":  TEXT_BLACK, "BIO CONT": TEXT_BLACK,
+  "HS":       TEXT_BLACK, "HS INT":   TEXT_BLACK,
+  "HIS":      TEXT_BLACK, "HIS INT":  TEXT_BLACK,
+  "CS":       TEXT_BLACK,
 };
 
 function cellBg(course: string) { return COURSE_BG[course] ?? "#f8fafc"; }
-function cellText(course: string) { return COURSE_TEXT[course] ?? "#1e293b"; }
+function cellText(course: string) { return COURSE_TEXT[course] ?? TEXT_BLACK; }
 
 // ─── Fixed sala count per sede ────────────────────────────────────────────────
 const SEDE_MAX_SALAS: Record<string, number> = {
@@ -186,7 +180,7 @@ function ScheduleGrid({ classes, sede }: GridProps) {
           <div key={s} style={{
             width: COL_W, minWidth: COL_W, flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 700, fontSize: headerSize, color: "#111",
+            fontWeight: 700, fontSize: headerSize, color: "#000000",
             borderRight: i < salas.length - 1 ? border : undefined,
           }}>
             SALA {s}
@@ -208,7 +202,7 @@ function ScheduleGrid({ classes, sede }: GridProps) {
             background: timeBg,
             borderRight: border,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: timeSize, fontWeight: 600, color: "#333",
+            fontSize: timeSize, fontWeight: 600, color: "#000000",
             textAlign: "center", padding: "0 8px",
             lineHeight: 1.4, whiteSpace: "pre-line",
           }}>
