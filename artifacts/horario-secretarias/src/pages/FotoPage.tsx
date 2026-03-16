@@ -218,7 +218,11 @@ export default function FotoPage() {
     finally { setLoading(false); }
   }, [horarioId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 10_000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const dayClasses = allData.filter(c => c.day === selectedDay && c.sede === selectedSede);
 
