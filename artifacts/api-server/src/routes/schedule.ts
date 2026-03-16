@@ -169,8 +169,18 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
     .from(scheduleClassesTable)
     .where(eq(scheduleClassesTable.horario, horario));
   const existingCodes = new Set(existingClasses.map(c => c.classCode));
-  let created = 0, updated = 0, skipped = 0;
+  const incomingCodes = new Set(byCode.keys());
+  let created = 0, updated = 0, skipped = 0, removed = 0;
   const parseErrors: string[] = [];
+
+  // Remove classes that are in the DB but NOT in the new Excel (full replace)
+  for (const code of existingCodes) {
+    if (!incomingCodes.has(code)) {
+      await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, code));
+      await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.classCode, code));
+      removed++;
+    }
+  }
 
   for (const [classCode, { students, sala, sede }] of byCode.entries()) {
     if (!existingCodes.has(classCode)) {
@@ -209,7 +219,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
     }
     updated++;
   }
-  return { created, updated, skipped, parseErrors };
+  return { created, updated, skipped, removed, parseErrors };
 }
 
 async function seedFromExcel(): Promise<boolean> {
