@@ -62,7 +62,7 @@ interface GridProps {
   sedeLabel: string;
 }
 
-function ScheduleGrid({ classes, sede, dayLabel, sedeLabel }: GridProps) {
+function ScheduleGrid({ classes, sede }: GridProps) {
   const numSalas = SEDE_MAX_SALAS[sede] ?? 5;
   const salas = Array.from({ length: numSalas }, (_, i) => i + 1);
 
@@ -72,147 +72,137 @@ function ScheduleGrid({ classes, sede, dayLabel, sedeLabel }: GridProps) {
     byTimeAndSala[cls.time][cls.sala] = cls;
   }
 
-  // Only rows where at least one sala has a class WITH students
-  const activeTimes = TIME_SLOTS.filter(t =>
-    salas.some(s => {
-      const c = byTimeAndSala[t]?.[s];
-      return c && c.students.length > 0;
-    })
-  );
+  // Always show all 7 time slots (including empty rows — matches reference image)
+  const rows = TIME_SLOTS;
 
-  const LABEL_H = 44;
-  const HEADER_H = 46;
-  const TIME_W = 88;
-  const COL_W = Math.floor((IMG_W - TIME_W) / numSalas);
-  const ROW_H = activeTimes.length > 0
-    ? Math.floor((IMG_H - LABEL_H - HEADER_H) / activeTimes.length)
-    : 120;
+  const HEADER_H = Math.round(IMG_H * 0.055);  // ~59px
+  const ROW_H    = Math.round((IMG_H - HEADER_H) / rows.length);
+  const TIME_W   = Math.round(IMG_W * 0.064);   // ~123px
+  const COL_W    = Math.floor((IMG_W - TIME_W) / numSalas);
 
-  const codeSize = Math.max(11, Math.min(15, Math.floor(COL_W / 14)));
-  const nameSize = Math.max(9,  Math.min(13, Math.floor(COL_W / 17)));
-  const timeSize = Math.max(10, Math.min(13, Math.floor(TIME_W / 7)));
-  const headerSize = Math.max(12, Math.min(16, Math.floor(COL_W / 12)));
+  // Font sizes scale with column width
+  const codeSize   = Math.max(12, Math.min(20, Math.floor(COL_W / 16)));
+  const nameSize   = Math.max(10, Math.min(16, Math.floor(COL_W / 21)));
+  const timeSize   = Math.max(10, Math.min(15, Math.floor(TIME_W / 9)));
+  const headerSize = Math.max(13, Math.min(20, Math.floor(COL_W / 14)));
+
+  const border      = "1px solid #c8c8c8";
+  const headerBg    = "#ffffff";
+  const timeBg      = "#f5f5f5";
+  const emptyBg     = "#ffffff";
 
   return (
-    <div
-      style={{
-        width: IMG_W,
-        height: IMG_H,
-        fontFamily: "'Arial', 'Helvetica Neue', sans-serif",
-        background: "#ffffff",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      {/* Top label bar */}
-      <div style={{
-        height: LABEL_H,
-        background: "#1f2937",
-        color: "#ffffff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: 800,
-        fontSize: 20,
-        letterSpacing: 2,
-        flexShrink: 0,
-      }}>
-        {sedeLabel.toUpperCase()} — {dayLabel.toUpperCase()}
-      </div>
+    <div style={{
+      width: IMG_W,
+      height: IMG_H,
+      fontFamily: "Arial, Helvetica, sans-serif",
+      background: "#ffffff",
+      display: "flex",
+      flexDirection: "column",
+      border: "1px solid #c8c8c8",
+      boxSizing: "border-box",
+      overflow: "hidden",
+    }}>
 
-      {/* Column headers */}
+      {/* ── Column header row ── */}
       <div style={{
-        height: HEADER_H,
         display: "flex",
-        borderBottom: "2px solid #6b7280",
+        height: HEADER_H,
         flexShrink: 0,
+        borderBottom: "1.5px solid #999",
       }}>
+        {/* blank top-left cell */}
         <div style={{
           width: TIME_W, minWidth: TIME_W, flexShrink: 0,
-          background: "#f3f4f6",
-          borderRight: "1px solid #d1d5db",
+          background: headerBg,
+          borderRight: border,
         }} />
         {salas.map((s, i) => (
           <div key={s} style={{
             width: COL_W, minWidth: COL_W, flexShrink: 0,
-            background: "#f3f4f6",
+            background: headerBg,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 700, fontSize: headerSize, color: "#111827",
-            borderRight: i < salas.length - 1 ? "1px solid #d1d5db" : undefined,
+            fontWeight: 700,
+            fontSize: headerSize,
+            color: "#111",
+            borderRight: i < salas.length - 1 ? border : undefined,
           }}>
             SALA {s}
           </div>
         ))}
       </div>
 
-      {/* Data rows */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {activeTimes.length === 0 ? (
+      {/* ── Data rows — one per TIME_SLOT ── */}
+      {rows.map((time, ri) => (
+        <div key={time} style={{
+          display: "flex",
+          height: ROW_H,
+          flexShrink: 0,
+          borderBottom: ri < rows.length - 1 ? border : undefined,
+        }}>
+          {/* Time label */}
           <div style={{
-            flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#9ca3af", fontSize: 18,
+            width: TIME_W, minWidth: TIME_W, flexShrink: 0,
+            background: timeBg,
+            borderRight: border,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: timeSize,
+            fontWeight: 600,
+            color: "#333",
+            textAlign: "center",
+            padding: "0 8px",
+            lineHeight: 1.4,
+            whiteSpace: "pre-line",
           }}>
-            Sin clases para este día
+            {time}
           </div>
-        ) : activeTimes.map((time, ri) => (
-          <div key={time} style={{
-            height: ROW_H,
-            display: "flex",
-            borderBottom: ri < activeTimes.length - 1 ? "1px solid #e5e7eb" : undefined,
-            flexShrink: 0,
-          }}>
-            {/* Time cell */}
-            <div style={{
-              width: TIME_W, minWidth: TIME_W, flexShrink: 0,
-              background: "#f9fafb",
-              borderRight: "1px solid #d1d5db",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: timeSize, fontWeight: 700, color: "#374151",
-              textAlign: "center",
-              padding: "0 4px",
-              lineHeight: 1.3,
-            }}>
-              {time.replace(" - ", "\n")}
-            </div>
 
-            {/* Sala cells */}
-            {salas.map((sala, si) => {
-              const cls = byTimeAndSala[time]?.[sala];
-              const hasStudents = cls && cls.students.length > 0;
-              const bg = hasStudents ? cellBg(cls!.course) : "#ffffff";
-              const fg = hasStudents ? cellText(cls!.course) : "#374151";
-              return (
-                <div key={sala} style={{
-                  width: COL_W, minWidth: COL_W, flexShrink: 0,
-                  background: bg,
-                  borderRight: si < salas.length - 1 ? "1px solid #e5e7eb" : undefined,
-                  padding: "6px 8px",
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                }}>
-                  {hasStudents && (
-                    <>
-                      <div style={{
-                        fontWeight: 800, fontSize: codeSize, color: fg,
-                        marginBottom: 4, lineHeight: 1.2, flexShrink: 0,
-                      }}>
-                        {cls!.classCode}
-                      </div>
-                      <div style={{ fontSize: nameSize, lineHeight: 1.45, color: fg, overflow: "hidden" }}>
-                        {cls!.students.map((s, i) => (
-                          <div key={i}>{formatName(s)}</div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+          {/* Sala cells */}
+          {salas.map((sala, si) => {
+            const cls = byTimeAndSala[time]?.[sala];
+            const hasStudents = cls && cls.students.length > 0;
+            const bg = hasStudents ? cellBg(cls!.course) : emptyBg;
+            const fg = hasStudents ? cellText(cls!.course) : "#111";
+            return (
+              <div key={sala} style={{
+                width: COL_W, minWidth: COL_W, flexShrink: 0,
+                background: bg,
+                borderRight: si < salas.length - 1 ? border : undefined,
+                padding: `${Math.round(ROW_H * 0.06)}px ${Math.round(COL_W * 0.03)}px`,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-start",
+              }}>
+                {hasStudents && (
+                  <>
+                    <div style={{
+                      fontWeight: 700,
+                      fontSize: codeSize,
+                      color: fg,
+                      marginBottom: Math.round(ROW_H * 0.03),
+                      lineHeight: 1.2,
+                      flexShrink: 0,
+                    }}>
+                      {cls!.classCode}
+                    </div>
+                    <div style={{
+                      fontSize: nameSize,
+                      lineHeight: 1.4,
+                      color: fg,
+                      overflow: "hidden",
+                    }}>
+                      {cls!.students.map((s, i) => (
+                        <div key={i}>{formatName(s)}</div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
