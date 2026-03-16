@@ -29,15 +29,15 @@ const NORMAL_CAPACITY = 7;
 const MAX_STUDENTS = 8;
 
 const COURSE_SOLID_COLORS: Record<string, string> = {
-  // Matemática → familia amarillo/ámbar (cada uno distinto)
+  // Matemática → familia amarillo (todos amarillo, distintas intensidades)
+  "MP":       "bg-yellow-200",
+  "M2":       "bg-yellow-300",
   "M1":       "bg-yellow-400",
   "M1 INT":   "bg-yellow-500",
+  "MT":       "bg-yellow-500",
   "M1 CONT":  "bg-yellow-600",
-  "M2":       "bg-amber-400",
-  "M2 INT":   "bg-amber-500",
-  "MT":       "bg-lime-600",
-  "MS":       "bg-amber-700",
-  "MP":       "bg-yellow-300",
+  "MS":       "bg-yellow-600",
+  "M2 INT":   "bg-yellow-600",
   // Lenguaje → familia rojo/rosa (cada uno distinto)
   "LN":       "bg-red-500",
   "LN INT":   "bg-red-700",
@@ -67,15 +67,15 @@ const COURSE_SOLID_COLORS: Record<string, string> = {
 };
 
 const COURSE_BADGE_COLORS: Record<string, string> = {
-  // Matemática
+  // Matemática → todos amarillo
+  "MP":       "bg-yellow-50 text-yellow-700 border-yellow-200",
+  "M2":       "bg-yellow-100 text-yellow-800 border-yellow-200",
   "M1":       "bg-yellow-100 text-yellow-800 border-yellow-200",
   "M1 INT":   "bg-yellow-200 text-yellow-900 border-yellow-300",
+  "MT":       "bg-yellow-200 text-yellow-900 border-yellow-300",
   "M1 CONT":  "bg-yellow-300 text-yellow-900 border-yellow-400",
-  "M2":       "bg-amber-100 text-amber-800 border-amber-200",
-  "M2 INT":   "bg-amber-200 text-amber-900 border-amber-300",
-  "MT":       "bg-lime-100 text-lime-800 border-lime-200",
-  "MS":       "bg-amber-100 text-amber-900 border-amber-300",
-  "MP":       "bg-yellow-50 text-yellow-700 border-yellow-200",
+  "MS":       "bg-yellow-200 text-yellow-900 border-yellow-300",
+  "M2 INT":   "bg-yellow-200 text-yellow-900 border-yellow-300",
   // Lenguaje
   "LN":       "bg-red-100 text-red-800 border-red-200",
   "LN INT":   "bg-red-200 text-red-900 border-red-300",
