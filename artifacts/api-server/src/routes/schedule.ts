@@ -209,8 +209,11 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
         continue;
       }
     } else {
-      if (sala !== null) {
-        await db.update(scheduleClassesTable).set({ sala }).where(eq(scheduleClassesTable.classCode, classCode));
+      const updates: Record<string, unknown> = {};
+      if (sala !== null) updates.sala = sala;
+      if (sede) updates.sede = sede;
+      if (Object.keys(updates).length > 0) {
+        await db.update(scheduleClassesTable).set(updates).where(eq(scheduleClassesTable.classCode, classCode));
       }
     }
     await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
