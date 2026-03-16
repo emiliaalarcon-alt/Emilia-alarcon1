@@ -117,9 +117,26 @@ function ScheduleGrid({ classes, sede }: GridProps) {
   const TIME_W   = Math.round(IMG_W * 0.064);   // ~123px
   const COL_W    = Math.floor((IMG_W - TIME_W) / numSalas);
 
-  // Font sizes scale with column width
-  const codeSize   = Math.max(12, Math.min(20, Math.floor(COL_W / 16)));
-  const nameSize   = Math.max(10, Math.min(16, Math.floor(COL_W / 21)));
+  // Maximum students in any single class — drives font size
+  const maxStudents = Math.max(
+    1,
+    ...classes.filter(c => c.students.length > 0).map(c => c.students.length)
+  );
+
+  // Vertical space budget for names inside a row cell:
+  //   ROW_H  – (top+bottom padding)  – (class-code line + gap below it)
+  const cellPad      = Math.round(ROW_H * 0.06);         // ~9px top & bottom
+  const codeSize     = Math.max(12, Math.min(20, Math.floor(COL_W / 16)));
+  const codeAreaH    = Math.ceil(codeSize * 1.25) + Math.round(ROW_H * 0.04);
+  const namesAreaH   = ROW_H - 2 * cellPad - codeAreaH;
+
+  // Line height ratio for student names — compact but readable
+  const LINE_H_RATIO = 1.28;
+  // nameSize that fits all maxStudents lines; also bounded by column width
+  const nameSizeByH  = Math.floor(namesAreaH / (maxStudents * LINE_H_RATIO));
+  const nameSizeByW  = Math.floor(COL_W / 20);
+  const nameSize     = Math.max(9, Math.min(nameSizeByH, nameSizeByW));
+
   const timeSize   = Math.max(10, Math.min(15, Math.floor(TIME_W / 9)));
   const headerSize = Math.max(13, Math.min(20, Math.floor(COL_W / 14)));
 
@@ -205,11 +222,12 @@ function ScheduleGrid({ classes, sede }: GridProps) {
                 width: COL_W, minWidth: COL_W, flexShrink: 0,
                 background: bg,
                 borderRight: si < salas.length - 1 ? border : undefined,
-                padding: `${Math.round(ROW_H * 0.06)}px ${Math.round(COL_W * 0.03)}px`,
+                padding: `${cellPad}px ${Math.round(COL_W * 0.025)}px`,
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-start",
+                boxSizing: "border-box",
               }}>
                 {hasStudents && (
                   <>
@@ -225,9 +243,8 @@ function ScheduleGrid({ classes, sede }: GridProps) {
                     </div>
                     <div style={{
                       fontSize: nameSize,
-                      lineHeight: 1.4,
+                      lineHeight: LINE_H_RATIO,
                       color: fg,
-                      overflow: "hidden",
                     }}>
                       {cls!.students.map((s, i) => (
                         <div key={i}>{formatName(s)}</div>
