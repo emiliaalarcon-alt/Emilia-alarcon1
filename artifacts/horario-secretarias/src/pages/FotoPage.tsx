@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { toPng } from "html-to-image";
 import { Camera, Download, Loader2 } from "lucide-react";
 import { DAYS, DAY_LABELS, TIME_SLOTS, type ClassEntry } from "@/data/schedule";
@@ -42,7 +42,18 @@ const SEDE_MAX_SALAS: Record<string, number> = {
   "AV. ALEMANIA":   4,
 };
 
-// ─── The actual grid component — uses pure inline styles for clean png export ─
+// ─── Show only "Primer Nombre Primer Apellido" ────────────────────────────────
+function formatName(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length <= 2) return full;
+  // Chilean naming: given1 given2 surname1 surname2 → show given1 + surname1
+  return `${parts[0]} ${parts[2]}`;
+}
+
+// ─── 16:9 schedule grid (1920×1080) for TV/screen export ─────────────────────
+const IMG_W = 1920;
+const IMG_H = 1080;
+
 interface GridProps {
   classes: ClassEntry[];
   sede: string;
@@ -51,9 +62,9 @@ interface GridProps {
   sedeLabel: string;
 }
 
-function ScheduleGrid({ classes, sede, day, dayLabel, sedeLabel }: GridProps) {
-  const maxSala = SEDE_MAX_SALAS[sede] ?? Math.max(...(classes.map(c => c.sala).concat([4])));
-  const salas = Array.from({ length: maxSala }, (_, i) => i + 1);
+function ScheduleGrid({ classes, sede, dayLabel, sedeLabel }: GridProps) {
+  const numSalas = SEDE_MAX_SALAS[sede] ?? 5;
+  const salas = Array.from({ length: numSalas }, (_, i) => i + 1);
 
   const byTimeAndSala: Record<string, Record<number, ClassEntry>> = {};
   for (const cls of classes) {
@@ -61,126 +72,147 @@ function ScheduleGrid({ classes, sede, day, dayLabel, sedeLabel }: GridProps) {
     byTimeAndSala[cls.time][cls.sala] = cls;
   }
 
-  // Only rows that have at least one active class
-  const allTimes = TIME_SLOTS.filter(t =>
-    salas.some(s => byTimeAndSala[t]?.[s])
+  // Only rows where at least one sala has a class WITH students
+  const activeTimes = TIME_SLOTS.filter(t =>
+    salas.some(s => {
+      const c = byTimeAndSala[t]?.[s];
+      return c && c.students.length > 0;
+    })
   );
 
-  const COL_W = 180;
-  const TIME_W = 95;
-  const ROW_H = 120;
-  const HEADER_H = 42;
-  const totalW = TIME_W + salas.length * COL_W;
-  const totalH = HEADER_H + allTimes.length * ROW_H;
+  const LABEL_H = 44;
+  const HEADER_H = 46;
+  const TIME_W = 88;
+  const COL_W = Math.floor((IMG_W - TIME_W) / numSalas);
+  const ROW_H = activeTimes.length > 0
+    ? Math.floor((IMG_H - LABEL_H - HEADER_H) / activeTimes.length)
+    : 120;
+
+  const codeSize = Math.max(11, Math.min(15, Math.floor(COL_W / 14)));
+  const nameSize = Math.max(9,  Math.min(13, Math.floor(COL_W / 17)));
+  const timeSize = Math.max(10, Math.min(13, Math.floor(TIME_W / 7)));
+  const headerSize = Math.max(12, Math.min(16, Math.floor(COL_W / 12)));
 
   return (
     <div
       style={{
-        width: totalW,
-        fontFamily: "'Arial', sans-serif",
-        fontSize: 12,
-        color: "#111",
-        border: "1px solid #d1d5db",
-        borderRadius: 4,
+        width: IMG_W,
+        height: IMG_H,
+        fontFamily: "'Arial', 'Helvetica Neue', sans-serif",
+        background: "#ffffff",
+        display: "flex",
+        flexDirection: "column",
         overflow: "hidden",
-        background: "#fff",
       }}
     >
-      {/* Top label */}
+      {/* Top label bar */}
       <div style={{
-        background: "#374151",
-        color: "#fff",
-        textAlign: "center",
-        padding: "6px 0",
-        fontWeight: 700,
-        fontSize: 14,
-        letterSpacing: 1,
+        height: LABEL_H,
+        background: "#1f2937",
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 800,
+        fontSize: 20,
+        letterSpacing: 2,
+        flexShrink: 0,
       }}>
-        {sedeLabel} — {dayLabel}
+        {sedeLabel.toUpperCase()} — {dayLabel.toUpperCase()}
       </div>
 
-      {/* Header row */}
-      <div style={{ display: "flex", height: HEADER_H, borderBottom: "2px solid #9ca3af" }}>
+      {/* Column headers */}
+      <div style={{
+        height: HEADER_H,
+        display: "flex",
+        borderBottom: "2px solid #6b7280",
+        flexShrink: 0,
+      }}>
         <div style={{
           width: TIME_W, minWidth: TIME_W, flexShrink: 0,
-          background: "#f9fafb",
+          background: "#f3f4f6",
           borderRight: "1px solid #d1d5db",
         }} />
-        {salas.map(s => (
-          <div
-            key={s}
-            style={{
-              flex: 1, minWidth: COL_W,
-              background: "#f9fafb",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: 13, color: "#374151",
-              borderRight: s < salas[salas.length - 1] ? "1px solid #d1d5db" : undefined,
-            }}
-          >
+        {salas.map((s, i) => (
+          <div key={s} style={{
+            width: COL_W, minWidth: COL_W, flexShrink: 0,
+            background: "#f3f4f6",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontWeight: 700, fontSize: headerSize, color: "#111827",
+            borderRight: i < salas.length - 1 ? "1px solid #d1d5db" : undefined,
+          }}>
             SALA {s}
           </div>
         ))}
       </div>
 
-      {/* Rows */}
-      {allTimes.map((time, ri) => (
-        <div
-          key={time}
-          style={{
-            display: "flex",
-            height: ROW_H,
-            borderBottom: ri < allTimes.length - 1 ? "1px solid #e5e7eb" : undefined,
-          }}
-        >
-          {/* Time cell */}
+      {/* Data rows */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {activeTimes.length === 0 ? (
           <div style={{
-            width: TIME_W, minWidth: TIME_W, flexShrink: 0,
-            background: "#f9fafb",
-            borderRight: "1px solid #d1d5db",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontWeight: 600, color: "#6b7280",
-            textAlign: "center",
-            padding: "0 4px",
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#9ca3af", fontSize: 18,
           }}>
-            {time}
+            Sin clases para este día
           </div>
+        ) : activeTimes.map((time, ri) => (
+          <div key={time} style={{
+            height: ROW_H,
+            display: "flex",
+            borderBottom: ri < activeTimes.length - 1 ? "1px solid #e5e7eb" : undefined,
+            flexShrink: 0,
+          }}>
+            {/* Time cell */}
+            <div style={{
+              width: TIME_W, minWidth: TIME_W, flexShrink: 0,
+              background: "#f9fafb",
+              borderRight: "1px solid #d1d5db",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: timeSize, fontWeight: 700, color: "#374151",
+              textAlign: "center",
+              padding: "0 4px",
+              lineHeight: 1.3,
+            }}>
+              {time.replace(" - ", "\n")}
+            </div>
 
-          {/* Sala cells */}
-          {salas.map(sala => {
-            const cls = byTimeAndSala[time]?.[sala];
-            const bg = cls ? cellBg(cls.course) : "#ffffff";
-            const fg = cls ? cellText(cls.course) : "#374151";
-            return (
-              <div
-                key={sala}
-                style={{
-                  flex: 1, minWidth: COL_W,
+            {/* Sala cells */}
+            {salas.map((sala, si) => {
+              const cls = byTimeAndSala[time]?.[sala];
+              const hasStudents = cls && cls.students.length > 0;
+              const bg = hasStudents ? cellBg(cls!.course) : "#ffffff";
+              const fg = hasStudents ? cellText(cls!.course) : "#374151";
+              return (
+                <div key={sala} style={{
+                  width: COL_W, minWidth: COL_W, flexShrink: 0,
                   background: bg,
-                  borderRight: sala < salas[salas.length - 1] ? "1px solid #e5e7eb" : undefined,
+                  borderRight: si < salas.length - 1 ? "1px solid #e5e7eb" : undefined,
                   padding: "6px 8px",
                   overflow: "hidden",
-                }}
-              >
-                {cls && (
-                  <>
-                    <div style={{
-                      fontWeight: 700, fontSize: 12, color: fg,
-                      marginBottom: 3, lineHeight: 1.2,
-                    }}>
-                      {cls.classCode}
-                    </div>
-                    <div style={{ fontSize: 10, lineHeight: 1.4, color: fg }}>
-                      {cls.students.map((s, i) => (
-                        <div key={i}>{s}</div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+                  display: "flex",
+                  flexDirection: "column",
+                }}>
+                  {hasStudents && (
+                    <>
+                      <div style={{
+                        fontWeight: 800, fontSize: codeSize, color: fg,
+                        marginBottom: 4, lineHeight: 1.2, flexShrink: 0,
+                      }}>
+                        {cls!.classCode}
+                      </div>
+                      <div style={{ fontSize: nameSize, lineHeight: 1.45, color: fg, overflow: "hidden" }}>
+                        {cls!.students.map((s, i) => (
+                          <div key={i}>{formatName(s)}</div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -193,6 +225,38 @@ const SEDE_LABELS: Record<string, string> = {
   "VILLARRICA": "Villarrica",
   "AV. ALEMANIA": "Av. Alemania",
 };
+
+// ─── Responsive preview wrapper: scales 1920×1080 to fit any screen width ────
+function PreviewWrapper({ children }: { children: ReactNode }) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setScale(entry.contentRect.width / IMG_W);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={outerRef}
+      style={{ width: "100%", aspectRatio: "16 / 9", overflow: "hidden", position: "relative" }}
+    >
+      <div style={{
+        position: "absolute", top: 0, left: 0,
+        width: IMG_W, height: IMG_H,
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function FotoPage() {
@@ -232,10 +296,12 @@ export default function FotoPage() {
     if (!el) return;
     setDownloading(key);
     try {
+      // Grid is already 1920×1080 — capture at 1:1, no scaling needed
       const dataUrl = await toPng(el, {
-        pixelRatio: 2,
+        pixelRatio: 1,
         backgroundColor: "#ffffff",
-        quality: 1,
+        width: IMG_W,
+        height: IMG_H,
       });
       const link = document.createElement("a");
       link.download = `${(SEDE_LABELS[sede] ?? sede).replace(/\s+/g, "_")}_${DAY_LABELS[day]}.png`;
@@ -331,20 +397,19 @@ export default function FotoPage() {
                   </button>
                 </div>
 
-                {/* Scroll wrapper for preview */}
-                <div className="overflow-x-auto rounded-2xl border border-border/50 shadow-xl shadow-black/5">
-                  <div
-                    ref={el => { gridRefs.current[key] = el; }}
-                    style={{ display: "inline-block" }}
-                  >
-                    <ScheduleGrid
-                      classes={sedeClasses}
-                      sede={sede}
-                      day={selectedDay}
-                      dayLabel={DAY_LABELS[selectedDay]}
-                      sedeLabel={SEDE_LABELS[sede] ?? sede}
-                    />
-                  </div>
+                {/* 16:9 scaled preview — scales 1920×1080 to fit browser width */}
+                <div className="rounded-2xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
+                  <PreviewWrapper>
+                    <div ref={el => { gridRefs.current[key] = el; }}>
+                      <ScheduleGrid
+                        classes={sedeClasses}
+                        sede={sede}
+                        day={selectedDay}
+                        dayLabel={DAY_LABELS[selectedDay]}
+                        sedeLabel={SEDE_LABELS[sede] ?? sede}
+                      />
+                    </div>
+                  </PreviewWrapper>
                 </div>
               </div>
             );
