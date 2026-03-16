@@ -1193,10 +1193,21 @@ export default function HorarioPage() {
                           {visibleDays.map((day) =>
                             Array.from({ length: salasPerDay[day] || 1 }, (_, i) => {
                               const entries = getEntries(day, time, i + 1);
+                              const isConflict = entries.length > 1;
                               return (
-                                <td key={`${day}-${i}`} className={`border border-border p-0 align-top w-[110px] min-w-[110px] ${i === 0 ? "border-l-2 border-l-gray-900" : ""}`}>
+                                <td key={`${day}-${i}`} className={`p-0 align-top w-[110px] min-w-[110px] ${
+                                  isConflict
+                                    ? "border-2 border-red-500 bg-red-50"
+                                    : `border border-border ${i === 0 ? "border-l-2 border-l-gray-900" : ""}`
+                                }`}>
                                   {entries.length > 0 ? (
-                                    <div className={entries.length > 1 ? "flex flex-col gap-0.5" : ""}>
+                                    <div className={isConflict ? "flex flex-col gap-0.5" : ""}>
+                                      {isConflict && (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold leading-none">
+                                          <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                                          CONFLICTO DE SALA
+                                        </div>
+                                      )}
                                       {entries.map((entry) => (
                                         <ClassCell
                                           key={entry.classCode}
