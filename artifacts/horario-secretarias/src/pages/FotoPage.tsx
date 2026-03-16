@@ -33,6 +33,15 @@ const COURSE_TEXT: Record<string, string> = {
 function cellBg(course: string) { return COURSE_BG[course] ?? "#f8fafc"; }
 function cellText(course: string) { return COURSE_TEXT[course] ?? "#1e293b"; }
 
+// ─── Fixed sala count per sede ────────────────────────────────────────────────
+const SEDE_MAX_SALAS: Record<string, number> = {
+  "INES DE SUAREZ": 5,
+  "LAS ENCINAS":    7,
+  "D. ALMAGRO":     6,
+  "VILLARRICA":     4,
+  "AV. ALEMANIA":   4,
+};
+
 // ─── The actual grid component — uses pure inline styles for clean png export ─
 interface GridProps {
   classes: ClassEntry[];
@@ -42,8 +51,8 @@ interface GridProps {
   sedeLabel: string;
 }
 
-function ScheduleGrid({ classes, day, dayLabel, sedeLabel }: GridProps) {
-  const maxSala = classes.length > 0 ? Math.max(...classes.map(c => c.sala)) : 5;
+function ScheduleGrid({ classes, sede, day, dayLabel, sedeLabel }: GridProps) {
+  const maxSala = SEDE_MAX_SALAS[sede] ?? Math.max(...(classes.map(c => c.sala).concat([4])));
   const salas = Array.from({ length: maxSala }, (_, i) => i + 1);
 
   const byTimeAndSala: Record<string, Record<number, ClassEntry>> = {};
@@ -52,10 +61,10 @@ function ScheduleGrid({ classes, day, dayLabel, sedeLabel }: GridProps) {
     byTimeAndSala[cls.time][cls.sala] = cls;
   }
 
-  const activeTimes = TIME_SLOTS.filter(t =>
+  // Only rows that have at least one active class
+  const allTimes = TIME_SLOTS.filter(t =>
     salas.some(s => byTimeAndSala[t]?.[s])
   );
-  const allTimes = activeTimes.length > 0 ? activeTimes : TIME_SLOTS;
 
   const COL_W = 180;
   const TIME_W = 95;
