@@ -84,8 +84,14 @@ const SEDE_MAX_SALAS: Record<string, number> = {
 function formatName(full: string): string {
   const parts = full.trim().split(/\s+/);
   if (parts.length <= 2) return full;
-  // Chilean naming: given1 given2 surname1 surname2 → show given1 + surname1
-  return `${parts[0]} ${parts[2]}`;
+  // Chilean naming: Nombre1 [Nombre2 [N3...]] Apellido1 Apellido2
+  // primer nombre = parts[0]
+  // primer apellido:
+  //   3 parts (N1 N2 A1)          → last word  = parts[2]
+  //   4 parts (N1 N2 A1 A2)       → parts[2]   (= length-2) ✓
+  //   5 parts (N1 N2 N3 A1 A2)    → parts[3]   (= length-2) ✓
+  const surnameIdx = parts.length === 3 ? 2 : parts.length - 2;
+  return `${parts[0]} ${parts[surnameIdx]}`;
 }
 
 // ─── 16:9 schedule grid (1920×1080) for TV/screen export ─────────────────────
