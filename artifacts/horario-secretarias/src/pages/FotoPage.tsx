@@ -144,9 +144,7 @@ function ScheduleGrid({ classes, sede }: GridProps) {
   const totalCodeH = (codeLineH + codeGap) * maxClassesInCell;
   const namesAreaH = ROW_H - 2 * cellPad - totalCodeH - sepH;
 
-  const nameSizeByH = Math.floor(namesAreaH / (maxTotalStudents * LINE_H_RATIO));
-  const nameSizeByW = Math.floor(COL_W / 20);
-  const nameSize    = Math.max(8, Math.min(nameSizeByH, nameSizeByW));
+  const nameSizeByW = Math.floor(COL_W / 18);
 
   const timeSize   = Math.max(10, Math.min(15, Math.floor(TIME_W / 9)));
   const headerSize = Math.max(13, Math.min(20, Math.floor(COL_W / 14)));
@@ -253,7 +251,10 @@ function ScheduleGrid({ classes, sede }: GridProps) {
                       }}>
                         {cls.classCode}
                       </div>
-                      <div style={{ fontSize: nameSize, lineHeight: LINE_H_RATIO, color: fg }}>
+                      <div style={{ fontSize: Math.max(11, Math.min(
+                          Math.floor(namesAreaH / (active.reduce((s, c) => s + c.students.length, 0) * LINE_H_RATIO || 1)),
+                          nameSizeByW
+                        )), lineHeight: LINE_H_RATIO, color: fg }}>
                         {cls.students.map((s, i) => (
                           <div key={i}>{formatName(s)}</div>
                         ))}

@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   Plus, Trash2, RefreshCw, AlertTriangle, BookOpen,
   Search, X, CheckCircle, ChevronDown, Upload, FileSpreadsheet,
+  Pencil, Check,
 } from "lucide-react";
 import {
   DAYS, DAY_LABELS, TIME_SLOTS, COURSE_FULL_NAMES,
@@ -81,6 +82,17 @@ async function apiCreateClass(data: {
   return res.json();
 }
 
+async function apiUpdateClass(classCode: string, data: {
+  course?: string; day?: string; time?: string; teacher?: string; sede?: string; sala?: number;
+}) {
+  const res = await fetch(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
 async function apiDeleteClass(classCode: string) {
   const res = await fetch(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
     method: "DELETE",
@@ -124,6 +136,11 @@ export default function AdminPage() {
   const [importError, setImportError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingCode, setEditingCode] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ ...emptyForm, sede: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -230,6 +247,53 @@ export default function AdminPage() {
       fetchData();
     } finally {
       setDeletingCode(null);
+    }
+  }
+
+  function handleStartEdit(entry: ClassEntry) {
+    if (editingCode === entry.classCode) {
+      setEditingCode(null);
+      return;
+    }
+    setEditForm({
+      sede: entry.sede,
+      course: entry.course,
+      day: entry.day,
+      time: entry.time,
+      sala: String(entry.sala),
+      teacher: entry.teacher,
+    });
+    setEditError("");
+    setEditingCode(entry.classCode);
+  }
+
+  async function handleSaveEdit() {
+    if (!editingCode) return;
+    if (!editForm.course || !editForm.day || !editForm.time || !editForm.teacher || !editForm.sala) {
+      setEditError("Completa todos los campos.");
+      return;
+    }
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      const result = await apiUpdateClass(editingCode, {
+        course: editForm.course,
+        day: editForm.day,
+        time: editForm.time,
+        teacher: editForm.teacher,
+        sede: editForm.sede,
+        sala: Number(editForm.sala),
+      });
+      if (result.error) {
+        setEditError(result.error);
+      } else {
+        setEditingCode(null);
+        fetchData();
+      }
+    } catch {
+      setEditError("Error de conexión.");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -671,8 +735,10 @@ export default function AdminPage() {
                       {filteredList.map(entry => {
                         const badge = COURSE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
                         const isDeleting = deletingCode === entry.classCode;
+                        const isEditing = editingCode === entry.classCode;
                         return (
-                          <tr key={entry.classCode} className={`hover:bg-muted/30 transition-colors ${isDeleting ? "opacity-40" : ""}`}>
+                          <React.Fragment key={entry.classCode}>
+                          <tr className={`hover:bg-muted/30 transition-colors ${isDeleting ? "opacity-40" : ""} ${isEditing ? "bg-primary/5" : ""}`}>
                             <td className="px-4 py-3">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border ${badge}`}>
                                 {entry.course}
@@ -680,7 +746,7 @@ export default function AdminPage() {
                               <div className="text-xs text-muted-foreground mt-0.5 font-mono">{entry.classCode}</div>
                             </td>
                             <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                              {entry.sede === "INES DE SUAREZ" ? "Inés de Suárez" : "Las Encinas"}
+                              {displaySede(entry.sede)}
                             </td>
                             <td className="px-3 py-3 text-xs font-medium text-foreground whitespace-nowrap">
                               {DAY_LABELS[entry.day] ?? entry.day}
@@ -693,19 +759,99 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td className="px-3 py-3 text-right">
-                              <button
-                                onClick={() => handleDelete(entry.classCode)}
-                                disabled={isDeleting}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
-                                title="Eliminar clase"
-                              >
-                                {isDeleting
-                                  ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                  : <Trash2 className="w-3.5 h-3.5" />
-                                }
-                              </button>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => handleStartEdit(entry)}
+                                  disabled={isDeleting}
+                                  className={`p-1.5 rounded-lg transition-colors disabled:opacity-40 ${isEditing ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
+                                  title="Editar clase"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(entry.classCode)}
+                                  disabled={isDeleting}
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+                                  title="Eliminar clase"
+                                >
+                                  {isDeleting
+                                    ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    : <Trash2 className="w-3.5 h-3.5" />
+                                  }
+                                </button>
+                              </div>
                             </td>
                           </tr>
+                          {isEditing && (
+                            <tr className="bg-primary/5 border-b border-primary/20">
+                              <td colSpan={7} className="px-4 py-3">
+                                <div className="flex flex-wrap gap-2 items-end">
+                                  {horario.sedes.length > 1 && (
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sede</label>
+                                      <select value={editForm.sede} onChange={e => setEditForm(f => ({ ...f, sede: e.target.value }))}
+                                        className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
+                                        {horario.sedes.map(s => <option key={s} value={s}>{displaySede(s)}</option>)}
+                                      </select>
+                                    </div>
+                                  )}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Curso</label>
+                                    <select value={editForm.course} onChange={e => setEditForm(f => ({ ...f, course: e.target.value }))}
+                                      className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
+                                      <option value="">Curso...</option>
+                                      {COURSES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Día</label>
+                                    <select value={editForm.day} onChange={e => setEditForm(f => ({ ...f, day: e.target.value }))}
+                                      className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
+                                      <option value="">Día...</option>
+                                      {DAYS.map(d => <option key={d} value={d}>{DAY_LABELS[d]}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Horario</label>
+                                    <select value={editForm.time} onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))}
+                                      className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
+                                      <option value="">Horario...</option>
+                                      {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sala</label>
+                                    <input type="number" min={1} max={10} value={editForm.sala}
+                                      onChange={e => setEditForm(f => ({ ...f, sala: e.target.value }))}
+                                      className="w-16 px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Prof.</label>
+                                    <input type="text" value={editForm.teacher} maxLength={4}
+                                      onChange={e => setEditForm(f => ({ ...f, teacher: e.target.value.toUpperCase() }))}
+                                      className="w-16 px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase" />
+                                  </div>
+                                  <div className="flex gap-1 ml-1">
+                                    <button onClick={handleSaveEdit} disabled={savingEdit}
+                                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-60">
+                                      {savingEdit ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                      Guardar
+                                    </button>
+                                    <button onClick={() => setEditingCode(null)}
+                                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors">
+                                      <X className="w-3 h-3" /> Cancelar
+                                    </button>
+                                  </div>
+                                  {editError && (
+                                    <div className="w-full text-xs text-destructive font-medium flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3" /> {editError}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         );
                       })}
                     </tbody>

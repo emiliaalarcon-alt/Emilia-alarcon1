@@ -529,18 +529,52 @@ router.post("/schedule/classes", async (req, res) => {
   }
 });
 
-// PATCH /api/schedule/classes/:classCode — update sala (or other fields)
+// PATCH /api/schedule/classes/:classCode — update one or more fields
 router.patch("/schedule/classes/:classCode", async (req, res) => {
   try {
-    const classCode = decodeURIComponent(req.params.classCode);
-    const { sala } = req.body;
-    if (sala === undefined) return res.status(400).json({ error: "Campo 'sala' requerido" });
-    const salaNum = Number(sala);
-    if (!Number.isInteger(salaNum) || salaNum < 1) return res.status(400).json({ error: "Sala inválida" });
+    const oldCode = decodeURIComponent(req.params.classCode);
+    const { sala, course, day, time, teacher, sede } = req.body as {
+      sala?: number; course?: string; day?: string; time?: string; teacher?: string; sede?: string;
+    };
+
+    // Fetch existing class
+    const existing = await db.select().from(scheduleClassesTable)
+      .where(eq(scheduleClassesTable.classCode, oldCode)).limit(1);
+    if (!existing.length) return res.status(404).json({ error: "Clase no encontrada" });
+    const cls = existing[0];
+
+    const newCourse  = course  ?? cls.course;
+    const newDay     = day     ?? cls.day;
+    const newTime    = time    ?? cls.time;
+    const newTeacher = teacher ?? cls.teacher;
+    const newSede    = sede    ?? cls.sede;
+    const newSala    = sala !== undefined ? Number(sala) : cls.sala;
+
+    if (!Number.isInteger(newSala) || newSala < 1) {
+      return res.status(400).json({ error: "Sala inválida" });
+    }
+
+    // Rebuild classCode if identity fields changed
+    const DAY_SHORT: Record<string, string> = {
+      LUNES: "LUN", MARTES: "MAR", MIERCOLES: "MIE", JUEVES: "JUE", VIERNES: "VIE",
+    };
+    const dayShort  = DAY_SHORT[newDay] ?? newDay.slice(0, 3);
+    const timeShort = newTime.split(/[\s\-–]+/)[0].replace(":", ".");
+    const newCode   = `${newCourse} ${dayShort} ${timeShort} ${newTeacher}`.toUpperCase();
+
+    // If classCode changes, update students table too
+    if (newCode !== oldCode) {
+      await db.update(scheduleStudentsTable)
+        .set({ classCode: newCode })
+        .where(eq(scheduleStudentsTable.classCode, oldCode));
+    }
+
     await db.update(scheduleClassesTable)
-      .set({ sala: salaNum })
-      .where(eq(scheduleClassesTable.classCode, classCode));
-    res.json({ ok: true, classCode, sala: salaNum });
+      .set({ classCode: newCode, course: newCourse, day: newDay, time: newTime,
+             teacher: newTeacher, sede: newSede, sala: newSala })
+      .where(eq(scheduleClassesTable.classCode, oldCode));
+
+    res.json({ ok: true, classCode: newCode });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });
