@@ -81,17 +81,39 @@ const SEDE_MAX_SALAS: Record<string, number> = {
 };
 
 // ─── Show only "Primer Nombre Primer Apellido" ────────────────────────────────
+// Spanish/Chilean surname particles (always lowercase in proper writing)
+const SURNAME_PARTICLES = new Set([
+  "de", "del", "la", "las", "los", "el",
+  "san", "santa", "da", "das", "do", "dos", "von", "van",
+]);
+
 function formatName(full: string): string {
   const parts = full.trim().split(/\s+/);
   if (parts.length <= 2) return full;
-  // Chilean naming: Nombre1 [Nombre2 [N3...]] Apellido1 Apellido2
-  // primer nombre = parts[0]
-  // primer apellido:
-  //   3 parts (N1 N2 A1)          → last word  = parts[2]
-  //   4 parts (N1 N2 A1 A2)       → parts[2]   (= length-2) ✓
-  //   5 parts (N1 N2 N3 A1 A2)    → parts[3]   (= length-2) ✓
-  const surnameIdx = parts.length === 3 ? 2 : parts.length - 2;
-  return `${parts[0]} ${parts[surnameIdx]}`;
+
+  // Special case: 3 words — assume N1 N2 A1 (most common in Chilean school data)
+  if (parts.length === 3) return `${parts[0]} ${parts[2]}`;
+
+  // 4+ words: Chilean naming is Nombre1 [Nombre2 [N3...]] Apellido1 [Apellido2]
+  // The LAST word is apellido materno (second surname), everything before is primer apellido.
+  // Primer apellido may be compound (De La Cruz, San Martín).
+  // Strategy: work BACKWARDS from parts[length-2] collecting any surname particles
+  // that precede it, stopping when we hit a non-particle word (a given name).
+  const apellidoMaternoIdx = parts.length - 1;    // last word = 2nd surname
+  let surnameStart = apellidoMaternoIdx - 1;       // start = 1st surname (may be compound)
+
+  // Walk left collecting particles that belong to the compound primer apellido
+  while (
+    surnameStart > 1 &&
+    SURNAME_PARTICLES.has(parts[surnameStart - 1].toLowerCase())
+  ) {
+    surnameStart--;
+  }
+  // Never eat the primer nombre (index 0)
+  surnameStart = Math.max(surnameStart, 1);
+
+  const primerApellido = parts.slice(surnameStart, apellidoMaternoIdx).join(" ");
+  return `${parts[0]} ${primerApellido}`;
 }
 
 // ─── 16:9 schedule grid (1920×1080) for TV/screen export ─────────────────────
@@ -126,15 +148,11 @@ function ScheduleGrid({ classes, sede }: GridProps) {
   const TIME_W   = Math.round(IMG_W * 0.064);
   const COL_W    = Math.floor((IMG_W - TIME_W) / numSalas);
 
-  // Find the busiest cell: max total students + max classes in a single cell
-  // This drives global font sizing so every cell fits without overflow
-  let maxTotalStudents = 1;
+  // Find max classes in a single cell (needed for separator + code header height)
   let maxClassesInCell = 1;
   for (const salaMap of Object.values(byTimeAndSala)) {
     for (const clsArr of Object.values(salaMap)) {
       const active = clsArr.filter(c => c.students.length > 0);
-      const total  = active.reduce((s, c) => s + c.students.length, 0);
-      maxTotalStudents = Math.max(maxTotalStudents, total);
       maxClassesInCell = Math.max(maxClassesInCell, active.length);
     }
   }
@@ -150,7 +168,12 @@ function ScheduleGrid({ classes, sede }: GridProps) {
   const totalCodeH = (codeLineH + codeGap) * maxClassesInCell;
   const namesAreaH = ROW_H - 2 * cellPad - totalCodeH - sepH;
 
+  // Global uniform name size — use 7 (normal capacity) as baseline so all cells
+  // look consistent regardless of how many students are actually in each cell.
+  const SIZING_STUDENTS = 7;
+  const nameSizeByH = Math.floor(namesAreaH / (SIZING_STUDENTS * LINE_H_RATIO));
   const nameSizeByW = Math.floor(COL_W / 18);
+  const nameSize    = Math.max(10, Math.min(nameSizeByH, nameSizeByW));
 
   const timeSize   = Math.max(10, Math.min(15, Math.floor(TIME_W / 9)));
   const headerSize = Math.max(13, Math.min(20, Math.floor(COL_W / 14)));
@@ -257,10 +280,7 @@ function ScheduleGrid({ classes, sede }: GridProps) {
                       }}>
                         {cls.classCode}
                       </div>
-                      <div style={{ fontSize: Math.max(11, Math.min(
-                          Math.floor(namesAreaH / (active.reduce((s, c) => s + c.students.length, 0) * LINE_H_RATIO || 1)),
-                          nameSizeByW
-                        )), lineHeight: LINE_H_RATIO, color: fg }}>
+                      <div style={{ fontSize: nameSize, lineHeight: LINE_H_RATIO, color: fg }}>
                         {cls.students.map((s, i) => (
                           <div key={i}>{formatName(s)}</div>
                         ))}
