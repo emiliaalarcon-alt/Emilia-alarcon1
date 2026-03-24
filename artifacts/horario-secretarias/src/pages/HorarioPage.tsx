@@ -207,7 +207,7 @@ function ClassCell({
         </div>
         <ul>
           {entry.students.slice(0, MAX_STUDENTS).map((s, i) => (
-            <li key={i} className={`text-[11px] leading-[17px] truncate rounded px-0.5 ${
+            <li key={i} className={`text-[12px] leading-[18px] truncate rounded px-0.5 ${
               i >= NORMAL_CAPACITY
                 ? "bg-amber-200 text-amber-900 font-semibold"
                 : "text-foreground"
@@ -216,12 +216,12 @@ function ClassCell({
             </li>
           ))}
           {count > MAX_STUDENTS && (
-            <li className="text-[11px] text-amber-700 font-semibold leading-[17px] bg-amber-100 rounded px-0.5">
+            <li className="text-[12px] text-amber-700 font-semibold leading-[18px] bg-amber-100 rounded px-0.5">
               +{count - MAX_STUDENTS} más...
             </li>
           )}
           {Array.from({ length: Math.max(0, MAX_STUDENTS - count) }).map((_, i) => (
-            <li key={`empty-${i}`} className="text-[11px] text-muted-foreground/30 leading-[17px]">
+            <li key={`empty-${i}`} className="text-[12px] text-muted-foreground/30 leading-[18px]">
               —
             </li>
           ))}
