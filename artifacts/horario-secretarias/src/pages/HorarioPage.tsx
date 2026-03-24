@@ -189,7 +189,7 @@ function ClassCell({
     >
       <div className="p-1.5">
         <div className="flex items-start justify-between gap-1 mb-1">
-          <span className={`${solidBg} text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-tight`}>
+          <span className={`${solidBg} text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md leading-tight`}>
             {entry.classCode}
           </span>
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md leading-tight shrink-0 ${
@@ -207,7 +207,7 @@ function ClassCell({
         </div>
         <ul>
           {entry.students.slice(0, MAX_STUDENTS).map((s, i) => (
-            <li key={i} className={`text-[10px] leading-4 truncate rounded px-0.5 ${
+            <li key={i} className={`text-[11px] leading-[17px] truncate rounded px-0.5 ${
               i >= NORMAL_CAPACITY
                 ? "bg-amber-200 text-amber-900 font-semibold"
                 : "text-foreground"
@@ -216,12 +216,12 @@ function ClassCell({
             </li>
           ))}
           {count > MAX_STUDENTS && (
-            <li className="text-[10px] text-amber-700 font-semibold leading-4 bg-amber-100 rounded px-0.5">
+            <li className="text-[11px] text-amber-700 font-semibold leading-[17px] bg-amber-100 rounded px-0.5">
               +{count - MAX_STUDENTS} más...
             </li>
           )}
           {Array.from({ length: Math.max(0, MAX_STUDENTS - count) }).map((_, i) => (
-            <li key={`empty-${i}`} className="text-[10px] text-muted-foreground/30 leading-4">
+            <li key={`empty-${i}`} className="text-[11px] text-muted-foreground/30 leading-[17px]">
               —
             </li>
           ))}
