@@ -91,29 +91,42 @@ function formatName(full: string): string {
   const parts = full.trim().split(/\s+/);
   if (parts.length <= 2) return full;
 
-  // Special case: 3 words — assume N1 N2 A1 (most common in Chilean school data)
-  if (parts.length === 3) return `${parts[0]} ${parts[2]}`;
+  // 3 words: N1 A1 A2  →  show "N1 A1"
+  if (parts.length === 3) return `${parts[0]} ${parts[1]}`;
 
-  // 4+ words: Chilean naming is Nombre1 [Nombre2 [N3...]] Apellido1 [Apellido2]
-  // The LAST word is apellido materno (second surname), everything before is primer apellido.
-  // Primer apellido may be compound (De La Cruz, San Martín).
-  // Strategy: work BACKWARDS from parts[length-2] collecting any surname particles
-  // that precede it, stopping when we hit a non-particle word (a given name).
-  const apellidoMaternoIdx = parts.length - 1;    // last word = 2nd surname
-  let surnameStart = apellidoMaternoIdx - 1;       // start = 1st surname (may be compound)
+  // 4+ words: Chilean naming is N1 [N2 [N3…]] A1[compound] A2[compound]
+  //
+  // Key insight: BOTH apellidos can be compound (e.g. "San Martín", "De La Cruz").
+  // We cannot walk backwards from parts[length-2] to find A1 because that would
+  // absorb the particles of a compound A2 into A1 instead.
+  //
+  // Correct algorithm:
+  //  1. Find where A2 starts: walk LEFT from the last word collecting any particles
+  //     that precede it (those particles belong to A2, not A1).
+  //  2. A1 = everything between "end of given names" and "start of A2".
+  //  3. Given names end at index 1 unless parts[1] is itself a particle (1-given-name case).
 
-  // Walk left collecting particles that belong to the compound primer apellido
+  // Step 1: find apellido materno start (may be compound)
+  let a2Start = parts.length - 1;
   while (
-    surnameStart > 1 &&
-    SURNAME_PARTICLES.has(parts[surnameStart - 1].toLowerCase())
+    a2Start > 2 &&
+    SURNAME_PARTICLES.has(parts[a2Start - 1].toLowerCase())
   ) {
-    surnameStart--;
+    a2Start--;
   }
-  // Never eat the primer nombre (index 0)
-  surnameStart = Math.max(surnameStart, 1);
 
-  const primerApellido = parts.slice(surnameStart, apellidoMaternoIdx).join(" ");
-  return `${parts[0]} ${primerApellido}`;
+  // Step 2: where given names end (1 or 2 names)
+  const givenEnd = SURNAME_PARTICLES.has(parts[1].toLowerCase()) ? 1 : 2;
+
+  // Step 3: primer apellido (A1) = words between givenEnd and a2Start
+  const primerApellidoWords = parts.slice(givenEnd, a2Start);
+
+  if (primerApellidoWords.length === 0) {
+    // Edge: entire name is one block — just show first + last
+    return `${parts[0]} ${parts[parts.length - 1]}`;
+  }
+
+  return `${parts[0]} ${primerApellidoWords.join(" ")}`;
 }
 
 // ─── 16:9 schedule grid (1920×1080) for TV/screen export ─────────────────────
