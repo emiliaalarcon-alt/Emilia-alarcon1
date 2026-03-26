@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Minus, Trash2, RefreshCw, Pencil, Check } from "lucide-react";
+import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Minus, Trash2, RefreshCw, Pencil, Check, Bell, BellOff } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import {
   DAYS,
@@ -699,6 +699,23 @@ export default function HorarioPage() {
   const zoomIn  = () => setGridZoom(z => Math.min(z + 10, 150));
   const zoomOut = () => setGridZoom(z => Math.max(z - 10, 50));
 
+  // ── Notificaciones activadas/desactivadas por sede (persiste en localStorage) ─
+  const [notifsEnabledBySede, setNotifsEnabledBySede] = useState<Record<string, boolean>>(() => {
+    const result: Record<string, boolean> = {};
+    for (const sede of horario.sedes) {
+      result[sede] = localStorage.getItem(`notif-enabled:${horarioId}:${sede}`) !== "0";
+    }
+    return result;
+  });
+
+  const notifsEnabled = notifsEnabledBySede[activeSede] ?? true;
+
+  function toggleNotifs() {
+    const newVal = !notifsEnabled;
+    localStorage.setItem(`notif-enabled:${horarioId}:${activeSede}`, newVal ? "1" : "0");
+    setNotifsEnabledBySede(prev => ({ ...prev, [activeSede]: newVal }));
+  }
+
   useEffect(() => {
     setActiveSede(horario.sedes[0]);
     setSelectedEntry(null);
@@ -709,10 +726,14 @@ export default function HorarioPage() {
   // ── Suscripción SSE a notificaciones por sede ───────────────────────────────
   useEffect(() => {
     if (!activeSede) return;
-    subscribeToSede(horarioId, activeSede);
     sessionStorage.setItem("horario-active-sede", activeSede);
+    if (!notifsEnabled) {
+      unsubscribeFromSede();
+      return;
+    }
+    subscribeToSede(horarioId, activeSede);
     return () => { unsubscribeFromSede(); };
-  }, [horarioId, activeSede, subscribeToSede, unsubscribeFromSede]);
+  }, [horarioId, activeSede, notifsEnabled, subscribeToSede, unsubscribeFromSede]);
 
   // ── Apertura automática desde notificación (?open=classCode&sede=...) ────────
   useEffect(() => {
@@ -1070,20 +1091,39 @@ export default function HorarioPage() {
                     className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground"
                   />
                 </div>
-                <div className="flex rounded-xl overflow-hidden border border-border/60 shadow-sm shrink-0">
-                  {horario.sedes.map((sede) => (
-                    <button
-                      key={sede}
-                      onClick={() => setActiveSede(sede)}
-                      className={`px-5 py-2 text-sm font-semibold transition-colors ${
-                        activeSede === sede
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                    >
-                      {displaySede(sede)}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex rounded-xl overflow-hidden border border-border/60 shadow-sm">
+                    {horario.sedes.map((sede) => (
+                      <button
+                        key={sede}
+                        onClick={() => setActiveSede(sede)}
+                        className={`px-5 py-2 text-sm font-semibold transition-colors ${
+                          activeSede === sede
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        {displaySede(sede)}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={toggleNotifs}
+                    title={notifsEnabled ? "Desactivar notificaciones para esta sede" : "Activar notificaciones para esta sede"}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      notifsEnabled
+                        ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                        : "bg-muted text-muted-foreground border-border/60 hover:bg-muted/80"
+                    }`}
+                  >
+                    {notifsEnabled
+                      ? <Bell className="w-3.5 h-3.5" />
+                      : <BellOff className="w-3.5 h-3.5" />
+                    }
+                    <span className="hidden sm:inline">
+                      {notifsEnabled ? "Notif. activas" : "Notif. desactivadas"}
+                    </span>
+                  </button>
                 </div>
                 {hasFilters && (
                   <button
