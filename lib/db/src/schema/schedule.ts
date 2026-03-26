@@ -19,5 +19,19 @@ export const scheduleStudentsTable = pgTable("schedule_students", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const scheduleHorariosTable = pgTable("schedule_horarios", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  subtitle: text("subtitle").notNull().default(""),
+  emoji: text("emoji").notNull().default("🏢"),
+  gradient: text("gradient").notNull().default("from-violet-500 to-purple-600"),
+  accentColor: text("accent_color").notNull().default("violet"),
+  sedesJson: text("sedes_json").notNull().default("[]"),
+  isSystem: integer("is_system").notNull().default(0),
+  sortOrder: integer("sort_order").notNull().default(99),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export type ScheduleClass = typeof scheduleClassesTable.$inferSelect;
 export type ScheduleStudent = typeof scheduleStudentsTable.$inferSelect;
+export type ScheduleHorario = typeof scheduleHorariosTable.$inferSelect;
