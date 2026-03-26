@@ -142,19 +142,27 @@ export default function AdminPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState("");
   const [confirmDeleteCode, setConfirmDeleteCode] = useState<string | null>(null);
+  const [apiError, setApiError] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/schedule?horario=${horarioId}`);
+      if (!res.ok) throw new Error("API error");
       const json = await res.json();
       setAllData(json);
+      setApiError(false);
     } catch {
+      setApiError(true);
     } finally {
       setLoading(false);
     }
   }, [horarioId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 20_000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   useEffect(() => {
     setAllData([]);
@@ -373,6 +381,22 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+
+        {apiError && (
+          <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+            <RefreshCw className="w-4 h-4 text-amber-600 animate-spin shrink-0" />
+            <div className="flex-1">
+              <span className="text-sm font-semibold text-amber-800">Conectando con el servidor...</span>
+              <span className="text-xs text-amber-700 ml-2">El servidor está iniciando, los datos aparecerán en unos segundos.</span>
+            </div>
+            <button
+              onClick={fetchData}
+              className="px-3 py-1.5 text-xs font-bold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shrink-0"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">

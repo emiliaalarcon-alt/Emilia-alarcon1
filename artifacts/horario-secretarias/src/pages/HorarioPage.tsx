@@ -723,7 +723,7 @@ export default function HorarioPage() {
   }, [myName]);
 
   useEffect(() => {
-    const interval = setInterval(fetchTyping, 2_000);
+    const interval = setInterval(fetchTyping, 5_000);
     return () => clearInterval(interval);
   }, [fetchTyping]);
 
