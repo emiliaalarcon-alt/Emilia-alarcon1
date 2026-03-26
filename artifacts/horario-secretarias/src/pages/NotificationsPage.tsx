@@ -38,25 +38,22 @@ function NotifCard({ notif, onRemove, onMarkRead }: {
         <CalendarCheck className={`w-4 h-4 ${notif.read ? "text-muted-foreground" : "text-green-600"}`} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <span className={`text-xs font-bold uppercase tracking-wide ${
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`text-[10px] font-bold uppercase tracking-wide ${
             notif.read ? "text-muted-foreground" : "text-green-600"
           }`}>
             Cupo disponible
           </span>
-          <span className="text-xs text-muted-foreground">· {notif.sede}</span>
+          <span className="text-[10px] text-muted-foreground">· {notif.sede}</span>
         </div>
-        <p className={`text-sm font-semibold leading-snug ${notif.read ? "text-muted-foreground" : "text-foreground"}`}>
-          {notif.course}
+        <p className={`text-sm font-bold font-mono tracking-wide leading-tight ${notif.read ? "text-muted-foreground" : "text-foreground"}`}>
+          {notif.classCode || notif.message}
         </p>
-        <p className={`text-xs mt-0.5 ${notif.read ? "text-muted-foreground" : "text-muted-foreground"}`}>
-          {notif.day} {notif.time}
-          {notif.cupos > 0 && (
-            <span className={`ml-2 font-semibold ${notif.read ? "text-muted-foreground" : "text-green-700"}`}>
-              · {notif.cupos} cupo{notif.cupos !== 1 ? "s" : ""} libre{notif.cupos !== 1 ? "s" : ""}
-            </span>
-          )}
-        </p>
+        {notif.cupos > 0 && (
+          <p className={`text-xs mt-0.5 font-semibold ${notif.read ? "text-muted-foreground" : "text-green-700"}`}>
+            {notif.cupos} cupo{notif.cupos !== 1 ? "s" : ""} libre{notif.cupos !== 1 ? "s" : ""}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground mt-1">{formatTimestamp(notif.timestamp)}</p>
       </div>
       <button
