@@ -152,6 +152,7 @@ export default function AdminPage() {
   const [campusError, setCampusError] = useState("");
   const [deletingCampusId, setDeletingCampusId] = useState<string | null>(null);
   const [confirmDeleteCampus, setConfirmDeleteCampus] = useState<string | null>(null);
+  const [confirmDeleteSede, setConfirmDeleteSede] = useState<string | null>(null);
   const [expandedCampus, setExpandedCampus] = useState<string | null>(null);
   const [newSedeName, setNewSedeName] = useState("");
   const [newSedeDisplay, setNewSedeDisplay] = useState("");
@@ -544,13 +545,30 @@ export default function AdminPage() {
                               <span className="font-semibold text-foreground">{s.displayName}</span>
                               <span className="text-muted-foreground">({s.maxSalas} salas)</span>
                               {!h.isSystem && (
-                                <button
-                                  onClick={() => handleDeleteSede(h.id, s.name)}
-                                  className="ml-0.5 text-muted-foreground hover:text-red-600 transition-colors"
-                                  title="Eliminar sede"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
+                                confirmDeleteSede === `${h.id}:${s.name}` ? (
+                                  <div className="flex items-center gap-1 ml-1 animate-in fade-in duration-150">
+                                    <button
+                                      onClick={() => { handleDeleteSede(h.id, s.name); setConfirmDeleteSede(null); }}
+                                      className="px-1.5 py-0.5 text-[10px] font-bold bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                                    >
+                                      Sí
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDeleteSede(null)}
+                                      className="px-1.5 py-0.5 text-[10px] font-bold bg-muted text-foreground rounded-md hover:bg-muted/80 transition-colors"
+                                    >
+                                      No
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmDeleteSede(`${h.id}:${s.name}`)}
+                                    className="ml-0.5 text-muted-foreground hover:text-red-600 transition-colors"
+                                    title="Eliminar sede"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )
                               )}
                             </div>
                           ))}

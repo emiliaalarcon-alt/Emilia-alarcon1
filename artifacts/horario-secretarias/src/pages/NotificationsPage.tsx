@@ -21,6 +21,8 @@ function NotifCard({ notif, onRemove, onMarkRead, onNavigate }: {
   onMarkRead: () => void;
   onNavigate: () => void;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   function handleClick() {
     if (!notif.read) onMarkRead();
     onNavigate();
@@ -70,13 +72,30 @@ function NotifCard({ notif, onRemove, onMarkRead, onNavigate }: {
           </span>
         </div>
       </div>
-      <button
-        onClick={e => { e.stopPropagation(); onRemove(); }}
-        className="shrink-0 p-1.5 rounded-lg hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors"
-        title="Eliminar notificación"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      {confirmDelete ? (
+        <div className="flex flex-col items-end gap-1 shrink-0 animate-in fade-in duration-150">
+          <button
+            onClick={e => { e.stopPropagation(); onRemove(); }}
+            className="px-2 py-0.5 text-[11px] font-bold bg-destructive text-white rounded-lg hover:bg-destructive/80 transition-colors"
+          >
+            Sí
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setConfirmDelete(false); }}
+            className="px-2 py-0.5 text-[11px] font-bold bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
+          >
+            No
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={e => { e.stopPropagation(); setConfirmDelete(true); }}
+          className="shrink-0 p-1.5 rounded-lg hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors"
+          title="Eliminar notificación"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 }
