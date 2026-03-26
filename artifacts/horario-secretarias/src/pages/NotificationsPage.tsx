@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Trash2, CheckCheck, CalendarCheck, ExternalLink } from "lucide-react";
+import { Bell, BellOff, Trash2, CheckCheck, CalendarCheck, ExternalLink, Settings2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useNotifications, type AppNotification } from "@/context/NotificationContext";
 import { useHorario } from "@/context/HorarioContext";
@@ -106,6 +106,22 @@ export default function NotificationsPage() {
   const [, setLocation] = useLocation();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  const horarioSedes: string[] = horario.sedesInfo?.map((s: { name: string }) => s.name) ?? horario.sedes;
+
+  const [notifsEnabled, setNotifsEnabled] = useState<Record<string, boolean>>(() => {
+    const result: Record<string, boolean> = {};
+    for (const sede of horarioSedes) {
+      result[sede] = localStorage.getItem(`notif-enabled:${horarioId}:${sede}`) !== "0";
+    }
+    return result;
+  });
+
+  function toggleSede(sede: string) {
+    const newVal = !notifsEnabled[sede];
+    localStorage.setItem(`notif-enabled:${horarioId}:${sede}`, newVal ? "1" : "0");
+    setNotifsEnabled(prev => ({ ...prev, [sede]: newVal }));
+  }
+
   function handleNavigate(notif: AppNotification) {
     const params = new URLSearchParams();
     params.set("open", notif.classCode || notif.message);
@@ -180,7 +196,7 @@ export default function NotificationsPage() {
       )}
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 bg-muted/50 rounded-3xl flex items-center justify-center mb-4">
             <Bell className="w-8 h-8 text-muted-foreground/50" />
           </div>
@@ -200,6 +216,54 @@ export default function NotificationsPage() {
           ))}
         </div>
       )}
+
+      {/* ── Configuración de notificaciones por sede ─────────────────────────── */}
+      <div className="mt-8 rounded-2xl border border-border/60 bg-muted/20 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40">
+          <Settings2 className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Configuración de notificaciones</span>
+        </div>
+        <div className="divide-y divide-border/30">
+          {horarioSedes.map(sede => {
+            const enabled = notifsEnabled[sede] ?? true;
+            const displayName = sede.split(" ").map((w: string) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+            return (
+              <div key={sede} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${enabled ? "bg-green-100" : "bg-muted"}`}>
+                    {enabled
+                      ? <Bell className="w-3.5 h-3.5 text-green-600" />
+                      : <BellOff className="w-3.5 h-3.5 text-muted-foreground" />
+                    }
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{displayName}</p>
+                    <p className={`text-xs ${enabled ? "text-green-600" : "text-muted-foreground"}`}>
+                      {enabled ? "Notificaciones activas" : "Notificaciones desactivadas"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => toggleSede(sede)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    enabled ? "bg-green-500" : "bg-muted-foreground/30"
+                  }`}
+                  aria-label={`${enabled ? "Desactivar" : "Activar"} notificaciones para ${displayName}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                    enabled ? "translate-x-6" : "translate-x-1"
+                  }`} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <div className="px-4 py-2.5 bg-muted/30 border-t border-border/40">
+          <p className="text-xs text-muted-foreground">
+            Las preferencias se guardan en este navegador. Cada secretaria puede elegir su configuración de forma independiente.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
