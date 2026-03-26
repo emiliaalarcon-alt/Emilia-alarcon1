@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Bell, Trash2, CheckCheck, CalendarCheck, Filter, ExternalLink } from "lucide-react";
+import { Bell, Trash2, CheckCheck, CalendarCheck, ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 import { useNotifications, type AppNotification } from "@/context/NotificationContext";
 import { useHorario } from "@/context/HorarioContext";
@@ -50,7 +49,9 @@ function NotifCard({ notif, onRemove, onMarkRead, onNavigate }: {
           }`}>
             Cupo disponible
           </span>
-          <span className="text-[10px] text-muted-foreground">· {notif.sede}</span>
+          {notif.sede && (
+            <span className="text-[10px] text-muted-foreground">· {notif.sede}</span>
+          )}
         </div>
         <p className={`text-sm font-bold font-mono tracking-wide leading-tight ${notif.read ? "text-muted-foreground" : "text-foreground"}`}>
           {notif.classCode || notif.message}
@@ -91,49 +92,23 @@ export default function NotificationsPage() {
     setLocation(`/horarios?${params.toString()}`);
   }
 
-  const horarioSedes = horario.sedesInfo?.map(s => s.name) ?? horario.sedes;
-
-  const [sedeFilter, setSedeFilter] = useState<string>(() => {
-    const lastSede = sessionStorage.getItem("horario-active-sede");
-    if (lastSede && horarioSedes.includes(lastSede)) return lastSede;
-    return horarioSedes[0] ?? "all";
-  });
-
-  useEffect(() => {
-    if (sedeFilter === "all" && horarioSedes.length > 0) {
-      const lastSede = sessionStorage.getItem("horario-active-sede");
-      setSedeFilter(lastSede && horarioSedes.includes(lastSede) ? lastSede : horarioSedes[0]);
-    }
-  }, [horarioSedes]);
-
-  const filtered = notifications.filter(n => {
-    if (n.horarioId !== horarioId) return false;
-    if (sedeFilter !== "all" && n.sede !== sedeFilter) return false;
-    return true;
-  });
-
-  const unreadFiltered = filtered.filter(n => !n.read).length;
+  const filtered = notifications.filter(n => n.horarioId === horarioId);
+  const unread = filtered.filter(n => !n.read).length;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-200 to-emerald-200 rounded-2xl flex items-center justify-center">
-              <Bell className="w-5 h-5 text-green-700" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-display font-bold text-foreground">Notificaciones</h1>
-              <p className="text-sm text-muted-foreground">
-                {horario.label}
-                {sedeFilter !== "all" && ` · ${sedeFilter.split(" ").map((w: string) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ")}`}
-                {" — Cupos disponibles"}
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-green-200 to-emerald-200 rounded-2xl flex items-center justify-center">
+            <Bell className="w-5 h-5 text-green-700" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-display font-bold text-foreground">Notificaciones</h1>
+            <p className="text-sm text-muted-foreground">{horario.label} — Cupos disponibles</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {unreadFiltered > 0 && (
+          {unread > 0 && (
             <button
               onClick={() => filtered.filter(n => !n.read).forEach(n => markRead(n.id))}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors border border-green-200"
@@ -154,25 +129,9 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {unreadFiltered > 0 && (
+      {unread > 0 && (
         <div className="mb-4 px-4 py-2 rounded-2xl bg-green-50 border border-green-200 text-sm text-green-700 font-semibold">
-          {unreadFiltered} cupo{unreadFiltered !== 1 ? "s" : ""} disponible{unreadFiltered !== 1 ? "s" : ""} sin revisar
-        </div>
-      )}
-
-      {horarioSedes.length > 1 && (
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-          <select
-            value={sedeFilter}
-            onChange={e => setSedeFilter(e.target.value)}
-            className="text-xs border border-border rounded-xl px-3 py-1.5 bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            <option value="all">Todas las sedes</option>
-            {horarioSedes.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          {unread} cupo{unread !== 1 ? "s" : ""} disponible{unread !== 1 ? "s" : ""} sin revisar
         </div>
       )}
 
