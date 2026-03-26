@@ -121,7 +121,6 @@ router.post("/notifications/publish", (req, res) => {
     return;
   }
 
-  const channel = getNotifChannel(horarioId, sede);
   const payload = JSON.stringify({
     type: "cupo_disponible",
     horarioId,
@@ -134,14 +133,18 @@ router.post("/notifications/publish", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 
-  const clients = notifClients.get(channel);
-  if (clients) {
+  // Broadcast to ALL sedes of this horario (so Las Encinas ↔ Inés de Suárez share notifications)
+  const prefix = `${horarioId}:`;
+  let totalSent = 0;
+  for (const [ch, clients] of notifClients) {
+    if (!ch.startsWith(prefix)) continue;
     for (const client of clients) {
       client.write(`data: ${payload}\n\n`);
     }
+    totalSent += clients.size;
   }
 
-  res.json({ ok: true, sent: clients?.size ?? 0 });
+  res.json({ ok: true, sent: totalSent });
 });
 
 const DAY_TOKEN_MAP: Record<string, string> = {
