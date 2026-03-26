@@ -155,6 +155,23 @@ async function apiUpdateSala(classCode: string, sala: number): Promise<{ ok?: bo
   return res.json();
 }
 
+async function apiPublishNotification(payload: {
+  horarioId: string;
+  sede: string;
+  course: string;
+  day: string;
+  time: string;
+  cupos: number;
+}): Promise<void> {
+  try {
+    await fetch("/api/notifications/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {}
+}
+
 function ClassCell({
   entry,
   onSelect,
@@ -264,7 +281,6 @@ function DetailPanel({
   onTypingStop: () => void;
 }) {
   const { horarioId } = useHorario();
-  const { addNotification } = useNotifications();
   const badge = COURSE_BADGE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
   const [newStudentName, setNewStudentName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -348,26 +364,16 @@ function DetailPanel({
       await apiRemoveStudent(entry.classCode, studentName);
       onStudentChange();
 
-      const shortName = studentName.split(" ").slice(0, 2).join(" ");
-      const classLabel = `${COURSE_FULL_NAMES[entry.course] ?? entry.course} — ${DAY_LABELS[entry.day] ?? entry.day} ${entry.time}`;
-
-      addNotification({
-        type: "alumno_eliminado",
-        title: "Alumno eliminado",
-        message: `${shortName} fue eliminado de ${classLabel}`,
-        sede: entry.sede,
-        horarioId,
-      });
-
       const newCount = entry.students.length - 1;
       if (newCount < MAX_STUDENTS) {
         const cupos = MAX_STUDENTS - newCount;
-        addNotification({
-          type: "cupo_disponible",
-          title: "Cupo disponible",
-          message: `Quedó ${cupos} cupo${cupos !== 1 ? "s" : ""} libre${cupos !== 1 ? "s" : ""} en ${classLabel}`,
-          sede: entry.sede,
+        await apiPublishNotification({
           horarioId,
+          sede: entry.sede,
+          course: COURSE_FULL_NAMES[entry.course] ?? entry.course,
+          day: DAY_LABELS[entry.day] ?? entry.day,
+          time: entry.time,
+          cupos,
         });
       }
     } catch {
@@ -655,6 +661,7 @@ function DetailPanel({
 
 export default function HorarioPage() {
   const { horarioId, horario } = useHorario();
+  const { subscribeToSede, unsubscribeFromSede } = useNotifications();
   const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [selectedTeacher, setSelectedTeacher] = useState<string>("");
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
@@ -674,6 +681,13 @@ export default function HorarioPage() {
     setAllData([]);
     setLoading(true);
   }, [horarioId, horario.sedes]);
+
+  // ── Suscripción SSE a notificaciones por sede ───────────────────────────────
+  useEffect(() => {
+    if (!activeSede) return;
+    subscribeToSede(horarioId, activeSede);
+    return () => { unsubscribeFromSede(); };
+  }, [horarioId, activeSede, subscribeToSede, unsubscribeFromSede]);
 
   // ── Presencia colaborativa ──────────────────────────────────────────────────
   const [sessionId] = useState<string>(() => {

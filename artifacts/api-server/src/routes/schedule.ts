@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import * as fs from "fs";
@@ -65,6 +65,81 @@ router.post("/schedule/typing", (req, res) => {
 router.delete("/schedule/typing/:sessionId", (req, res) => {
   typingSessions.delete(req.params.sessionId);
   res.json({ ok: true });
+});
+
+// ─── Notificaciones en tiempo real (SSE) ─────────────────────────────────────
+const notifClients = new Map<string, Set<Response>>();
+
+function getNotifChannel(horarioId: string, sede: string) {
+  return `${horarioId}:${sede}`;
+}
+
+router.get("/notifications/stream", (req, res) => {
+  const { horarioId, sede } = req.query as { horarioId?: string; sede?: string };
+  if (!horarioId || !sede) {
+    res.status(400).json({ error: "horarioId y sede son requeridos" });
+    return;
+  }
+  const channel = getNotifChannel(horarioId, sede);
+
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+
+  res.write(": connected\n\n");
+
+  if (!notifClients.has(channel)) notifClients.set(channel, new Set());
+  notifClients.get(channel)!.add(res);
+
+  const keepalive = setInterval(() => {
+    res.write(": ping\n\n");
+  }, 20_000);
+
+  req.on("close", () => {
+    clearInterval(keepalive);
+    notifClients.get(channel)?.delete(res);
+    if (notifClients.get(channel)?.size === 0) notifClients.delete(channel);
+  });
+});
+
+router.post("/notifications/publish", (req, res) => {
+  const { horarioId, sede, course, day, time, cupos } = req.body as {
+    horarioId?: string;
+    sede?: string;
+    course?: string;
+    day?: string;
+    time?: string;
+    cupos?: number;
+  };
+  if (!horarioId || !sede || !course) {
+    res.status(400).json({ error: "Faltan campos requeridos" });
+    return;
+  }
+
+  const channel = getNotifChannel(horarioId, sede);
+  const payload = JSON.stringify({
+    type: "cupo_disponible",
+    horarioId,
+    sede,
+    course,
+    day: day ?? "",
+    time: time ?? "",
+    cupos: cupos ?? 1,
+    timestamp: new Date().toISOString(),
+  });
+
+  const clients = notifClients.get(channel);
+  if (clients) {
+    for (const client of clients) {
+      client.write(`data: ${payload}\n\n`);
+    }
+  }
+
+  res.json({ ok: true, sent: clients?.size ?? 0 });
 });
 
 const DAY_TOKEN_MAP: Record<string, string> = {
