@@ -3,24 +3,22 @@ import { useNotifications, type AppNotification } from "@/context/NotificationCo
 
 function ToastCard({ toast, onDismiss }: { toast: AppNotification; onDismiss: () => void }) {
   return (
-    <div className="flex items-start gap-3 w-80 rounded-2xl border border-green-200 shadow-lg p-4 bg-green-50 animate-in slide-in-from-right-full duration-300">
-      <div className="mt-0.5 shrink-0 w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center">
-        <CalendarCheck className="w-4 h-4 text-green-600" />
+    <div className="flex items-start gap-3 w-72 rounded-2xl border border-green-200 shadow-lg p-3.5 bg-green-50 animate-in slide-in-from-right-full duration-300">
+      <div className="mt-0.5 shrink-0 w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
+        <CalendarCheck className="w-3.5 h-3.5 text-green-600" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <p className="text-xs font-bold text-green-700 uppercase tracking-wide">Cupo disponible</p>
-          {toast.sede && (
-            <span className="text-xs text-green-600/70">· {toast.sede}</span>
-          )}
-        </div>
-        <p className="text-sm font-bold text-green-900 leading-tight">{toast.course}</p>
-        <p className="text-xs text-green-700 mt-0.5">
-          {toast.day} {toast.time}
-          {toast.cupos > 0 && (
-            <span className="ml-1 font-semibold">· {toast.cupos} cupo{toast.cupos !== 1 ? "s" : ""}</span>
-          )}
+        <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide leading-none mb-1">
+          Cupo disponible{toast.sede ? ` · ${toast.sede}` : ""}
         </p>
+        <p className="text-sm font-bold text-green-900 font-mono leading-tight tracking-wide">
+          {toast.classCode || toast.message}
+        </p>
+        {toast.cupos > 0 && (
+          <p className="text-xs text-green-700 mt-0.5">
+            {toast.cupos} cupo{toast.cupos !== 1 ? "s" : ""} libre{toast.cupos !== 1 ? "s" : ""}
+          </p>
+        )}
       </div>
       <button
         onClick={onDismiss}

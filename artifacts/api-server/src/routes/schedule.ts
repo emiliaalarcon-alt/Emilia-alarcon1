@@ -107,15 +107,16 @@ router.get("/notifications/stream", (req, res) => {
 });
 
 router.post("/notifications/publish", (req, res) => {
-  const { horarioId, sede, course, day, time, cupos } = req.body as {
+  const { horarioId, sede, classCode, course, day, time, cupos } = req.body as {
     horarioId?: string;
     sede?: string;
+    classCode?: string;
     course?: string;
     day?: string;
     time?: string;
     cupos?: number;
   };
-  if (!horarioId || !sede || !course) {
+  if (!horarioId || !sede || !classCode) {
     res.status(400).json({ error: "Faltan campos requeridos" });
     return;
   }
@@ -125,7 +126,8 @@ router.post("/notifications/publish", (req, res) => {
     type: "cupo_disponible",
     horarioId,
     sede,
-    course,
+    classCode,
+    course: course ?? classCode,
     day: day ?? "",
     time: time ?? "",
     cupos: cupos ?? 1,

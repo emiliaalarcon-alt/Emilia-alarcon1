@@ -158,6 +158,7 @@ async function apiUpdateSala(classCode: string, sala: number): Promise<{ ok?: bo
 async function apiPublishNotification(payload: {
   horarioId: string;
   sede: string;
+  classCode: string;
   course: string;
   day: string;
   time: string;
@@ -370,6 +371,7 @@ function DetailPanel({
         await apiPublishNotification({
           horarioId,
           sede: entry.sede,
+          classCode: entry.classCode,
           course: COURSE_FULL_NAMES[entry.course] ?? entry.course,
           day: DAY_LABELS[entry.day] ?? entry.day,
           time: entry.time,

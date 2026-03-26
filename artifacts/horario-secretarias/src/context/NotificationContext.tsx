@@ -11,6 +11,7 @@ export interface AppNotification {
   read: boolean;
   sede: string;
   horarioId: string;
+  classCode: string;
   course: string;
   day: string;
   time: string;
@@ -81,6 +82,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     type: NotifType;
     horarioId: string;
     sede: string;
+    classCode: string;
     course: string;
     day: string;
     time: string;
@@ -93,11 +95,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       id,
       type: "cupo_disponible",
       title: "Cupo disponible",
-      message: `${data.course} — ${data.day} ${data.time}`,
+      message: data.classCode,
       timestamp: data.timestamp,
       read: false,
       sede: data.sede,
       horarioId: data.horarioId,
+      classCode: data.classCode,
       course: data.course,
       day: data.day,
       time: data.time,
