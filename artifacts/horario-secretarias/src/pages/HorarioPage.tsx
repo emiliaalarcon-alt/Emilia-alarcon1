@@ -288,6 +288,7 @@ function DetailPanel({
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [removingStudent, setRemovingStudent] = useState<string | null>(null);
+  const [confirmRemoveStudent, setConfirmRemoveStudent] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [editingSala, setEditingSala] = useState(false);
   const [salaInput, setSalaInput] = useState(String(entry.sala));
@@ -639,17 +640,35 @@ function DetailPanel({
                           </div>
                         ))}
                       </div>
-                      <button
-                        onClick={() => handleRemove(s)}
-                        disabled={isRemoving}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-30 shrink-0"
-                        title="Eliminar alumno"
-                      >
-                        {isRemoving
-                          ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          : <Trash2 className="w-3.5 h-3.5" />
-                        }
-                      </button>
+                      {confirmRemoveStudent === s ? (
+                        <div className="flex items-center gap-1 shrink-0 animate-in fade-in duration-150">
+                          <button
+                            onClick={() => { setConfirmRemoveStudent(null); handleRemove(s); }}
+                            disabled={isRemoving}
+                            className="px-2 py-0.5 text-[11px] font-bold bg-destructive text-white rounded-lg hover:bg-destructive/80 transition-colors disabled:opacity-60"
+                          >
+                            Sí
+                          </button>
+                          <button
+                            onClick={() => setConfirmRemoveStudent(null)}
+                            className="px-2 py-0.5 text-[11px] font-bold bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmRemoveStudent(s)}
+                          disabled={isRemoving}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-30 shrink-0"
+                          title="Eliminar alumno"
+                        >
+                          {isRemoving
+                            ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            : <Trash2 className="w-3.5 h-3.5" />
+                          }
+                        </button>
+                      )}
                     </li>
                   );
                 })}
