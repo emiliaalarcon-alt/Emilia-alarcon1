@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Minus, Trash2, RefreshCw, Pencil, Check } from "lucide-react";
+import { useLocation, useSearch } from "wouter";
 import {
   DAYS,
   DAY_LABELS,
@@ -664,6 +665,8 @@ function DetailPanel({
 export default function HorarioPage() {
   const { horarioId, horario } = useHorario();
   const { subscribeToSede, unsubscribeFromSede } = useNotifications();
+  const [, setLocation] = useLocation();
+  const rawSearch = useSearch();
   const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [selectedTeacher, setSelectedTeacher] = useState<string>("");
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
@@ -691,6 +694,21 @@ export default function HorarioPage() {
     sessionStorage.setItem("horario-active-sede", activeSede);
     return () => { unsubscribeFromSede(); };
   }, [horarioId, activeSede, subscribeToSede, unsubscribeFromSede]);
+
+  // ── Apertura automática desde notificación (?open=classCode&sede=...) ────────
+  useEffect(() => {
+    if (!allData.length) return;
+    const params = new URLSearchParams(rawSearch);
+    const openCode = params.get("open");
+    const openSede = params.get("sede");
+    if (!openCode) return;
+    const entry = allData.find(e => e.classCode === openCode);
+    if (!entry) return;
+    if (openSede && horario.sedes.includes(openSede)) setActiveSede(openSede);
+    else if (entry.sede && horario.sedes.includes(entry.sede)) setActiveSede(entry.sede);
+    setSelectedEntry(entry);
+    setLocation("/horarios", { replace: true });
+  }, [allData, rawSearch, horario.sedes, setLocation]);
 
   // ── Presencia colaborativa ──────────────────────────────────────────────────
   const [sessionId] = useState<string>(() => {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Bell, Trash2, CheckCheck, CalendarCheck, Filter } from "lucide-react";
+import { Bell, Trash2, CheckCheck, CalendarCheck, Filter, ExternalLink } from "lucide-react";
+import { useLocation } from "wouter";
 import { useNotifications, type AppNotification } from "@/context/NotificationContext";
 import { useHorario } from "@/context/HorarioContext";
 
@@ -14,20 +15,25 @@ function formatTimestamp(iso: string) {
   });
 }
 
-function NotifCard({ notif, onRemove, onMarkRead }: {
+function NotifCard({ notif, onRemove, onMarkRead, onNavigate }: {
   notif: AppNotification;
   onRemove: () => void;
   onMarkRead: () => void;
+  onNavigate: () => void;
 }) {
+  function handleClick() {
+    if (!notif.read) onMarkRead();
+    onNavigate();
+  }
+
   return (
     <div
-      className={`relative flex items-start gap-4 p-4 rounded-2xl border transition-all ${
+      className={`relative flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${
         notif.read
-          ? "bg-muted/30 border-border/40 opacity-70"
-          : "bg-green-50 border-green-200"
+          ? "bg-muted/30 border-border/40 opacity-70 hover:opacity-90"
+          : "bg-green-50 border-green-200 hover:border-green-300"
       }`}
-      onClick={() => { if (!notif.read) onMarkRead(); }}
-      style={{ cursor: notif.read ? "default" : "pointer" }}
+      onClick={handleClick}
     >
       {!notif.read && (
         <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-green-500" />
@@ -54,7 +60,13 @@ function NotifCard({ notif, onRemove, onMarkRead }: {
             {notif.cupos} cupo{notif.cupos !== 1 ? "s" : ""} libre{notif.cupos !== 1 ? "s" : ""}
           </p>
         )}
-        <p className="text-xs text-muted-foreground mt-1">{formatTimestamp(notif.timestamp)}</p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-xs text-muted-foreground">{formatTimestamp(notif.timestamp)}</p>
+          <span className={`flex items-center gap-0.5 text-[10px] font-medium ${notif.read ? "text-muted-foreground" : "text-green-600"}`}>
+            <ExternalLink className="w-3 h-3" />
+            Ver curso
+          </span>
+        </div>
       </div>
       <button
         onClick={e => { e.stopPropagation(); onRemove(); }}
@@ -70,6 +82,14 @@ function NotifCard({ notif, onRemove, onMarkRead }: {
 export default function NotificationsPage() {
   const { horarioId, horario } = useHorario();
   const { notifications, removeNotification, markRead } = useNotifications();
+  const [, setLocation] = useLocation();
+
+  function handleNavigate(notif: AppNotification) {
+    const params = new URLSearchParams();
+    params.set("open", notif.classCode || notif.message);
+    if (notif.sede) params.set("sede", notif.sede);
+    setLocation(`/horarios?${params.toString()}`);
+  }
 
   const horarioSedes = horario.sedesInfo?.map(s => s.name) ?? horario.sedes;
 
@@ -172,6 +192,7 @@ export default function NotificationsPage() {
               notif={n}
               onRemove={() => removeNotification(n.id)}
               onMarkRead={() => markRead(n.id)}
+              onNavigate={() => handleNavigate(n)}
             />
           ))}
         </div>
