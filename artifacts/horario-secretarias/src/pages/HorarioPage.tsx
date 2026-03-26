@@ -686,6 +686,7 @@ export default function HorarioPage() {
   useEffect(() => {
     if (!activeSede) return;
     subscribeToSede(horarioId, activeSede);
+    sessionStorage.setItem("horario-active-sede", activeSede);
     return () => { unsubscribeFromSede(); };
   }, [horarioId, activeSede, subscribeToSede, unsubscribeFromSede]);
 

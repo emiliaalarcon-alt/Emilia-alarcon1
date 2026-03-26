@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Trash2, CheckCheck, CalendarCheck, Filter } from "lucide-react";
 import { useNotifications, type AppNotification } from "@/context/NotificationContext";
 import { useHorario } from "@/context/HorarioContext";
@@ -72,10 +72,22 @@ function NotifCard({ notif, onRemove, onMarkRead }: {
 
 export default function NotificationsPage() {
   const { horarioId, horario } = useHorario();
-  const { notifications, unreadCount, removeNotification, markRead, markAllRead, clearAll } = useNotifications();
-  const [sedeFilter, setSedeFilter] = useState<string>("all");
+  const { notifications, removeNotification, markRead } = useNotifications();
 
   const horarioSedes = horario.sedesInfo?.map(s => s.name) ?? horario.sedes;
+
+  const [sedeFilter, setSedeFilter] = useState<string>(() => {
+    const lastSede = sessionStorage.getItem("horario-active-sede");
+    if (lastSede && horarioSedes.includes(lastSede)) return lastSede;
+    return horarioSedes[0] ?? "all";
+  });
+
+  useEffect(() => {
+    if (sedeFilter === "all" && horarioSedes.length > 0) {
+      const lastSede = sessionStorage.getItem("horario-active-sede");
+      setSedeFilter(lastSede && horarioSedes.includes(lastSede) ? lastSede : horarioSedes[0]);
+    }
+  }, [horarioSedes]);
 
   const filtered = notifications.filter(n => {
     if (n.horarioId !== horarioId) return false;
@@ -95,23 +107,27 @@ export default function NotificationsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-display font-bold text-foreground">Notificaciones</h1>
-              <p className="text-sm text-muted-foreground">{horario.label} — Cupos disponibles</p>
+              <p className="text-sm text-muted-foreground">
+                {horario.label}
+                {sedeFilter !== "all" && ` · ${sedeFilter.split(" ").map((w: string) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ")}`}
+                {" — Cupos disponibles"}
+              </p>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
+          {unreadFiltered > 0 && (
             <button
-              onClick={markAllRead}
+              onClick={() => filtered.filter(n => !n.read).forEach(n => markRead(n.id))}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors border border-green-200"
             >
               <CheckCheck className="w-3.5 h-3.5" />
               Marcar leídas
             </button>
           )}
-          {notifications.filter(n => n.horarioId === horarioId).length > 0 && (
+          {filtered.length > 0 && (
             <button
-              onClick={clearAll}
+              onClick={() => filtered.forEach(n => removeNotification(n.id))}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
