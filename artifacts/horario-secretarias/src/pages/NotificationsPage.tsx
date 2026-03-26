@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Bell, Trash2, CheckCheck, CalendarCheck, ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 import { useNotifications, type AppNotification } from "@/context/NotificationContext";
@@ -84,12 +85,18 @@ export default function NotificationsPage() {
   const { horarioId, horario } = useHorario();
   const { notifications, removeNotification, markRead } = useNotifications();
   const [, setLocation] = useLocation();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   function handleNavigate(notif: AppNotification) {
     const params = new URLSearchParams();
     params.set("open", notif.classCode || notif.message);
     if (notif.sede) params.set("sede", notif.sede);
     setLocation(`/horarios?${params.toString()}`);
+  }
+
+  function handleDeleteAll() {
+    filtered.forEach(n => removeNotification(n.id));
+    setConfirmingDelete(false);
   }
 
   const filtered = notifications.filter(n => n.horarioId === horarioId);
@@ -118,13 +125,31 @@ export default function NotificationsPage() {
             </button>
           )}
           {filtered.length > 0 && (
-            <button
-              onClick={() => filtered.forEach(n => removeNotification(n.id))}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Eliminar todas
-            </button>
+            confirmingDelete ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground font-medium">¿Eliminar todas?</span>
+                <button
+                  onClick={handleDeleteAll}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  Sí, eliminar
+                </button>
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Eliminar todas
+              </button>
+            )
           )}
         </div>
       </div>
