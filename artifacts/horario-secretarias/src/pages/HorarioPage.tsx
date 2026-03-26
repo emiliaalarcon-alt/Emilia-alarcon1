@@ -8,6 +8,7 @@ import {
   type ClassEntry,
 } from "@/data/schedule";
 import { useHorario } from "@/context/HorarioContext";
+import { useNotifications } from "@/context/NotificationContext";
 
 const SEDE_DISPLAY_NAMES: Record<string, string> = {
   "LAS ENCINAS": "Las Encinas",
@@ -262,6 +263,8 @@ function DetailPanel({
   onTypingStart: (classCode: string) => void;
   onTypingStop: () => void;
 }) {
+  const { horarioId } = useHorario();
+  const { addNotification } = useNotifications();
   const badge = COURSE_BADGE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
   const [newStudentName, setNewStudentName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -344,6 +347,29 @@ function DetailPanel({
     try {
       await apiRemoveStudent(entry.classCode, studentName);
       onStudentChange();
+
+      const shortName = studentName.split(" ").slice(0, 2).join(" ");
+      const classLabel = `${COURSE_FULL_NAMES[entry.course] ?? entry.course} — ${DAY_LABELS[entry.day] ?? entry.day} ${entry.time}`;
+
+      addNotification({
+        type: "alumno_eliminado",
+        title: "Alumno eliminado",
+        message: `${shortName} fue eliminado de ${classLabel}`,
+        sede: entry.sede,
+        horarioId,
+      });
+
+      const newCount = entry.students.length - 1;
+      if (newCount < MAX_STUDENTS) {
+        const cupos = MAX_STUDENTS - newCount;
+        addNotification({
+          type: "cupo_disponible",
+          title: "Cupo disponible",
+          message: `Quedó ${cupos} cupo${cupos !== 1 ? "s" : ""} libre${cupos !== 1 ? "s" : ""} en ${classLabel}`,
+          sede: entry.sede,
+          horarioId,
+        });
+      }
     } catch {
       // silent
     } finally {

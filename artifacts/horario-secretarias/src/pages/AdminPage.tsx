@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import {
   Plus, Trash2, RefreshCw, AlertTriangle, BookOpen,
   Search, X, CheckCircle, ChevronDown, Upload, FileSpreadsheet,
-  Pencil, Check,
+  Pencil, Check, Building2, ChevronRight, MapPin,
 } from "lucide-react";
 import {
   DAYS, DAY_LABELS, TIME_SLOTS, COURSE_FULL_NAMES,
@@ -115,7 +115,7 @@ const emptyForm = {
 };
 
 export default function AdminPage() {
-  const { horarioId, horario } = useHorario();
+  const { horarioId, horario, horarioList, reloadHorarios } = useHorario();
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(() => ({ ...emptyForm, sede: horario.sedes[0] }));
@@ -143,6 +143,78 @@ export default function AdminPage() {
   const [editError, setEditError] = useState("");
   const [confirmDeleteCode, setConfirmDeleteCode] = useState<string | null>(null);
   const [apiError, setApiError] = useState(false);
+
+  const [campusOpen, setCampusOpen] = useState(false);
+  const [newCampusName, setNewCampusName] = useState("");
+  const [newCampusSubtitle, setNewCampusSubtitle] = useState("");
+  const [newCampusEmoji, setNewCampusEmoji] = useState("🏢");
+  const [creatingCampus, setCreatingCampus] = useState(false);
+  const [campusError, setCampusError] = useState("");
+  const [deletingCampusId, setDeletingCampusId] = useState<string | null>(null);
+  const [confirmDeleteCampus, setConfirmDeleteCampus] = useState<string | null>(null);
+  const [expandedCampus, setExpandedCampus] = useState<string | null>(null);
+  const [newSedeName, setNewSedeName] = useState("");
+  const [newSedeDisplay, setNewSedeDisplay] = useState("");
+  const [newSedeMaxSalas, setNewSedeMaxSalas] = useState("6");
+  const [addingSedeFor, setAddingSedeFor] = useState<string | null>(null);
+  const [sedeError, setSedeError] = useState("");
+
+  async function handleCreateCampus() {
+    if (!newCampusName.trim()) { setCampusError("El nombre es requerido."); return; }
+    setCreatingCampus(true); setCampusError("");
+    try {
+      const res = await fetch("/api/horarios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCampusName, subtitle: newCampusSubtitle, emoji: newCampusEmoji }),
+      });
+      const json = await res.json();
+      if (json.error) { setCampusError(json.error); return; }
+      setNewCampusName(""); setNewCampusSubtitle(""); setNewCampusEmoji("🏢");
+      await reloadHorarios();
+    } catch { setCampusError("Error de conexión."); }
+    finally { setCreatingCampus(false); }
+  }
+
+  async function handleDeleteCampus(id: string) {
+    setDeletingCampusId(id);
+    try {
+      await fetch(`/api/horarios/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setConfirmDeleteCampus(null);
+      await reloadHorarios();
+    } catch { /* silent */ }
+    finally { setDeletingCampusId(null); }
+  }
+
+  async function handleAddSede(horarioId: string) {
+    if (!newSedeName.trim()) { setSedeError("Nombre interno requerido."); return; }
+    setSedeError("");
+    try {
+      const res = await fetch(`/api/horarios/${encodeURIComponent(horarioId)}/sedes`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sedeName: newSedeName.trim().toUpperCase(),
+          displayName: newSedeDisplay.trim() || newSedeName.trim(),
+          maxSalas: Number(newSedeMaxSalas) || 6,
+        }),
+      });
+      const json = await res.json();
+      if (json.error) { setSedeError(json.error); return; }
+      setNewSedeName(""); setNewSedeDisplay(""); setNewSedeMaxSalas("6");
+      setAddingSedeFor(null);
+      await reloadHorarios();
+    } catch { setSedeError("Error de conexión."); }
+  }
+
+  async function handleDeleteSede(horarioId: string, sedeName: string) {
+    try {
+      await fetch(`/api/horarios/${encodeURIComponent(horarioId)}/sedes/${encodeURIComponent(sedeName)}`, {
+        method: "DELETE",
+      });
+      await reloadHorarios();
+    } catch { /* silent */ }
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -397,6 +469,196 @@ export default function AdminPage() {
             </button>
           </div>
         )}
+
+        {/* ── Gestión de Campus ─────────────────────────────────── */}
+        <div className="mb-6 bg-card border border-border/50 rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setCampusOpen(o => !o)}
+            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/40 transition-colors"
+          >
+            <div className="w-8 h-8 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1">
+              <span className="font-semibold text-sm text-foreground">Gestionar Campus</span>
+              <span className="ml-2 text-xs text-muted-foreground">{horarioList.length} campus configurados</span>
+            </div>
+            <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${campusOpen ? "rotate-90" : ""}`} />
+          </button>
+
+          {campusOpen && (
+            <div className="border-t border-border/50 p-5 space-y-4">
+              {/* Lista de campus existentes */}
+              <div className="space-y-2">
+                {horarioList.map(h => (
+                  <div key={h.id} className="border border-border/60 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-muted/20">
+                      <span className="text-lg">{h.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-sm text-foreground">{h.label}</span>
+                        {h.subtitle && <span className="text-xs text-muted-foreground ml-2">{h.subtitle}</span>}
+                        {h.isSystem && <span className="ml-2 text-[10px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-md">Sistema</span>}
+                      </div>
+                      <button
+                        onClick={() => setExpandedCampus(expandedCampus === h.id ? null : h.id)}
+                        className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                        title="Ver sedes"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </button>
+                      {!h.isSystem && (
+                        confirmDeleteCampus === h.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDeleteCampus(h.id)}
+                              disabled={deletingCampusId === h.id}
+                              className="px-2 py-1 text-xs font-bold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-60"
+                            >
+                              {deletingCampusId === h.id ? "..." : "Sí"}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteCampus(null)}
+                              className="px-2 py-1 text-xs font-bold bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteCampus(h.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors"
+                            title="Eliminar campus"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    {expandedCampus === h.id && (
+                      <div className="px-4 pb-3 pt-2 bg-background border-t border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Sedes</p>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {(h.sedesInfo ?? h.sedes.map(s => ({ name: s, displayName: s, maxSalas: 6 }))).map(s => (
+                            <div key={s.name} className="flex items-center gap-1.5 bg-muted/60 rounded-xl px-3 py-1.5 text-xs">
+                              <span className="font-semibold text-foreground">{s.displayName}</span>
+                              <span className="text-muted-foreground">({s.maxSalas} salas)</span>
+                              {!h.isSystem && (
+                                <button
+                                  onClick={() => handleDeleteSede(h.id, s.name)}
+                                  className="ml-0.5 text-muted-foreground hover:text-red-600 transition-colors"
+                                  title="Eliminar sede"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {addingSedeFor === h.id ? (
+                          <div className="flex flex-wrap gap-2 items-end">
+                            <div>
+                              <label className="text-[10px] font-bold text-muted-foreground block mb-1">Nombre (interno)</label>
+                              <input
+                                value={newSedeName}
+                                onChange={e => setNewSedeName(e.target.value)}
+                                placeholder="Ej: NORTE"
+                                className="h-8 px-2 text-xs border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/30 w-28"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-muted-foreground block mb-1">Nombre visible</label>
+                              <input
+                                value={newSedeDisplay}
+                                onChange={e => setNewSedeDisplay(e.target.value)}
+                                placeholder="Ej: Sede Norte"
+                                className="h-8 px-2 text-xs border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/30 w-32"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-muted-foreground block mb-1">Salas</label>
+                              <input
+                                value={newSedeMaxSalas}
+                                onChange={e => setNewSedeMaxSalas(e.target.value)}
+                                type="number" min="1" max="20"
+                                className="h-8 px-2 text-xs border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/30 w-16"
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleAddSede(h.id)}
+                              className="h-8 px-3 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90"
+                            >
+                              Agregar
+                            </button>
+                            <button
+                              onClick={() => { setAddingSedeFor(null); setSedeError(""); }}
+                              className="h-8 px-3 text-xs font-semibold bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
+                            >
+                              Cancelar
+                            </button>
+                            {sedeError && <p className="text-xs text-red-600 w-full">{sedeError}</p>}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setAddingSedeFor(h.id); setNewSedeName(""); setNewSedeDisplay(""); setNewSedeMaxSalas("6"); setSedeError(""); }}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Agregar sede
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Formulario para nuevo campus */}
+              <div className="border border-dashed border-border rounded-xl p-4">
+                <p className="text-xs font-bold text-muted-foreground mb-3 uppercase tracking-wide">Agregar nuevo campus</p>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">Nombre *</label>
+                    <input
+                      value={newCampusName}
+                      onChange={e => setNewCampusName(e.target.value)}
+                      placeholder="Ej: Puerto Montt"
+                      className="h-8 px-3 text-xs border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/30 w-36"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">Descripción</label>
+                    <input
+                      value={newCampusSubtitle}
+                      onChange={e => setNewCampusSubtitle(e.target.value)}
+                      placeholder="Ej: Sede Puerto Montt"
+                      className="h-8 px-3 text-xs border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/30 w-44"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">Emoji</label>
+                    <input
+                      value={newCampusEmoji}
+                      onChange={e => setNewCampusEmoji(e.target.value)}
+                      placeholder="🏢"
+                      className="h-8 px-2 text-base border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/30 w-14 text-center"
+                    />
+                  </div>
+                  <button
+                    onClick={handleCreateCampus}
+                    disabled={creatingCampus}
+                    className="h-8 flex items-center gap-1.5 px-4 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    {creatingCampus ? "Creando..." : "Crear campus"}
+                  </button>
+                </div>
+                {campusError && <p className="mt-2 text-xs text-red-600">{campusError}</p>}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
           <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">

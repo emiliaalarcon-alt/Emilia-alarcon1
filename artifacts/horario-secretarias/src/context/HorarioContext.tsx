@@ -1,19 +1,84 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { type HorarioId, HORARIOS, type HorarioConfig } from "@/data/schedule";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { type HorarioId, type HorarioConfig, HORARIOS } from "@/data/schedule";
 
 interface HorarioContextValue {
   horarioId: HorarioId;
   horario: HorarioConfig;
   setHorarioId: (id: HorarioId) => void;
+  horarioList: HorarioConfig[];
+  horariosMap: Record<string, HorarioConfig>;
+  reloadHorarios: () => Promise<void>;
 }
 
 const HorarioContext = createContext<HorarioContextValue | null>(null);
 
+interface ApiHorario {
+  id: string;
+  name: string;
+  subtitle: string;
+  emoji: string;
+  gradient: string;
+  accentColor: string;
+  isSystem: boolean;
+  sortOrder: number;
+  sedes: { name: string; displayName: string; maxSalas: number }[];
+}
+
+function apiToConfig(h: ApiHorario): HorarioConfig {
+  return {
+    id: h.id,
+    label: h.name,
+    subtitle: h.subtitle,
+    emoji: h.emoji,
+    gradient: h.gradient,
+    accentColor: h.accentColor,
+    isSystem: h.isSystem,
+    sedes: h.sedes.map(s => s.name),
+    sedesInfo: h.sedes,
+  };
+}
+
+async function fetchHorariosFromApi(): Promise<HorarioConfig[]> {
+  const res = await fetch("/api/horarios");
+  if (!res.ok) throw new Error("API error");
+  const data: ApiHorario[] = await res.json();
+  return data.map(apiToConfig);
+}
+
+function buildMap(list: HorarioConfig[]): Record<string, HorarioConfig> {
+  const map: Record<string, HorarioConfig> = { ...HORARIOS };
+  for (const h of list) map[h.id] = h;
+  return map;
+}
+
 export function HorarioProvider({ children }: { children: ReactNode }) {
+  const [horariosMap, setHorariosMap] = useState<Record<string, HorarioConfig>>(HORARIOS);
+  const [horarioList, setHorarioList] = useState<HorarioConfig[]>(Object.values(HORARIOS));
+
   const [horarioId, setHorarioIdState] = useState<HorarioId>(() => {
-    const stored = sessionStorage.getItem("selected-horario") as HorarioId | null;
-    return stored && HORARIOS[stored] ? stored : "TEMUCO";
+    const stored = sessionStorage.getItem("selected-horario");
+    return stored ?? "TEMUCO";
   });
+
+  const horario = horariosMap[horarioId] ?? horariosMap["TEMUCO"] ?? Object.values(horariosMap)[0];
+
+  async function reloadHorarios() {
+    try {
+      const list = await fetchHorariosFromApi();
+      const map = buildMap(list);
+      setHorarioList(list);
+      setHorariosMap(map);
+      if (!map[horarioId]) {
+        const first = list[0]?.id ?? "TEMUCO";
+        setHorarioIdState(first);
+        sessionStorage.setItem("selected-horario", first);
+      }
+    } catch {
+      // silently use static fallback
+    }
+  }
+
+  useEffect(() => { reloadHorarios(); }, []);
 
   function setHorarioId(id: HorarioId) {
     sessionStorage.setItem("selected-horario", id);
@@ -21,7 +86,7 @@ export function HorarioProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <HorarioContext.Provider value={{ horarioId, horario: HORARIOS[horarioId], setHorarioId }}>
+    <HorarioContext.Provider value={{ horarioId, horario, setHorarioId, horarioList, horariosMap, reloadHorarios }}>
       {children}
     </HorarioContext.Provider>
   );

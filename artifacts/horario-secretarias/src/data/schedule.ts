@@ -30,54 +30,73 @@ export const TIME_SLOTS = [
 
 export const SEDES = ['LAS ENCINAS', 'INES DE SUAREZ'];
 
-export type HorarioId = 'TEMUCO' | 'ALMAGRO' | 'VILLARRICA' | 'AV_ALEMANIA';
+export type HorarioId = string;
+
+export interface SedeInfo {
+  name: string;
+  displayName: string;
+  maxSalas: number;
+}
 
 export interface HorarioConfig {
   id: HorarioId;
   label: string;
   subtitle: string;
   sedes: string[];
+  sedesInfo?: SedeInfo[];
   gradient: string;
   accentColor: string;
   emoji: string;
+  isSystem?: boolean;
 }
 
-export const HORARIOS: Record<HorarioId, HorarioConfig> = {
+export const HORARIOS: Record<string, HorarioConfig> = {
   TEMUCO: {
     id: 'TEMUCO',
     label: 'Temuco',
     subtitle: 'Las Encinas · Inés de Suárez',
     sedes: ['LAS ENCINAS', 'INES DE SUAREZ'],
+    sedesInfo: [
+      { name: 'LAS ENCINAS',    displayName: 'Las Encinas',    maxSalas: 7 },
+      { name: 'INES DE SUAREZ', displayName: 'Inés de Suárez', maxSalas: 5 },
+    ],
     gradient: 'from-violet-500 to-purple-600',
     accentColor: 'violet',
     emoji: '🏙️',
+    isSystem: true,
   },
   ALMAGRO: {
     id: 'ALMAGRO',
     label: 'D. Almagro',
     subtitle: 'Diego de Almagro',
     sedes: ['D. ALMAGRO'],
+    sedesInfo: [{ name: 'D. ALMAGRO', displayName: 'D. Almagro', maxSalas: 6 }],
     gradient: 'from-blue-500 to-indigo-600',
     accentColor: 'blue',
     emoji: '📍',
+    isSystem: true,
   },
   VILLARRICA: {
     id: 'VILLARRICA',
     label: 'Villarrica',
     subtitle: 'Sede Villarrica',
     sedes: ['VILLARRICA'],
+    sedesInfo: [{ name: 'VILLARRICA', displayName: 'Villarrica', maxSalas: 4 }],
     gradient: 'from-teal-500 to-emerald-600',
     accentColor: 'teal',
     emoji: '🌿',
+    isSystem: true,
   },
   AV_ALEMANIA: {
     id: 'AV_ALEMANIA',
     label: 'Av. Alemania',
     subtitle: 'Sede Av. Alemania',
     sedes: ['AV. ALEMANIA'],
+    sedesInfo: [{ name: 'AV. ALEMANIA', displayName: 'Av. Alemania', maxSalas: 4 }],
     gradient: 'from-orange-500 to-rose-500',
     accentColor: 'orange',
     emoji: '🌆',
+    isSystem: true,
   },
 };
 

@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "@workspace/db";
-import { scheduleClassesTable, scheduleStudentsTable } from "@workspace/db/schema";
+import { scheduleClassesTable, scheduleStudentsTable, scheduleHorariosTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -650,6 +650,241 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al procesar el archivo" });
+  }
+});
+
+// ─── Horarios / Sedes dinámicas ───────────────────────────────────────────────
+
+interface SedeConfig {
+  name: string;         // Internal name used in DB — e.g. "LAS ENCINAS"
+  displayName: string;  // Display name — e.g. "Las Encinas"
+  maxSalas: number;
+}
+
+const BUILT_IN_HORARIOS = [
+  {
+    id: "TEMUCO",
+    name: "Temuco",
+    subtitle: "Las Encinas · Inés de Suárez",
+    emoji: "🏙️",
+    gradient: "from-violet-500 to-purple-600",
+    accentColor: "violet",
+    sortOrder: 0,
+    sedes: [
+      { name: "LAS ENCINAS",    displayName: "Las Encinas",    maxSalas: 7 },
+      { name: "INES DE SUAREZ", displayName: "Inés de Suárez", maxSalas: 5 },
+    ] as SedeConfig[],
+  },
+  {
+    id: "ALMAGRO",
+    name: "D. Almagro",
+    subtitle: "Diego de Almagro",
+    emoji: "📍",
+    gradient: "from-blue-500 to-indigo-600",
+    accentColor: "blue",
+    sortOrder: 1,
+    sedes: [{ name: "D. ALMAGRO", displayName: "D. Almagro", maxSalas: 6 }] as SedeConfig[],
+  },
+  {
+    id: "VILLARRICA",
+    name: "Villarrica",
+    subtitle: "Sede Villarrica",
+    emoji: "🌿",
+    gradient: "from-teal-500 to-emerald-600",
+    accentColor: "teal",
+    sortOrder: 2,
+    sedes: [{ name: "VILLARRICA", displayName: "Villarrica", maxSalas: 4 }] as SedeConfig[],
+  },
+  {
+    id: "AV_ALEMANIA",
+    name: "Av. Alemania",
+    subtitle: "Sede Av. Alemania",
+    emoji: "🌆",
+    gradient: "from-orange-500 to-rose-500",
+    accentColor: "orange",
+    sortOrder: 3,
+    sedes: [{ name: "AV. ALEMANIA", displayName: "Av. Alemania", maxSalas: 4 }] as SedeConfig[],
+  },
+];
+
+async function seedHorariosIfEmpty() {
+  try {
+    const existing = await db.select({ id: scheduleHorariosTable.id }).from(scheduleHorariosTable);
+    if (existing.length > 0) return;
+    for (const h of BUILT_IN_HORARIOS) {
+      await db.insert(scheduleHorariosTable).values({
+        id: h.id,
+        name: h.name,
+        subtitle: h.subtitle,
+        emoji: h.emoji,
+        gradient: h.gradient,
+        accentColor: h.accentColor,
+        sedesJson: JSON.stringify(h.sedes),
+        isSystem: 1,
+        sortOrder: h.sortOrder,
+      });
+    }
+  } catch (err) {
+    console.error("seedHorariosIfEmpty error:", err);
+  }
+}
+
+seedHorariosIfEmpty();
+
+function parseSedesJson(json: string): SedeConfig[] {
+  try { return JSON.parse(json) as SedeConfig[]; } catch { return []; }
+}
+
+// GET /api/horarios — list all horarios with their sedes
+router.get("/horarios", async (_req, res) => {
+  try {
+    const rows = await db.select().from(scheduleHorariosTable).orderBy(scheduleHorariosTable.sortOrder);
+    const result = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      subtitle: r.subtitle,
+      emoji: r.emoji,
+      gradient: r.gradient,
+      accentColor: r.accentColor,
+      isSystem: r.isSystem === 1,
+      sortOrder: r.sortOrder,
+      sedes: parseSedesJson(r.sedesJson),
+    }));
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al obtener horarios" });
+  }
+});
+
+const GRADIENT_OPTIONS = [
+  "from-violet-500 to-purple-600",
+  "from-blue-500 to-indigo-600",
+  "from-teal-500 to-emerald-600",
+  "from-orange-500 to-rose-500",
+  "from-cyan-500 to-sky-600",
+  "from-pink-500 to-fuchsia-600",
+  "from-lime-500 to-green-600",
+  "from-amber-500 to-yellow-600",
+];
+
+const ACCENT_FOR_GRADIENT: Record<string, string> = {
+  "from-violet-500 to-purple-600": "violet",
+  "from-blue-500 to-indigo-600":   "blue",
+  "from-teal-500 to-emerald-600":  "teal",
+  "from-orange-500 to-rose-500":   "orange",
+  "from-cyan-500 to-sky-600":      "cyan",
+  "from-pink-500 to-fuchsia-600":  "pink",
+  "from-lime-500 to-green-600":    "lime",
+  "from-amber-500 to-yellow-600":  "amber",
+};
+
+// POST /api/horarios — create a new horario
+router.post("/horarios", async (req, res) => {
+  try {
+    const { name, subtitle = "", emoji = "🏢", gradient } = req.body as {
+      name?: string; subtitle?: string; emoji?: string; gradient?: string;
+    };
+    if (!name?.trim()) return res.status(400).json({ error: "Se requiere un nombre" });
+
+    const allRows = await db.select({ sortOrder: scheduleHorariosTable.sortOrder }).from(scheduleHorariosTable);
+    const maxSort = allRows.reduce((m, r) => Math.max(m, r.sortOrder ?? 0), 0);
+
+    const id = name.trim().toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, "").slice(0, 32)
+      + "_" + Date.now().toString(36).toUpperCase();
+    const chosenGradient = gradient && GRADIENT_OPTIONS.includes(gradient) ? gradient : GRADIENT_OPTIONS[Math.floor(Math.random() * GRADIENT_OPTIONS.length)];
+    const accentColor = ACCENT_FOR_GRADIENT[chosenGradient] ?? "violet";
+    const defaultSede: SedeConfig = {
+      name: name.trim().toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, ""),
+      displayName: name.trim(),
+      maxSalas: 6,
+    };
+
+    await db.insert(scheduleHorariosTable).values({
+      id,
+      name: name.trim(),
+      subtitle: subtitle.trim(),
+      emoji: emoji.trim() || "🏢",
+      gradient: chosenGradient,
+      accentColor,
+      sedesJson: JSON.stringify([defaultSede]),
+      isSystem: 0,
+      sortOrder: maxSort + 1,
+    });
+
+    res.json({ ok: true, id, name: name.trim() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al crear horario" });
+  }
+});
+
+// PUT /api/horarios/:id/sedes — add or update a sede in a horario
+router.put("/horarios/:id/sedes", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sedeName, displayName, maxSalas = 6 } = req.body as {
+      sedeName?: string; displayName?: string; maxSalas?: number;
+    };
+    if (!sedeName?.trim()) return res.status(400).json({ error: "Se requiere sedeName" });
+
+    const [row] = await db.select().from(scheduleHorariosTable).where(eq(scheduleHorariosTable.id, id));
+    if (!row) return res.status(404).json({ error: "Horario no encontrado" });
+
+    const sedes = parseSedesJson(row.sedesJson);
+    const existing = sedes.findIndex(s => s.name === sedeName.trim().toUpperCase());
+    const updated: SedeConfig = {
+      name: sedeName.trim().toUpperCase(),
+      displayName: (displayName ?? sedeName).trim(),
+      maxSalas: Number(maxSalas) || 6,
+    };
+    if (existing >= 0) sedes[existing] = updated;
+    else sedes.push(updated);
+
+    await db.update(scheduleHorariosTable).set({ sedesJson: JSON.stringify(sedes) }).where(eq(scheduleHorariosTable.id, id));
+    res.json({ ok: true, sedes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al actualizar sede" });
+  }
+});
+
+// DELETE /api/horarios/:id/sedes/:sedeName — remove a sede from a horario
+router.delete("/horarios/:id/sedes/:sedeName", async (req, res) => {
+  try {
+    const { id, sedeName } = req.params;
+    const [row] = await db.select().from(scheduleHorariosTable).where(eq(scheduleHorariosTable.id, id));
+    if (!row) return res.status(404).json({ error: "Horario no encontrado" });
+
+    const sedes = parseSedesJson(row.sedesJson).filter(s => s.name !== decodeURIComponent(sedeName));
+    await db.update(scheduleHorariosTable).set({ sedesJson: JSON.stringify(sedes) }).where(eq(scheduleHorariosTable.id, id));
+    res.json({ ok: true, sedes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al eliminar sede" });
+  }
+});
+
+// DELETE /api/horarios/:id — delete a custom horario (non-system only)
+router.delete("/horarios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [row] = await db.select().from(scheduleHorariosTable).where(eq(scheduleHorariosTable.id, id));
+    if (!row) return res.status(404).json({ error: "Horario no encontrado" });
+    if (row.isSystem === 1) return res.status(403).json({ error: "No se pueden eliminar campus del sistema" });
+
+    const classes = await db.select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable).where(eq(scheduleClassesTable.horario, id));
+    for (const { classCode } of classes) {
+      await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
+    }
+    await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.horario, id));
+    await db.delete(scheduleHorariosTable).where(eq(scheduleHorariosTable.id, id));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al eliminar horario" });
   }
 });
 

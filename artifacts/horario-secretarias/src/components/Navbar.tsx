@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera } from "lucide-react";
+import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera, Bell } from "lucide-react";
 import { useHorario } from "@/context/HorarioContext";
+import { useNotifications } from "@/context/NotificationContext";
 
 const navLinks = [
   { href: "/", label: "Inicio", icon: Home },
@@ -11,17 +12,13 @@ const navLinks = [
   { href: "/admin", label: "Admin", icon: Settings },
 ];
 
-const HORARIO_SHORT: Record<string, string> = {
-  TEMUCO:      "Temuco",
-  ALMAGRO:     "D. Almagro",
-  VILLARRICA:  "Villarrica",
-  AV_ALEMANIA: "Av. Alemania",
-};
-
 export default function Navbar() {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
   const { horarioId, horario } = useHorario();
+  const { unreadCount, notifications } = useNotifications();
+
+  const horarioUnread = notifications.filter(n => n.horarioId === horarioId && !n.read).length;
 
   return (
     <>
@@ -36,11 +33,6 @@ export default function Navbar() {
                 <span className="font-display font-bold text-xl tracking-tight text-foreground">
                   {horario.label}
                 </span>
-                {horarioId !== "TEMUCO" && (
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
-                    {HORARIO_SHORT[horarioId] ?? horarioId}
-                  </span>
-                )}
               </div>
             </Link>
 
@@ -63,6 +55,25 @@ export default function Navbar() {
                     </Link>
                   );
                 })}
+
+                <Link
+                  href="/notificaciones"
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    location === "/notificaciones"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <div className="relative">
+                    <Bell className="w-4 h-4" />
+                    {horarioUnread > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                        {horarioUnread > 9 ? "9+" : horarioUnread}
+                      </span>
+                    )}
+                  </div>
+                  Notificaciones
+                </Link>
               </nav>
 
               <Link
@@ -70,7 +81,7 @@ export default function Navbar() {
                 title="Cambiar sede"
                 className="ml-2 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold hover:bg-primary/20 transition-colors shrink-0"
               >
-                {HORARIO_SHORT[horarioId] ?? horarioId}
+                {horario.label}
               </Link>
             </div>
 
@@ -110,6 +121,30 @@ export default function Navbar() {
               );
             })}
             <Link
+              href="/notificaciones"
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                location === "/notificaciones"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <div className="relative">
+                <Bell className="w-5 h-5" />
+                {horarioUnread > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {horarioUnread > 9 ? "9+" : horarioUnread}
+                  </span>
+                )}
+              </div>
+              Notificaciones
+              {horarioUnread > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {horarioUnread}
+                </span>
+              )}
+            </Link>
+            <Link
               href="/"
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
@@ -129,7 +164,7 @@ export default function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-all ${
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
                   active ? "text-primary" : "text-muted-foreground"
                 }`}
               >
@@ -140,6 +175,22 @@ export default function Navbar() {
               </Link>
             );
           })}
+          <Link
+            href="/notificaciones"
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
+              location === "/notificaciones" ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <div className={`relative p-1.5 rounded-lg transition-colors ${location === "/notificaciones" ? "bg-primary/10" : ""}`}>
+              <Bell className="w-5 h-5" />
+              {horarioUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                  {horarioUnread > 9 ? "9+" : horarioUnread}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-medium">Alertas</span>
+          </Link>
         </div>
       </nav>
     </>

@@ -3,12 +3,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HorarioProvider } from "@/context/HorarioContext";
+import { NotificationProvider } from "@/context/NotificationContext";
+import ToastContainer from "@/components/ToastContainer";
 import Navbar from "@/components/Navbar";
 import HomePage from "@/pages/HomePage";
 import HorarioPage from "@/pages/HorarioPage";
 import AdminPage from "@/pages/AdminPage";
 import GuiasPage from "@/pages/GuiasPage";
 import FotoPage from "@/pages/FotoPage";
+import NotificationsPage from "@/pages/NotificationsPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -16,19 +19,23 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <HorarioProvider>
-      <div className="min-h-screen flex flex-col bg-background">
-        <Navbar />
-        <main className="flex-1">
-          <Switch>
-            <Route path="/" component={HomePage} />
-            <Route path="/horarios" component={HorarioPage} />
-            <Route path="/admin" component={AdminPage} />
-            <Route path="/guias" component={GuiasPage} />
-            <Route path="/foto" component={FotoPage} />
-            <Route component={NotFound} />
-          </Switch>
-        </main>
-      </div>
+      <NotificationProvider>
+        <div className="min-h-screen flex flex-col bg-background">
+          <Navbar />
+          <ToastContainer />
+          <main className="flex-1">
+            <Switch>
+              <Route path="/" component={HomePage} />
+              <Route path="/horarios" component={HorarioPage} />
+              <Route path="/admin" component={AdminPage} />
+              <Route path="/guias" component={GuiasPage} />
+              <Route path="/foto" component={FotoPage} />
+              <Route path="/notificaciones" component={NotificationsPage} />
+              <Route component={NotFound} />
+            </Switch>
+          </main>
+        </div>
+      </NotificationProvider>
     </HorarioProvider>
   );
 }

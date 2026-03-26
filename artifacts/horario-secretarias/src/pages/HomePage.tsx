@@ -1,39 +1,51 @@
 import { useLocation } from "wouter";
-import { CalendarDays, MapPin, ArrowRight, Building2, School } from "lucide-react";
-import { HORARIOS, type HorarioId } from "@/data/schedule";
+import { MapPin, ArrowRight } from "lucide-react";
 import { useHorario } from "@/context/HorarioContext";
 
-const CAMPUS_ICONS: Record<HorarioId, typeof CalendarDays> = {
-  TEMUCO:      School,
-  ALMAGRO:     Building2,
-  VILLARRICA:  MapPin,
-  AV_ALEMANIA: Building2,
+const ACCENT_BADGE: Record<string, string> = {
+  violet: "bg-violet-100 text-violet-700",
+  blue:   "bg-blue-100 text-blue-700",
+  teal:   "bg-teal-100 text-teal-700",
+  orange: "bg-orange-100 text-orange-700",
+  cyan:   "bg-cyan-100 text-cyan-700",
+  pink:   "bg-pink-100 text-pink-700",
+  lime:   "bg-lime-100 text-lime-700",
+  amber:  "bg-amber-100 text-amber-700",
 };
 
-const CAMPUS_COLORS: Record<HorarioId, { gradient: string; border: string; badge: string; text: string }> = {
-  TEMUCO:      { gradient: "from-primary to-secondary", border: "border-primary/30", badge: "bg-primary/10 text-primary", text: "text-primary" },
-  ALMAGRO:     { gradient: "from-violet-500 to-indigo-500", border: "border-violet-300/50", badge: "bg-violet-100 text-violet-700", text: "text-violet-600 dark:text-violet-400" },
-  VILLARRICA:  { gradient: "from-teal-500 to-emerald-500", border: "border-teal-300/50", badge: "bg-teal-100 text-teal-700", text: "text-teal-600 dark:text-teal-400" },
-  AV_ALEMANIA: { gradient: "from-orange-400 to-amber-500", border: "border-orange-300/50", badge: "bg-orange-100 text-orange-700", text: "text-orange-600 dark:text-orange-400" },
+const ACCENT_TEXT: Record<string, string> = {
+  violet: "text-violet-600",
+  blue:   "text-blue-600",
+  teal:   "text-teal-600",
+  orange: "text-orange-600",
+  cyan:   "text-cyan-600",
+  pink:   "text-pink-600",
+  lime:   "text-lime-600",
+  amber:  "text-amber-600",
 };
 
-const CAMPUS_DESCRIPTIONS: Record<HorarioId, string> = {
-  TEMUCO:      "Sedes Las Encinas e Inés de Suárez — grilla semanal colaborativa en tiempo real.",
-  ALMAGRO:     "Sede Diego de Almagro — horarios y matrícula de alumnos en tiempo real.",
-  VILLARRICA:  "Sede Villarrica — grilla semanal y gestión de inscripciones.",
-  AV_ALEMANIA: "Sede Av. Alemania — horarios, salas y seguimiento de matrículas.",
+const ACCENT_BORDER: Record<string, string> = {
+  violet: "border-violet-200/60",
+  blue:   "border-blue-200/60",
+  teal:   "border-teal-200/60",
+  orange: "border-orange-200/60",
+  cyan:   "border-cyan-200/60",
+  pink:   "border-pink-200/60",
+  lime:   "border-lime-200/60",
+  amber:  "border-amber-200/60",
 };
-
-const HORARIO_IDS = Object.keys(HORARIOS) as HorarioId[];
 
 export default function HomePage() {
-  const { setHorarioId } = useHorario();
+  const { setHorarioId, horarioList } = useHorario();
   const [, navigate] = useLocation();
 
-  function handleSelect(id: HorarioId) {
+  function handleSelect(id: string) {
     setHorarioId(id);
     navigate("/horarios");
   }
+
+  const cols = horarioList.length <= 2 ? "lg:grid-cols-2" :
+               horarioList.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4";
 
   return (
     <div className="relative overflow-hidden min-h-[calc(100vh-5rem)] flex flex-col justify-center pb-24 md:pb-0">
@@ -55,19 +67,19 @@ export default function HomePage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {HORARIO_IDS.map(id => {
-            const horario = HORARIOS[id];
-            const colors   = CAMPUS_COLORS[id];
-            const Icon     = CAMPUS_ICONS[id];
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${cols} gap-5`}>
+          {horarioList.map(horario => {
+            const badgeCls  = ACCENT_BADGE[horario.accentColor]  ?? "bg-muted text-muted-foreground";
+            const textCls   = ACCENT_TEXT[horario.accentColor]   ?? "text-primary";
+            const borderCls = ACCENT_BORDER[horario.accentColor] ?? "border-border";
             return (
               <button
-                key={id}
-                onClick={() => handleSelect(id)}
-                className={`group relative bg-card rounded-3xl p-7 border ${colors.border} shadow-xl shadow-black/5 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 text-left focus:outline-none focus:ring-2 focus:ring-primary/50`}
+                key={horario.id}
+                onClick={() => handleSelect(horario.id)}
+                className={`group relative bg-card rounded-3xl p-7 border ${borderCls} shadow-xl shadow-black/5 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 text-left focus:outline-none focus:ring-2 focus:ring-primary/50`}
               >
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center mb-5 shadow-md group-hover:scale-110 transition-transform duration-300`}>
-                  <Icon className="w-7 h-7 text-white" />
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${horario.gradient} flex items-center justify-center mb-5 shadow-md group-hover:scale-110 transition-transform duration-300 text-2xl`}>
+                  {horario.emoji}
                 </div>
 
                 <h2 className="font-display font-extrabold text-xl text-foreground mb-1 leading-tight">
@@ -75,18 +87,18 @@ export default function HomePage() {
                 </h2>
 
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  {horario.sedes.map(s => (
-                    <span key={s} className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${colors.badge}`}>
-                      {s}
+                  {(horario.sedesInfo ?? horario.sedes.map(s => ({ name: s, displayName: s, maxSalas: 6 }))).map(s => (
+                    <span key={s.name} className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${badgeCls}`}>
+                      {s.displayName}
                     </span>
                   ))}
                 </div>
 
                 <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-                  {CAMPUS_DESCRIPTIONS[id]}
+                  {horario.subtitle || `${horario.sedes.length} sede${horario.sedes.length !== 1 ? "s" : ""} — grilla semanal colaborativa.`}
                 </p>
 
-                <span className={`flex items-center gap-1.5 text-sm font-bold ${colors.text} group-hover:gap-2.5 transition-all`}>
+                <span className={`flex items-center gap-1.5 text-sm font-bold ${textCls} group-hover:gap-2.5 transition-all`}>
                   Ir a horarios
                   <ArrowRight className="w-4 h-4" />
                 </span>

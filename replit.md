@@ -4,6 +4,20 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
+## Horario Secretarias — App Features
+
+**artifacts/horario-secretarias**: Web app for school schedule management for secretaries.
+- **Campus**: TEMUCO (Las Encinas + Inés de Suárez), D. Almagro, Villarrica, Av. Alemania
+- **Dynamic Campuses**: New `schedule_horarios` DB table; campuses/sedes managed via Admin → Gestionar Campus; new ones added via API `POST /api/horarios`
+- **Notification System**: `NotificationContext` stores notifications in localStorage per campus; `ToastContainer` shows 5-second alerts top-right when student removed or spot available; `/notificaciones` page shows full history with filters by type and sede, read/unread state, delete per-item or all
+- **Notification Trigger**: `handleRemove` in `DetailPanel` (HorarioPage) fires `alumno_eliminado` on removal and `cupo_disponible` if new count < MAX_STUDENTS (8)
+- **API**: `GET/POST /api/horarios`, `PUT /api/horarios/:id/sedes`, `DELETE /api/horarios/:id/sedes/:sedeName`, `DELETE /api/horarios/:id`
+- **Capacity**: NORMAL_CAPACITY=7, MAX_STUDENTS=8; amber highlight for 8th student
+- **Print Guides**: GuiasPage generates printable PDF-ready guides per campus/sede
+- **Photo Export**: FotoPage generates 1920×1080 PNG for TV display per campus/day
+- **Presence**: Real-time presence system shows active secretaries
+- **Typing Indicators**: Shows when another user is typing in a class slot
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
