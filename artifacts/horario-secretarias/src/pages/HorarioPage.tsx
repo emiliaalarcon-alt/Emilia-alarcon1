@@ -1119,7 +1119,7 @@ export default function HorarioPage() {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                   </span>
                   <span className="text-xs font-semibold text-emerald-700">
-                    {activePeers.length === 1 ? "1 secretaria activa" : `${activePeers.length} secretarias activas`}
+                    {activePeers.length === 1 ? "1 persona activa" : `${activePeers.length} personas activas`}
                   </span>
                   <span className="text-xs text-emerald-600 hidden sm:inline">
                     — {activePeers.map(p => p.name).join(", ")}
