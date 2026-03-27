@@ -369,6 +369,10 @@ function DetailPanel({
 
       // Auto-registrar el cambio en la tabla de Cambios
       const today = new Date().toISOString().slice(0, 10);
+      const fullCourseName = COURSE_FULL_NAMES[entry.course] ?? entry.course;
+      // Reemplaza el código del curso por el nombre completo en el classCode
+      // ej: "M1 LUN 18.00 SF" → "Matemática 1 LUN 18.00 SF"
+      const leavesReadable = entry.classCode.replace(entry.course, fullCourseName);
       fetch("/api/transfers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -378,8 +382,8 @@ function DetailPanel({
           teacherBefore: entry.teacher,
           teacherAfter: "",
           sede: entry.sede,
-          subject: COURSE_FULL_NAMES[entry.course] ?? entry.course,
-          leavesClass: entry.classCode,
+          subject: fullCourseName,
+          leavesClass: leavesReadable,
           entersClass: "",
           transferDate: today,
           changeType: "CAMBIO HORARIO",
