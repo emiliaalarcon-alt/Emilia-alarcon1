@@ -969,6 +969,32 @@ router.delete("/horarios/:id", async (req, res) => {
 });
 
 // ─── Cambios / Transferencias de alumnos ─────────────────────────────────────
+const transferClients = new Map<string, Set<Response>>();
+
+router.get("/transfers/stream", (req, res) => {
+  const { horarioId } = req.query as { horarioId?: string };
+  if (!horarioId) { res.status(400).json({ error: "horarioId requerido" }); return; }
+
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+  res.write(": connected\n\n");
+
+  if (!transferClients.has(horarioId)) transferClients.set(horarioId, new Set());
+  transferClients.get(horarioId)!.add(res);
+
+  const keepalive = setInterval(() => res.write(": ping\n\n"), 20_000);
+  req.on("close", () => {
+    clearInterval(keepalive);
+    transferClients.get(horarioId)?.delete(res);
+    if (transferClients.get(horarioId)?.size === 0) transferClients.delete(horarioId);
+  });
+});
+
 router.get("/transfers", async (req, res) => {
   const { horarioId } = req.query as { horarioId?: string };
   if (!horarioId) return res.status(400).json({ error: "horarioId requerido" });
@@ -993,6 +1019,11 @@ router.post("/transfers", async (req, res) => {
       horarioId, studentName, teacherBefore, teacherAfter, sede, subject,
       leavesClass, entersClass, transferDate, changeType, changeReason,
     }).returning();
+
+    // Broadcast to all connected CambiosPage clients for this horario
+    const payload = `data: ${JSON.stringify({ type: "transfer_created", transfer: row })}\n\n`;
+    transferClients.get(horarioId)?.forEach(client => client.write(payload));
+
     res.json(row);
   } catch (err) {
     console.error(err);

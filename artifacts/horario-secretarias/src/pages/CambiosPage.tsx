@@ -180,6 +180,24 @@ export default function CambiosPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // SSE: recibir nuevos registros en tiempo real
+  useEffect(() => {
+    const url = api(`/api/transfers/stream?horarioId=${encodeURIComponent(horarioId)}`);
+    const es = new EventSource(url);
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "transfer_created") {
+          setTransfers(prev => {
+            if (prev.some(t => t.id === msg.transfer.id)) return prev;
+            return [...prev, msg.transfer];
+          });
+        }
+      } catch {}
+    };
+    return () => es.close();
+  }, [horarioId]);
+
   async function handleAdd() {
     setAdding(true);
     try {
