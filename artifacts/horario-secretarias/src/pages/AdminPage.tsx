@@ -236,8 +236,8 @@ export default function AdminPage() {
     // SSE para actualizaciones en tiempo real (carga del Excel, cambios de horario)
     const es = new EventSource(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`);
     es.onmessage = () => fetchData();
-    // Fallback poll cada 60s
-    const interval = setInterval(fetchData, 60_000);
+    // Fallback poll cada 5s por si la conexión SSE falla
+    const interval = setInterval(fetchData, 5_000);
     return () => { es.close(); clearInterval(interval); };
   }, [fetchData, horarioId]);
 
