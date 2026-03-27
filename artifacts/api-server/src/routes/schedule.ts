@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "@workspace/db";
-import { scheduleClassesTable, scheduleStudentsTable, scheduleHorariosTable } from "@workspace/db/schema";
+import { scheduleClassesTable, scheduleStudentsTable, scheduleHorariosTable, scheduleTransfersTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -965,6 +965,70 @@ router.delete("/horarios/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al eliminar horario" });
+  }
+});
+
+// ─── Cambios / Transferencias de alumnos ─────────────────────────────────────
+router.get("/transfers", async (req, res) => {
+  const { horarioId } = req.query as { horarioId?: string };
+  if (!horarioId) return res.status(400).json({ error: "horarioId requerido" });
+  try {
+    const rows = await db
+      .select()
+      .from(scheduleTransfersTable)
+      .where(eq(scheduleTransfersTable.horarioId, horarioId))
+      .orderBy(scheduleTransfersTable.createdAt);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al obtener cambios" });
+  }
+});
+
+router.post("/transfers", async (req, res) => {
+  const { horarioId, studentName = "", teacherBefore = "", teacherAfter = "", sede = "", subject = "", leavesClass = "", entersClass = "", transferDate = "", changeType = "CAMBIO HORARIO", changeReason = "NINGUNO" } = req.body as Record<string, string>;
+  if (!horarioId) return res.status(400).json({ error: "horarioId requerido" });
+  try {
+    const [row] = await db.insert(scheduleTransfersTable).values({
+      horarioId, studentName, teacherBefore, teacherAfter, sede, subject,
+      leavesClass, entersClass, transferDate, changeType, changeReason,
+    }).returning();
+    res.json(row);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al crear cambio" });
+  }
+});
+
+router.patch("/transfers/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "ID inválido" });
+  const allowed = ["studentName","teacherBefore","teacherAfter","sede","subject","leavesClass","entersClass","transferDate","changeType","changeReason"] as const;
+  type AllowedKey = typeof allowed[number];
+  const updates: Partial<Record<AllowedKey, string>> = {};
+  for (const key of allowed) {
+    if (key in req.body) updates[key] = req.body[key];
+  }
+  if (Object.keys(updates).length === 0) return res.status(400).json({ error: "Sin campos para actualizar" });
+  try {
+    const [row] = await db.update(scheduleTransfersTable).set(updates).where(eq(scheduleTransfersTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "No encontrado" });
+    res.json(row);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al actualizar cambio" });
+  }
+});
+
+router.delete("/transfers/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "ID inválido" });
+  try {
+    await db.delete(scheduleTransfersTable).where(eq(scheduleTransfersTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al eliminar cambio" });
   }
 });
 
