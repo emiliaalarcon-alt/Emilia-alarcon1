@@ -118,7 +118,7 @@ export default function AdminPage() {
   const { horarioId, horario, horarioList, reloadHorarios } = useHorario();
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState(() => ({ ...emptyForm, sede: horario.sedes[0] }));
+  const [form, setForm] = useState(() => ({ ...emptyForm, sede: horario.sedes?.[0] ?? "" }));
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
@@ -244,11 +244,12 @@ export default function AdminPage() {
   useEffect(() => {
     setAllData([]);
     setLoading(true);
-    setForm({ ...emptyForm, sede: horario.sedes[0] });
+    setForm({ ...emptyForm, sede: horario.sedes?.[0] ?? "" });
     setSearch("");
     setFilterSede("");
     setFilterCourse("");
-  }, [horarioId, horario.sedes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [horarioId]);
 
   const preview = useMemo(() => {
     if (!form.course || !form.day || !form.time || !form.teacher) return "";
@@ -830,7 +831,7 @@ export default function AdminPage() {
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Sede</label>
                   <div className="flex rounded-xl overflow-hidden border border-border/60">
-                    {horario.sedes.map(s => (
+                    {(horario.sedes ?? []).map(s => (
                       <button
                         key={s}
                         type="button"
@@ -991,7 +992,7 @@ export default function AdminPage() {
                   className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
                 >
                   <option value="">Todas las sedes</option>
-                  {horario.sedes.map(s => (
+                  {(horario.sedes ?? []).map(s => (
                     <option key={s} value={s}>{displaySede(s)}</option>
                   ))}
                 </select>
@@ -1113,12 +1114,12 @@ export default function AdminPage() {
                             <tr className="bg-primary/5 border-b border-primary/20">
                               <td colSpan={7} className="px-4 py-3">
                                 <div className="flex flex-wrap gap-2 items-end">
-                                  {horario.sedes.length > 1 && (
+                                  {(horario.sedes ?? []).length > 1 && (
                                     <div className="flex flex-col gap-1">
                                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sede</label>
                                       <select value={editForm.sede} onChange={e => setEditForm(f => ({ ...f, sede: e.target.value }))}
                                         className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
-                                        {horario.sedes.map(s => <option key={s} value={s}>{displaySede(s)}</option>)}
+                                        {(horario.sedes ?? []).map(s => <option key={s} value={s}>{displaySede(s)}</option>)}
                                       </select>
                                     </div>
                                   )}
