@@ -32,6 +32,23 @@ export const scheduleHorariosTable = pgTable("schedule_horarios", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const scheduleTransfersTable = pgTable("schedule_transfers", {
+  id: serial("id").primaryKey(),
+  horarioId: text("horario_id").notNull(),
+  studentName: text("student_name").notNull().default(""),
+  teacherBefore: text("teacher_before").notNull().default(""),
+  teacherAfter: text("teacher_after").notNull().default(""),
+  sede: text("sede").notNull().default(""),
+  subject: text("subject").notNull().default(""),
+  leavesClass: text("leaves_class").notNull().default(""),
+  entersClass: text("enters_class").notNull().default(""),
+  transferDate: text("transfer_date").notNull().default(""),
+  changeType: text("change_type").notNull().default("CAMBIO HORARIO"),
+  changeReason: text("change_reason").notNull().default("NINGUNO"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export type ScheduleClass = typeof scheduleClassesTable.$inferSelect;
 export type ScheduleStudent = typeof scheduleStudentsTable.$inferSelect;
 export type ScheduleHorario = typeof scheduleHorariosTable.$inferSelect;
+export type ScheduleTransfer = typeof scheduleTransfersTable.$inferSelect;
