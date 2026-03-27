@@ -512,6 +512,38 @@ router.get("/schedule", async (req, res) => {
   }
 });
 
+// ─── Schedule SSE — actualizaciones en tiempo real ───────────────────────────
+const scheduleClients = new Map<string, Set<Response>>();
+
+function broadcastScheduleChange(horarioId: string) {
+  const payload = `data: ${JSON.stringify({ type: "schedule_changed" })}\n\n`;
+  scheduleClients.get(horarioId)?.forEach(client => client.write(payload));
+}
+
+router.get("/schedule/stream", (req, res) => {
+  const { horarioId } = req.query as { horarioId?: string };
+  if (!horarioId) { res.status(400).json({ error: "horarioId requerido" }); return; }
+
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+  res.write(": connected\n\n");
+
+  if (!scheduleClients.has(horarioId)) scheduleClients.set(horarioId, new Set());
+  scheduleClients.get(horarioId)!.add(res);
+
+  const keepalive = setInterval(() => res.write(": ping\n\n"), 20_000);
+  req.on("close", () => {
+    clearInterval(keepalive);
+    scheduleClients.get(horarioId)?.delete(res);
+    if (scheduleClients.get(horarioId)?.size === 0) scheduleClients.delete(horarioId);
+  });
+});
+
 // POST /api/schedule/:classCode/students  body: { name }
 router.post("/schedule/:classCode/students", async (req, res) => {
   try {
@@ -546,6 +578,7 @@ router.post("/schedule/:classCode/students", async (req, res) => {
       studentName: trimmed,
     }).onConflictDoNothing();
 
+    broadcastScheduleChange(cls[0].horario);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -559,11 +592,18 @@ router.delete("/schedule/:classCode/students/:name", async (req, res) => {
     const { classCode, name } = req.params;
     const studentName = decodeURIComponent(name);
 
+    // Look up horario before deleting (for broadcast)
+    const cls = await db.select({ horario: scheduleClassesTable.horario })
+      .from(scheduleClassesTable)
+      .where(eq(scheduleClassesTable.classCode, classCode))
+      .limit(1);
+
     await db.delete(scheduleStudentsTable)
       .where(
         sql`${scheduleStudentsTable.classCode} = ${classCode} AND ${scheduleStudentsTable.studentName} = ${studentName}`
       );
 
+    if (cls[0]) broadcastScheduleChange(cls[0].horario);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -602,6 +642,7 @@ router.post("/schedule/classes", async (req, res) => {
       course: course.toUpperCase(),
     });
 
+    broadcastScheduleChange(horarioVal);
     res.json({ ok: true, classCode });
   } catch (err) {
     console.error(err);
@@ -654,6 +695,7 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
              teacher: newTeacher, sede: newSede, sala: newSala })
       .where(eq(scheduleClassesTable.classCode, oldCode));
 
+    broadcastScheduleChange(cls.horario);
     res.json({ ok: true, classCode: newCode });
   } catch (err) {
     console.error(err);
@@ -665,8 +707,12 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
 router.delete("/schedule/classes/:classCode", async (req, res) => {
   try {
     const classCode = decodeURIComponent(req.params.classCode);
+    // Look up horario before deleting (for broadcast)
+    const cls = await db.select({ horario: scheduleClassesTable.horario })
+      .from(scheduleClassesTable).where(eq(scheduleClassesTable.classCode, classCode)).limit(1);
     await db.delete(scheduleStudentsTable).where(eq(scheduleStudentsTable.classCode, classCode));
     await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.classCode, classCode));
+    if (cls[0]) broadcastScheduleChange(cls[0].horario);
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -688,6 +734,7 @@ router.delete("/schedule/classes", async (req, res) => {
       }
       await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.horario, horarioFilter));
     }
+    broadcastScheduleChange(horarioFilter);
     res.json({ ok: true, deleted: codes.length });
   } catch (err) {
     console.error(err);
@@ -716,6 +763,7 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
       totalStudents  += ts;
       allParseErrors.push(...result.parseErrors);
       perCampus[horarioId] = { students: ts, created: result.created, updated: result.updated };
+      broadcastScheduleChange(horarioId);
     }
 
     res.json({

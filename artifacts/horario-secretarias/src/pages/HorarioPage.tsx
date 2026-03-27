@@ -931,9 +931,13 @@ export default function HorarioPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    // SSE para actualizaciones en tiempo real entre usuarios/sedes
+    const es = new EventSource(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`);
+    es.onmessage = () => fetchData();
+    // Fallback poll cada 60s por si la conexión SSE falla
+    const interval = setInterval(fetchData, 60_000);
+    return () => { es.close(); clearInterval(interval); };
+  }, [fetchData, horarioId]);
 
   const sedeData = useMemo(
     () => allData.filter(e => e.sede === activeSede),
