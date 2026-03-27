@@ -192,6 +192,10 @@ export default function CambiosPage() {
             if (prev.some(t => t.id === msg.transfer.id)) return prev;
             return [...prev, msg.transfer];
           });
+        } else if (msg.type === "transfer_updated") {
+          setTransfers(prev =>
+            prev.map(t => t.id === msg.transfer.id ? msg.transfer : t)
+          );
         }
       } catch {}
     };

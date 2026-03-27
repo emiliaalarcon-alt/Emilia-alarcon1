@@ -1044,6 +1044,11 @@ router.patch("/transfers/:id", async (req, res) => {
   try {
     const [row] = await db.update(scheduleTransfersTable).set(updates).where(eq(scheduleTransfersTable.id, id)).returning();
     if (!row) return res.status(404).json({ error: "No encontrado" });
+
+    // Broadcast update to all connected CambiosPage clients
+    const payload = `data: ${JSON.stringify({ type: "transfer_updated", transfer: row })}\n\n`;
+    transferClients.get(row.horarioId)?.forEach(client => client.write(payload));
+
     res.json(row);
   } catch (err) {
     console.error(err);

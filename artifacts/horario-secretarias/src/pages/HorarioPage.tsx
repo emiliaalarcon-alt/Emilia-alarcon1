@@ -353,6 +353,55 @@ function DetailPanel({
         setNewStudentName("");
         onTypingStop();
         onStudentChange();
+
+        // Auto-registrar el curso al que ENTRA el alumno en la tabla de Cambios
+        const today = new Date().toISOString().slice(0, 10);
+        const fullCourseName = COURSE_FULL_NAMES[entry.course] ?? entry.course;
+        const entersReadable = entry.classCode.replace(entry.course, fullCourseName);
+
+        // Buscar si ya existe un registro incompleto de este alumno (sin "entersClass")
+        const searchRes = await fetch(
+          `/api/transfers?horarioId=${encodeURIComponent(horarioId)}`
+        ).catch(() => null);
+
+        if (searchRes?.ok) {
+          const allTransfers: Array<{
+            id: number; studentName: string; entersClass: string;
+          }> = await searchRes.json();
+          const incomplete = allTransfers.find(
+            t => t.studentName.toLowerCase() === name.toLowerCase() && t.entersClass === ""
+          );
+          if (incomplete) {
+            // Completar el registro existente con los datos del nuevo curso
+            fetch(`/api/transfers/${incomplete.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                entersClass: entersReadable,
+                teacherAfter: entry.teacher,
+              }),
+            }).catch(() => {});
+          } else {
+            // No hay registro previo: crear uno nuevo con los datos de entrada
+            fetch("/api/transfers", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                horarioId,
+                studentName: name,
+                teacherBefore: "",
+                teacherAfter: entry.teacher,
+                sede: entry.sede,
+                subject: fullCourseName,
+                leavesClass: "",
+                entersClass: entersReadable,
+                transferDate: today,
+                changeType: "CAMBIO HORARIO",
+                changeReason: "NINGUNO",
+              }),
+            }).catch(() => {});
+          }
+        }
       }
     } catch {
       setAddError("Error de conexión.");
