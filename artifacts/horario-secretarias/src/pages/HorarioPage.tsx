@@ -367,6 +367,26 @@ function DetailPanel({
       await apiRemoveStudent(entry.classCode, studentName);
       onStudentChange();
 
+      // Auto-registrar el cambio en la tabla de Cambios
+      const today = new Date().toISOString().slice(0, 10);
+      fetch("/api/transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          horarioId,
+          studentName,
+          teacherBefore: entry.teacher,
+          teacherAfter: "",
+          sede: entry.sede,
+          subject: COURSE_FULL_NAMES[entry.course] ?? entry.course,
+          leavesClass: entry.classCode,
+          entersClass: "",
+          transferDate: today,
+          changeType: "CAMBIO HORARIO",
+          changeReason: "NINGUNO",
+        }),
+      }).catch(() => {});
+
       const newCount = entry.students.length - 1;
       if (newCount < MAX_STUDENTS) {
         const cupos = MAX_STUDENTS - newCount;
