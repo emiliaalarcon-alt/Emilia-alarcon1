@@ -51,14 +51,25 @@ function buildMap(list: HorarioConfig[]): Record<string, HorarioConfig> {
   return map;
 }
 
+function getInitialHorario(): HorarioId {
+  const urlParam = new URLSearchParams(window.location.search).get("campus");
+  if (urlParam) return urlParam as HorarioId;
+  const stored = sessionStorage.getItem("selected-horario");
+  if (stored) return stored as HorarioId;
+  return "TEMUCO";
+}
+
+function updateUrlCampus(id: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("campus", id);
+  window.history.replaceState({}, "", url.toString());
+}
+
 export function HorarioProvider({ children }: { children: ReactNode }) {
   const [horariosMap, setHorariosMap] = useState<Record<string, HorarioConfig>>(HORARIOS);
   const [horarioList, setHorarioList] = useState<HorarioConfig[]>(Object.values(HORARIOS));
 
-  const [horarioId, setHorarioIdState] = useState<HorarioId>(() => {
-    const stored = sessionStorage.getItem("selected-horario");
-    return stored ?? "TEMUCO";
-  });
+  const [horarioId, setHorarioIdState] = useState<HorarioId>(getInitialHorario);
 
   const horario = horariosMap[horarioId] ?? horariosMap["TEMUCO"] ?? Object.values(horariosMap)[0];
 
@@ -70,19 +81,24 @@ export function HorarioProvider({ children }: { children: ReactNode }) {
       setHorariosMap(map);
       if (!map[horarioId]) {
         const first = list[0]?.id ?? "TEMUCO";
-        setHorarioIdState(first);
+        setHorarioIdState(first as HorarioId);
         sessionStorage.setItem("selected-horario", first);
+        updateUrlCampus(first);
       }
     } catch {
       // silently use static fallback
     }
   }
 
-  useEffect(() => { reloadHorarios(); }, []);
+  useEffect(() => {
+    updateUrlCampus(horarioId);
+    reloadHorarios();
+  }, []);
 
   function setHorarioId(id: HorarioId) {
     sessionStorage.setItem("selected-horario", id);
     setHorarioIdState(id);
+    updateUrlCampus(id);
   }
 
   return (
