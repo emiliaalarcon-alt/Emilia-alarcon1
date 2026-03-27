@@ -233,9 +233,13 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 20_000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    // SSE para actualizaciones en tiempo real (carga del Excel, cambios de horario)
+    const es = new EventSource(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`);
+    es.onmessage = () => fetchData();
+    // Fallback poll cada 60s
+    const interval = setInterval(fetchData, 60_000);
+    return () => { es.close(); clearInterval(interval); };
+  }, [fetchData, horarioId]);
 
   useEffect(() => {
     setAllData([]);
