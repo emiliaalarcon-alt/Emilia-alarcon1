@@ -75,7 +75,7 @@ function generateClassCode(course: string, day: string, time: string, teacher: s
 async function apiCreateClass(data: {
   day: string; time: string; sede: string; sala: number; course: string; teacher: string; horario: string;
 }) {
-  const res = await fetch(apiUrl("/api/schedule/classes", {
+  const res = await fetch(apiUrl("/api/schedule/classes"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -86,7 +86,7 @@ async function apiCreateClass(data: {
 async function apiUpdateClass(classCode: string, data: {
   course?: string; day?: string; time?: string; teacher?: string; sede?: string; sala?: number;
 }) {
-  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
+  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -95,14 +95,14 @@ async function apiUpdateClass(classCode: string, data: {
 }
 
 async function apiDeleteClass(classCode: string) {
-  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
+  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}`), {
     method: "DELETE",
   });
   return res.json();
 }
 
 async function apiResetAll(horarioId: string) {
-  const res = await fetch(apiUrl(`/api/schedule/classes?horario=${horarioId}`, { method: "DELETE" });
+  const res = await fetch(apiUrl(`/api/schedule/classes?horario=${horarioId}`), { method: "DELETE" });
   return res.json();
 }
 
@@ -165,7 +165,7 @@ export default function AdminPage() {
     if (!newCampusName.trim()) { setCampusError("El nombre es requerido."); return; }
     setCreatingCampus(true); setCampusError("");
     try {
-      const res = await fetch(apiUrl("/api/horarios", {
+      const res = await fetch(apiUrl("/api/horarios"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newCampusName, subtitle: newCampusSubtitle, emoji: newCampusEmoji }),
@@ -181,7 +181,7 @@ export default function AdminPage() {
   async function handleDeleteCampus(id: string) {
     setDeletingCampusId(id);
     try {
-      await fetch(apiUrl(`/api/horarios/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await fetch(apiUrl(`/api/horarios/${encodeURIComponent(id)}`), { method: "DELETE" });
       setConfirmDeleteCampus(null);
       await reloadHorarios();
     } catch { /* silent */ }
@@ -192,7 +192,7 @@ export default function AdminPage() {
     if (!newSedeName.trim()) { setSedeError("Nombre interno requerido."); return; }
     setSedeError("");
     try {
-      const res = await fetch(apiUrl(`/api/horarios/${encodeURIComponent(horarioId)}/sedes`, {
+      const res = await fetch(apiUrl(`/api/horarios/${encodeURIComponent(horarioId)}/sedes`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -211,7 +211,7 @@ export default function AdminPage() {
 
   async function handleDeleteSede(horarioId: string, sedeName: string) {
     try {
-      await fetch(apiUrl(`/api/horarios/${encodeURIComponent(horarioId)}/sedes/${encodeURIComponent(sedeName)}`, {
+      await fetch(apiUrl(`/api/horarios/${encodeURIComponent(horarioId)}/sedes/${encodeURIComponent(sedeName)}`), {
         method: "DELETE",
       });
       await reloadHorarios();
@@ -220,7 +220,7 @@ export default function AdminPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`);
+      const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`));
       if (!res.ok) throw new Error("API error");
       const json = await res.json();
       setAllData(json);
@@ -235,7 +235,7 @@ export default function AdminPage() {
   useEffect(() => {
     fetchData();
     // SSE para actualizaciones en tiempo real (carga del Excel, cambios de horario)
-    const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`);
+    const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`));
     es.onmessage = () => fetchData();
     // Fallback poll cada 5s por si la conexión SSE falla
     const interval = setInterval(fetchData, 5_000);
@@ -407,7 +407,7 @@ export default function AdminPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(apiUrl("/api/schedule/import", { method: "POST", body: formData });
+      const res = await fetch(apiUrl("/api/schedule/import"), { method: "POST", body: formData });
       const json = await res.json();
       if (json.error) {
         setImportError(json.error);
