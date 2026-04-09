@@ -10,6 +10,7 @@ import {
 } from "@/data/schedule";
 import { useHorario } from "@/context/HorarioContext";
 import { useNotifications } from "@/context/NotificationContext";
+import { apiUrl } from "@/lib/api";
 
 const SEDE_DISPLAY_NAMES: Record<string, string> = {
   "LAS ENCINAS": "Las Encinas",
@@ -131,7 +132,7 @@ function getConflicts(entry: ClassEntry, allData: ClassEntry[]): DuplicateConfli
 }
 
 async function apiAddStudent(classCode: string, name: string): Promise<{ ok?: boolean; error?: string; message?: string }> {
-  const res = await fetch(`/api/schedule/${encodeURIComponent(classCode)}/students`, {
+  const res = await fetch(apiUrl(`/api/schedule/${encodeURIComponent(classCode)}/students`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -148,7 +149,7 @@ async function apiRemoveStudent(classCode: string, name: string): Promise<{ ok?:
 }
 
 async function apiUpdateSala(classCode: string, sala: number): Promise<{ ok?: boolean; error?: string }> {
-  const res = await fetch(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
+  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sala }),
@@ -166,7 +167,7 @@ async function apiPublishNotification(payload: {
   cupos: number;
 }): Promise<void> {
   try {
-    await fetch("/api/notifications/publish", {
+    await fetch(apiUrl("/api/notifications/publish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -373,7 +374,7 @@ function DetailPanel({
           );
           if (incomplete) {
             // Completar el registro existente con los datos del nuevo curso
-            fetch(`/api/transfers/${incomplete.id}`, {
+            fetch(apiUrl(`/api/transfers/${incomplete.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -383,7 +384,7 @@ function DetailPanel({
             }).catch(() => {});
           } else {
             // No hay registro previo: crear uno nuevo con los datos de entrada
-            fetch("/api/transfers", {
+            fetch(apiUrl("/api/transfers", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -422,7 +423,7 @@ function DetailPanel({
       // Reemplaza el código del curso por el nombre completo en el classCode
       // ej: "M1 LUN 18.00 SF" → "Matemática 1 LUN 18.00 SF"
       const leavesReadable = entry.classCode.replace(entry.course, fullCourseName);
-      fetch("/api/transfers", {
+      fetch(apiUrl("/api/transfers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -842,7 +843,7 @@ export default function HorarioPage() {
 
   const sendHeartbeat = useCallback(async (name: string) => {
     try {
-      await fetch("/api/schedule/presence", {
+      await fetch(apiUrl("/api/schedule/presence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, name }),
@@ -852,7 +853,7 @@ export default function HorarioPage() {
 
   const fetchPresence = useCallback(async () => {
     try {
-      const res = await fetch("/api/schedule/presence");
+      const res = await fetch(apiUrl("/api/schedule/presence");
       if (!res.ok) return;
       const all: Array<{ name: string }> = await res.json();
       setActivePeers(all.filter(s => true));
@@ -885,7 +886,7 @@ export default function HorarioPage() {
 
   const fetchTyping = useCallback(async () => {
     try {
-      const res = await fetch("/api/schedule/typing");
+      const res = await fetch(apiUrl("/api/schedule/typing");
       if (!res.ok) return;
       const all: Array<{ classCode: string; name: string }> = await res.json();
       const m = new Map<string, string>();
@@ -903,7 +904,7 @@ export default function HorarioPage() {
 
   const handleTypingStart = useCallback((classCode: string) => {
     if (!myName) return;
-    fetch("/api/schedule/typing", {
+    fetch(apiUrl("/api/schedule/typing", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId, classCode, name: myName }),
@@ -911,13 +912,13 @@ export default function HorarioPage() {
   }, [sessionId, myName]);
 
   const handleTypingStop = useCallback(() => {
-    fetch(`/api/schedule/typing/${sessionId}`, { method: "DELETE" }).catch(() => {});
+    fetch(apiUrl(`/api/schedule/typing/${sessionId}`, { method: "DELETE" }).catch(() => {});
   }, [sessionId]);
   // ────────────────────────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/schedule?horario=${horarioId}`);
+      const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`);
       if (!res.ok) throw new Error("API error");
       const data: ClassEntry[] = await res.json();
       setAllData(data);
@@ -932,7 +933,7 @@ export default function HorarioPage() {
   useEffect(() => {
     fetchData();
     // SSE para actualizaciones en tiempo real entre usuarios/sedes
-    const es = new EventSource(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`);
+    const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`);
     es.onmessage = () => fetchData();
     // Fallback poll cada 5s por si la conexión SSE falla
     const interval = setInterval(fetchData, 5_000);

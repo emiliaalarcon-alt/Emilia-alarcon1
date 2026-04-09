@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { apiUrl } from "@/lib/api";
 
 export type NotifType = "cupo_disponible";
 
@@ -126,7 +127,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
     currentChannelRef.current = channel;
 
-    const url = `/api/notifications/stream?horarioId=${encodeURIComponent(horarioId)}&sede=${encodeURIComponent(sede)}`;
+    const url = apiUrl(`/api/notifications/stream?horarioId=${encodeURIComponent(horarioId)}&sede=${encodeURIComponent(sede)}`);
     const es = new EventSource(url);
     sseRef.current = es;
 

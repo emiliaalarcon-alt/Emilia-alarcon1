@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Plus, Trash2, RefreshCw, ArrowLeftRight, Search } from "lucide-react";
 import { useHorario } from "@/context/HorarioContext";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const api = (path: string) => `${BASE}${path}`;
+import { apiUrl as api } from "@/lib/api";
 
 export type Transfer = {
   id: number;

@@ -8,6 +8,7 @@ import {
   type ClassEntry,
 } from "@/data/schedule";
 import { useHorario } from "@/context/HorarioContext";
+import { apiUrl } from "@/lib/api";
 
 const SEDE_LABELS: Record<string, string> = {
   "LAS ENCINAS":    "Las Encinas",
@@ -39,7 +40,7 @@ export default function GuiasPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/schedule?horario=${horarioId}`);
+      const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`));
       if (!res.ok) throw new Error("API error");
       const data: ClassEntry[] = await res.json();
       setAllData(data);
