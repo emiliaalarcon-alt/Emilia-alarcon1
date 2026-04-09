@@ -3,6 +3,7 @@ import { toPng } from "html-to-image";
 import { Camera, Download, Loader2 } from "lucide-react";
 import { DAYS, DAY_LABELS, TIME_SLOTS, type ClassEntry } from "@/data/schedule";
 import { useHorario } from "@/context/HorarioContext";
+import { apiUrl } from "@/lib/api";
 
 // ─── Pastel colors for photo export (TV display) ─────────────────────────────
 // Horario view keeps vivid Tailwind colors; here everything is soft pastel.
@@ -368,7 +369,7 @@ export default function FotoPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/schedule?horario=${horarioId}`);
+      const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`));
       const data: ClassEntry[] = await res.json();
       setAllData(data);
     } catch {}

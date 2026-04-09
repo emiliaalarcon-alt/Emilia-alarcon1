@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { type HorarioId, type HorarioConfig, HORARIOS } from "@/data/schedule";
+import { apiUrl } from "@/lib/api";
 
 interface HorarioContextValue {
   horarioId: HorarioId;
@@ -39,7 +40,7 @@ function apiToConfig(h: ApiHorario): HorarioConfig {
 }
 
 async function fetchHorariosFromApi(): Promise<HorarioConfig[]> {
-  const res = await fetch("/api/horarios");
+  const res = await fetch(apiUrl("/api/horarios"));
   if (!res.ok) throw new Error("API error");
   const data: ApiHorario[] = await res.json();
   return data.map(apiToConfig);
