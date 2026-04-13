@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera, Bell, ArrowLeftRight, ClipboardList } from "lucide-react";
 import { useHorario } from "@/context/HorarioContext";
 import { useNotifications } from "@/context/NotificationContext";
+import { useCurrentUser, UserAvatar } from "@/context/UserContext";
 
 const navLinks = [
   { href: "/", label: "Inicio", icon: Home },
@@ -18,7 +19,8 @@ export default function Navbar() {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
   const { horarioId, horario } = useHorario();
-  const { unreadCount, notifications } = useNotifications();
+  const { notifications } = useNotifications();
+  const { currentUser, clearUser } = useCurrentUser();
 
   const horarioUnread = notifications.filter(n => n.horarioId === horarioId && !n.read).length;
 
@@ -85,6 +87,17 @@ export default function Navbar() {
               >
                 {horario.label}
               </Link>
+
+              {currentUser && (
+                <button
+                  onClick={clearUser}
+                  title={`${currentUser.name} — click para cambiar`}
+                  className="ml-1 flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-muted transition-colors"
+                >
+                  <UserAvatar name={currentUser.name} color={currentUser.color} size="sm" />
+                  <span className="text-xs font-medium text-foreground hidden lg:block max-w-[80px] truncate">{currentUser.name}</span>
+                </button>
+              )}
             </div>
 
             <button

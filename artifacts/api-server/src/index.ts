@@ -45,7 +45,17 @@ async function ensureTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log("Tables ensured (tasks, task_items)");
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS team_members (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'secretaria',
+        horario_id TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT 'violet',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("Tables ensured (tasks, task_items, team_members)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {

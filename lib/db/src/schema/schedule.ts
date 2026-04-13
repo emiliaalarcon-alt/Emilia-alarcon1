@@ -48,6 +48,15 @@ export const scheduleTransfersTable = pgTable("schedule_transfers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const teamMembersTable = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("secretaria"),
+  horarioId: text("horario_id").notNull(),
+  color: text("color").notNull().default("violet"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const tasksTable = pgTable("tasks", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -79,3 +88,4 @@ export type ScheduleHorario = typeof scheduleHorariosTable.$inferSelect;
 export type ScheduleTransfer = typeof scheduleTransfersTable.$inferSelect;
 export type Task = typeof tasksTable.$inferSelect;
 export type TaskItem = typeof taskItemsTable.$inferSelect;
+export type TeamMember = typeof teamMembersTable.$inferSelect;

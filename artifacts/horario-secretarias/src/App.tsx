@@ -16,6 +16,8 @@ import NotificationsPage from "@/pages/NotificationsPage";
 import CambiosPage from "@/pages/CambiosPage";
 import TareasPage from "@/pages/TareasPage";
 import NotFound from "@/pages/not-found";
+import { UserProvider } from "@/context/UserContext";
+import UserSelectionModal from "@/components/UserSelectionModal";
 
 const queryClient = new QueryClient();
 
@@ -55,7 +57,9 @@ function Router() {
   return (
     <ErrorBoundary>
       <HorarioProvider>
+        <UserProvider>
         <NotificationProvider>
+          <UserSelectionModal />
           <div className="min-h-screen flex flex-col bg-background">
             <Navbar />
             <ToastContainer />
@@ -74,6 +78,7 @@ function Router() {
             </main>
           </div>
         </NotificationProvider>
+        </UserProvider>
       </HorarioProvider>
     </ErrorBoundary>
   );

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import { useHorario } from "@/context/HorarioContext";
+import { useCurrentUser, UserAvatar } from "@/context/UserContext";
 
 type Priority = "ALTA" | "MEDIA" | "BAJA";
 type Status = "PENDIENTE" | "EN_PROGRESO" | "COMPLETADA";
@@ -316,18 +317,27 @@ function CreateTaskModal({
   onClose: () => void;
   onCreate: (task: Task) => void;
 }) {
+  const { currentUser } = useCurrentUser();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [horarioId, setHorarioId] = useState(isAdmin ? "TEMUCO" : currentHorarioId);
-  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedTo, setAssignedTo] = useState(currentUser?.name ?? "");
   const [deadline, setDeadline] = useState("");
   const [priority, setPriority] = useState<Priority>("MEDIA");
   const [items, setItems] = useState<string[]>([""]);
   const [isPersonal, setIsPersonal] = useState(false);
-  const [personalOwner, setPersonalOwner] = useState("");
+  const [personalOwner, setPersonalOwner] = useState(currentUser?.name ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [touched, setTouched] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<Array<{id:number;name:string;color:string}>>([]);
+
+  useEffect(() => {
+    fetch(apiUrl(`/api/team?horarioId=${currentHorarioId}`))
+      .then(r => r.json())
+      .then(d => Array.isArray(d) && setTeamMembers(d))
+      .catch(() => {});
+  }, [currentHorarioId]);
 
   const handleSubmit = async () => {
     setTouched(true);
@@ -471,13 +481,34 @@ function CreateTaskModal({
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
                   Asignar a
                 </label>
-                <input
-                  type="text"
-                  placeholder="Nombre (opcional)"
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
+                {teamMembers.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setAssignedTo("")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border transition-all ${!assignedTo ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/50"}`}
+                    >
+                      Sin asignar
+                    </button>
+                    {teamMembers.map(m => (
+                      <button
+                        key={m.id}
+                        onClick={() => setAssignedTo(m.name)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-sm border transition-all ${assignedTo === m.name ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-foreground hover:border-primary/50"}`}
+                      >
+                        <UserAvatar name={m.name} color={m.color} size="xs" />
+                        <span className="font-medium">{m.name.split(" ")[0]}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Nombre (opcional)"
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                )}
               </div>
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
