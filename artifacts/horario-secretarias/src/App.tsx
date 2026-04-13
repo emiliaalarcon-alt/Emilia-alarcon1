@@ -14,6 +14,7 @@ import GuiasPage from "@/pages/GuiasPage";
 import FotoPage from "@/pages/FotoPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import CambiosPage from "@/pages/CambiosPage";
+import TareasPage from "@/pages/TareasPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ function Router() {
                 <Route path="/foto" component={FotoPage} />
                 <Route path="/notificaciones" component={NotificationsPage} />
                 <Route path="/cambios" component={CambiosPage} />
+                <Route path="/tareas" component={TareasPage} />
                 <Route component={NotFound} />
               </Switch>
             </main>

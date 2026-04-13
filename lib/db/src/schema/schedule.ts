@@ -48,7 +48,34 @@ export const scheduleTransfersTable = pgTable("schedule_transfers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const tasksTable = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  horarioId: text("horario_id").notNull(),
+  assignedTo: text("assigned_to").notNull().default(""),
+  deadline: text("deadline").notNull().default(""),
+  priority: text("priority").notNull().default("MEDIA"),
+  status: text("status").notNull().default("PENDIENTE"),
+  createdBy: text("created_by").notNull().default("Admin"),
+  isPersonal: integer("is_personal").notNull().default(0),
+  personalOwner: text("personal_owner").notNull().default(""),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const taskItemsTable = pgTable("task_items", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasksTable.id, { onDelete: "cascade" }),
+  text: text("text").notNull(),
+  completed: integer("completed").notNull().default(0),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export type ScheduleClass = typeof scheduleClassesTable.$inferSelect;
 export type ScheduleStudent = typeof scheduleStudentsTable.$inferSelect;
 export type ScheduleHorario = typeof scheduleHorariosTable.$inferSelect;
 export type ScheduleTransfer = typeof scheduleTransfersTable.$inferSelect;
+export type Task = typeof tasksTable.$inferSelect;
+export type TaskItem = typeof taskItemsTable.$inferSelect;

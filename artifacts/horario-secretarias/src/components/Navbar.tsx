@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera, Bell, ArrowLeftRight } from "lucide-react";
+import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera, Bell, ArrowLeftRight, ClipboardList } from "lucide-react";
 import { useHorario } from "@/context/HorarioContext";
 import { useNotifications } from "@/context/NotificationContext";
 
 const navLinks = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/horarios", label: "Horarios", icon: Grid3x3 },
+  { href: "/tareas", label: "Tareas", icon: ClipboardList },
   { href: "/cambios", label: "Cambios", icon: ArrowLeftRight },
   { href: "/guias", label: "Guías", icon: Printer },
   { href: "/foto", label: "Fotos", icon: Camera },
