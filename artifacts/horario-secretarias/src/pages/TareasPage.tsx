@@ -665,6 +665,7 @@ function KanbanColumn({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TareasPage() {
   const { horarioId } = useHorario();
+  const { currentUser } = useCurrentUser();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState(false);
@@ -677,8 +678,7 @@ export default function TareasPage() {
   const [filterHorario, setFilterHorario] = useState<string>("TODAS");
   const [filterPriority, setFilterPriority] = useState<Priority | "TODAS">("TODAS");
   const [showPersonal, setShowPersonal] = useState(false);
-  const [myName, setMyName] = useState(() => localStorage.getItem("tareas_myname") || "");
-  const [nameInput, setNameInput] = useState("");
+  const myName = currentUser?.name ?? "";
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -778,12 +778,6 @@ export default function TareasPage() {
     }
   };
 
-  const handleSetMyName = () => {
-    if (!nameInput.trim()) return;
-    localStorage.setItem("tareas_myname", nameInput.trim());
-    setMyName(nameInput.trim());
-    setNameInput("");
-  };
 
   // Filtered tasks
   const filtered = tasks.filter((t) => {
@@ -879,39 +873,15 @@ export default function TareasPage() {
       </div>
 
       {/* Personal name setup */}
-      {showPersonal && !myName && (
-        <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-center gap-3">
-          <Lock className="w-5 h-5 text-primary shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">¿Cuál es tu nombre?</p>
-            <p className="text-xs text-muted-foreground">Para identificar tus notas personales</p>
-          </div>
-          <input
-            type="text"
-            placeholder="Tu nombre"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSetMyName()}
-            className="px-3 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <button
-            onClick={handleSetMyName}
-            className="px-3 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
-          >
-            Guardar
-          </button>
-        </div>
-      )}
       {showPersonal && myName && (
         <div className="mb-4 flex items-center gap-2 text-sm text-primary">
           <Lock className="w-4 h-4" />
           Mostrando notas personales de <strong>{myName}</strong>
-          <button
-            onClick={() => { localStorage.removeItem("tareas_myname"); setMyName(""); }}
-            className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
-          >
-            cambiar
-          </button>
+        </div>
+      )}
+      {showPersonal && !myName && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          Selecciona tu usuario en el navbar para ver tus notas personales.
         </div>
       )}
 

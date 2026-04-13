@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, UserCircle2, ShieldCheck, LogIn } from "lucide-react";
+import { Users, UserCircle2, ShieldCheck, LogIn, Settings } from "lucide-react";
 import { useCurrentUser, UserAvatar, USER_COLORS, type CurrentUser } from "@/context/UserContext";
 import { useHorario } from "@/context/HorarioContext";
 import { apiUrl } from "@/lib/api";
+import { Link } from "wouter";
 
 interface TeamMember {
   id: number;
@@ -32,12 +33,12 @@ export default function UserSelectionModal() {
   const [open, setOpen] = useState(false);
   const checkedRef = useRef(false);
 
-  // Triggered when user clears their selection
+  // Reset check when user is cleared (to re-show modal)
   useEffect(() => {
     if (!currentUser) checkedRef.current = false;
   }, [currentUser]);
 
-  // On mount (or when sede changes), if no user → check if team exists
+  // On mount or sede change: if no user, fetch team and show modal
   useEffect(() => {
     if (currentUser || checkedRef.current) return;
     checkedRef.current = true;
@@ -47,14 +48,11 @@ export default function UserSelectionModal() {
       .then(data => {
         const list = Array.isArray(data) ? data : [];
         setMembers(list);
-        if (list.length > 0) {
-          setOpen(true);
-        } else {
-          setCurrentUser({ id: null, name: "Invitado", role: "invitado", horarioId, color: "slate" });
-        }
+        setOpen(true);
       })
       .catch(() => {
-        setCurrentUser({ id: null, name: "Invitado", role: "invitado", horarioId, color: "slate" });
+        setMembers([]);
+        setOpen(true);
       })
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,17 +71,6 @@ export default function UserSelectionModal() {
     setOpen(false);
   };
 
-  const handleGuest = () => {
-    setCurrentUser({
-      id: null,
-      name: "Invitado",
-      role: "invitado",
-      horarioId,
-      color: "slate",
-    });
-    setOpen(false);
-  };
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-sm">
@@ -97,18 +84,33 @@ export default function UserSelectionModal() {
             <p className="text-sm text-muted-foreground mt-1">{horario.label}</p>
           </div>
 
-          {/* Members list */}
+          {/* Content */}
           {loading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-10">
               <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : members.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground text-sm">
-              <p>No hay usuarios configurados.</p>
-              <p className="text-xs mt-1">El admin puede agregarlos en la sección Admin → Equipo.</p>
+            <div className="text-center py-6 space-y-4">
+              <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mx-auto">
+                <Settings className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">No hay usuarios configurados</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ve a Admin → Equipo Administrativo para agregar los miembros del equipo.
+                </p>
+              </div>
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Ir a configuración
+              </Link>
             </div>
           ) : (
-            <div className="space-y-2 mb-4">
+            <div className="space-y-2">
               {members.map((member) => {
                 const c = USER_COLORS[member.color] ?? USER_COLORS.violet;
                 const Icon = ROLE_ICONS[member.role] ?? UserCircle2;
@@ -132,17 +134,6 @@ export default function UserSelectionModal() {
               })}
             </div>
           )}
-
-          {/* Guest option */}
-          <button
-            onClick={handleGuest}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-dashed border-border text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <div className="w-9 h-9 bg-slate-200 rounded-full flex items-center justify-center">
-              <UserCircle2 className="w-5 h-5 text-slate-500" />
-            </div>
-            <span className="text-sm font-medium">Entrar como Invitado</span>
-          </button>
         </div>
       </div>
     </div>
