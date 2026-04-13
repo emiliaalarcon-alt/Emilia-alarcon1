@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, BellOff, Trash2, CheckCheck, CalendarCheck, ExternalLink, Settings2 } from "lucide-react";
+import { Bell, BellOff, Trash2, CheckCheck, CalendarCheck, ExternalLink, Settings2, ClipboardList, AlertCircle, Clock } from "lucide-react";
 import { useLocation } from "wouter";
 import { useNotifications, type AppNotification } from "@/context/NotificationContext";
 import { useHorario } from "@/context/HorarioContext";
@@ -15,6 +15,15 @@ function formatTimestamp(iso: string) {
   });
 }
 
+const PRIORITY_COLOR: Record<string, string> = {
+  ALTA: "text-red-600",
+  MEDIA: "text-amber-600",
+  BAJA: "text-emerald-600",
+};
+const PRIORITY_LABEL: Record<string, string> = {
+  ALTA: "Alta", MEDIA: "Media", BAJA: "Baja",
+};
+
 function NotifCard({ notif, onRemove, onMarkRead, onNavigate }: {
   notif: AppNotification;
   onRemove: () => void;
@@ -22,53 +31,83 @@ function NotifCard({ notif, onRemove, onMarkRead, onNavigate }: {
   onNavigate: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const isTask = notif.type === "tarea_asignada";
 
   function handleClick() {
     if (!notif.read) onMarkRead();
     onNavigate();
   }
 
+  const accentUnread = isTask ? "bg-primary/5 border-primary/30 hover:border-primary/50" : "bg-green-50 border-green-200 hover:border-green-300";
+  const accentDot = isTask ? "bg-primary" : "bg-green-500";
+  const iconBg = notif.read ? "bg-muted" : isTask ? "bg-primary/10" : "bg-green-100";
+  const iconColor = notif.read ? "text-muted-foreground" : isTask ? "text-primary" : "text-green-600";
+  const labelColor = notif.read ? "text-muted-foreground" : isTask ? "text-primary" : "text-green-600";
+
   return (
     <div
       className={`relative flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${
-        notif.read
-          ? "bg-muted/30 border-border/40 opacity-70 hover:opacity-90"
-          : "bg-green-50 border-green-200 hover:border-green-300"
+        notif.read ? "bg-muted/30 border-border/40 opacity-70 hover:opacity-90" : accentUnread
       }`}
       onClick={handleClick}
     >
       {!notif.read && (
-        <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-green-500" />
+        <div className={`absolute top-3 right-3 w-2 h-2 rounded-full ${accentDot}`} />
       )}
-      <div className={`mt-0.5 shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
-        notif.read ? "bg-muted" : "bg-green-100"
-      }`}>
-        <CalendarCheck className={`w-4 h-4 ${notif.read ? "text-muted-foreground" : "text-green-600"}`} />
+      <div className={`mt-0.5 shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${iconBg}`}>
+        {isTask
+          ? <ClipboardList className={`w-4 h-4 ${iconColor}`} />
+          : <CalendarCheck className={`w-4 h-4 ${iconColor}`} />
+        }
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className={`text-[10px] font-bold uppercase tracking-wide ${
-            notif.read ? "text-muted-foreground" : "text-green-600"
-          }`}>
-            Cupo disponible
+          <span className={`text-[10px] font-bold uppercase tracking-wide ${labelColor}`}>
+            {isTask ? "Tarea asignada" : "Cupo disponible"}
           </span>
           {notif.sede && (
             <span className="text-[10px] text-muted-foreground">· {notif.sede}</span>
           )}
         </div>
-        <p className={`text-sm font-bold font-mono tracking-wide leading-tight ${notif.read ? "text-muted-foreground" : "text-foreground"}`}>
-          {notif.classCode || notif.message}
-        </p>
-        {notif.cupos > 0 && (
-          <p className={`text-xs mt-0.5 font-semibold ${notif.read ? "text-muted-foreground" : "text-green-700"}`}>
-            {notif.cupos} cupo{notif.cupos !== 1 ? "s" : ""} libre{notif.cupos !== 1 ? "s" : ""}
-          </p>
+
+        {isTask ? (
+          <>
+            <p className={`text-sm font-semibold leading-tight ${notif.read ? "text-muted-foreground" : "text-foreground"}`}>
+              {notif.taskTitle || notif.message}
+            </p>
+            <div className="flex items-center gap-3 mt-1">
+              {notif.priority && (
+                <span className={`flex items-center gap-1 text-xs font-medium ${notif.read ? "text-muted-foreground" : PRIORITY_COLOR[notif.priority] ?? "text-muted-foreground"}`}>
+                  <AlertCircle className="w-3 h-3" />
+                  Prioridad {PRIORITY_LABEL[notif.priority] ?? notif.priority}
+                </span>
+              )}
+              {notif.deadline && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3" />
+                  {new Date(notif.deadline).toLocaleDateString("es-CL")}
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className={`text-sm font-bold font-mono tracking-wide leading-tight ${notif.read ? "text-muted-foreground" : "text-foreground"}`}>
+              {notif.classCode || notif.message}
+            </p>
+            {(notif.cupos ?? 0) > 0 && (
+              <p className={`text-xs mt-0.5 font-semibold ${notif.read ? "text-muted-foreground" : "text-green-700"}`}>
+                {notif.cupos} cupo{notif.cupos !== 1 ? "s" : ""} libre{notif.cupos !== 1 ? "s" : ""}
+              </p>
+            )}
+          </>
         )}
-        <div className="flex items-center justify-between mt-1">
+
+        <div className="flex items-center justify-between mt-1.5">
           <p className="text-xs text-muted-foreground">{formatTimestamp(notif.timestamp)}</p>
-          <span className={`flex items-center gap-0.5 text-[10px] font-medium ${notif.read ? "text-muted-foreground" : "text-green-600"}`}>
+          <span className={`flex items-center gap-0.5 text-[10px] font-medium ${labelColor}`}>
             <ExternalLink className="w-3 h-3" />
-            Ver curso
+            {isTask ? "Ver tareas" : "Ver curso"}
           </span>
         </div>
       </div>
@@ -77,15 +116,11 @@ function NotifCard({ notif, onRemove, onMarkRead, onNavigate }: {
           <button
             onClick={e => { e.stopPropagation(); onRemove(); }}
             className="px-2 py-0.5 text-[11px] font-bold bg-destructive text-white rounded-lg hover:bg-destructive/80 transition-colors"
-          >
-            Sí
-          </button>
+          >Sí</button>
           <button
             onClick={e => { e.stopPropagation(); setConfirmDelete(false); }}
             className="px-2 py-0.5 text-[11px] font-bold bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
-          >
-            No
-          </button>
+          >No</button>
         </div>
       ) : (
         <button
@@ -123,6 +158,10 @@ export default function NotificationsPage() {
   }
 
   function handleNavigate(notif: AppNotification) {
+    if (notif.type === "tarea_asignada") {
+      setLocation("/tareas");
+      return;
+    }
     const params = new URLSearchParams();
     params.set("open", notif.classCode || notif.message);
     if (notif.sede) params.set("sede", notif.sede);

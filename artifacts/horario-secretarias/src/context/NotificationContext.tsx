@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { apiUrl } from "@/lib/api";
 
-export type NotifType = "cupo_disponible";
+export type NotifType = "cupo_disponible" | "tarea_asignada";
 
 export interface AppNotification {
   id: string;
@@ -10,13 +10,20 @@ export interface AppNotification {
   message: string;
   timestamp: string;
   read: boolean;
-  sede: string;
   horarioId: string;
-  classCode: string;
-  course: string;
-  day: string;
-  time: string;
-  cupos: number;
+  sede: string;
+  // cupo_disponible fields
+  classCode?: string;
+  course?: string;
+  day?: string;
+  time?: string;
+  cupos?: number;
+  // tarea_asignada fields
+  taskId?: number;
+  taskTitle?: string;
+  assignedTo?: string;
+  priority?: string;
+  deadline?: string;
 }
 
 interface Toast extends AppNotification {
@@ -34,12 +41,13 @@ interface NotificationContextValue {
   dismissToast: (id: string) => void;
   subscribeToSede: (horarioId: string, sede: string) => void;
   unsubscribeFromSede: () => void;
+  addNotification: (notif: Omit<AppNotification, "id" | "read" | "timestamp">) => void;
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
 const STORAGE_KEY = "horario-notificaciones-v2";
-const TOAST_DURATION = 6000;
+const TOAST_DURATION = 7000;
 const MAX_STORED = 200;
 
 function loadStored(): AppNotification[] {
@@ -79,6 +87,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const pushToast = useCallback((notif: AppNotification) => {
+    const toast: Toast = { ...notif, expiresAt: Date.now() + TOAST_DURATION };
+    setToasts(prev => [...prev.slice(-4), toast]);
+    const timer = setTimeout(() => dismissToast(notif.id), TOAST_DURATION);
+    timerRef.current.set(notif.id, timer);
+  }, [dismissToast]);
+
+  // Generic add notification (used for task notifications from frontend)
+  const addNotification = useCallback((partial: Omit<AppNotification, "id" | "read" | "timestamp">) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const notif: AppNotification = {
+      ...partial,
+      id,
+      read: false,
+      timestamp: new Date().toISOString(),
+    };
+    setNotifications(prev => {
+      // Avoid duplicate task notifications by taskId
+      if (notif.taskId) {
+        const exists = prev.some(n => n.type === "tarea_asignada" && n.taskId === notif.taskId);
+        if (exists) return prev;
+      }
+      return [notif, ...prev];
+    });
+    pushToast(notif);
+  }, [pushToast]);
+
   const addFromSSE = useCallback((data: {
     type: NotifType;
     horarioId: string;
@@ -107,58 +142,37 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       time: data.time,
       cupos,
     };
-
     setNotifications(prev => [notif, ...prev]);
-
-    const toast: Toast = { ...notif, expiresAt: Date.now() + TOAST_DURATION };
-    setToasts(prev => [...prev.slice(-4), toast]);
-
-    const timer = setTimeout(() => dismissToast(id), TOAST_DURATION);
-    timerRef.current.set(id, timer);
-  }, [dismissToast]);
+    pushToast(notif);
+  }, [pushToast]);
 
   const subscribeToSede = useCallback((horarioId: string, sede: string) => {
     const channel = `${horarioId}:${sede}`;
     if (currentChannelRef.current === channel) return;
-
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
     }
     currentChannelRef.current = channel;
-
     const url = apiUrl(`/api/notifications/stream?horarioId=${encodeURIComponent(horarioId)}&sede=${encodeURIComponent(sede)}`);
     const es = new EventSource(url);
     sseRef.current = es;
-
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "cupo_disponible") {
-          addFromSSE(data);
-        }
+        if (data.type === "cupo_disponible") addFromSSE(data);
       } catch {}
     };
-
-    es.onerror = () => {
-      // SSE reconecta automáticamente, no hacer nada
-    };
+    es.onerror = () => {};
   }, [addFromSSE]);
 
   const unsubscribeFromSede = useCallback(() => {
-    if (sseRef.current) {
-      sseRef.current.close();
-      sseRef.current = null;
-    }
+    if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
     currentChannelRef.current = "";
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (sseRef.current) {
-        sseRef.current.close();
-      }
-    };
+    return () => { if (sseRef.current) sseRef.current.close(); };
   }, []);
 
   const removeNotification = useCallback((id: string) => {
@@ -166,9 +180,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markRead = useCallback((id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   }, []);
 
   const markAllRead = useCallback(() => {
@@ -181,16 +193,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   return (
     <NotificationContext.Provider value={{
-      notifications,
-      toasts,
-      unreadCount,
-      removeNotification,
-      markRead,
-      markAllRead,
-      clearAll,
-      dismissToast,
-      subscribeToSede,
-      unsubscribeFromSede,
+      notifications, toasts, unreadCount,
+      removeNotification, markRead, markAllRead, clearAll,
+      dismissToast, subscribeToSede, unsubscribeFromSede, addNotification,
     }}>
       {children}
     </NotificationContext.Provider>

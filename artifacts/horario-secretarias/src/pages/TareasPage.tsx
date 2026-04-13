@@ -7,6 +7,7 @@ import {
 import { apiUrl } from "@/lib/api";
 import { useHorario } from "@/context/HorarioContext";
 import { useCurrentUser, UserAvatar } from "@/context/UserContext";
+import { useNotifications } from "@/context/NotificationContext";
 
 type Priority = "ALTA" | "MEDIA" | "BAJA";
 type Status = "PENDIENTE" | "EN_PROGRESO" | "COMPLETADA";
@@ -666,6 +667,7 @@ function KanbanColumn({
 export default function TareasPage() {
   const { horarioId } = useHorario();
   const { currentUser } = useCurrentUser();
+  const { addNotification } = useNotifications();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState(false);
@@ -678,7 +680,32 @@ export default function TareasPage() {
   const [filterHorario, setFilterHorario] = useState<string>("TODAS");
   const [filterPriority, setFilterPriority] = useState<Priority | "TODAS">("TODAS");
   const [showPersonal, setShowPersonal] = useState(false);
+  const [filterMine, setFilterMine] = useState(false);
   const myName = currentUser?.name ?? "";
+
+  // Generate in-app notifications for tasks assigned to current user
+  useEffect(() => {
+    if (!myName || tasks.length === 0) return;
+    const myTasks = tasks.filter(t =>
+      t.assignedTo === myName && t.status !== "COMPLETADA"
+    );
+    myTasks.forEach(task => {
+      addNotification({
+        type: "tarea_asignada",
+        title: "Tarea asignada a ti",
+        message: task.title,
+        horarioId: task.horarioId,
+        sede: task.horarioId,
+        taskId: task.id,
+        taskTitle: task.title,
+        assignedTo: myName,
+        priority: task.priority,
+        deadline: task.deadline ?? undefined,
+      });
+    });
+  // Only run when tasks change and we have a user
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, myName]);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -779,8 +806,14 @@ export default function TareasPage() {
   };
 
 
+  // My pending tasks count for banner
+  const myPendingTasks = myName
+    ? tasks.filter(t => t.assignedTo === myName && t.status !== "COMPLETADA")
+    : [];
+
   // Filtered tasks
   const filtered = tasks.filter((t) => {
+    if (filterMine && t.assignedTo !== myName) return false;
     if (filterStatus !== "TODAS" && t.status !== filterStatus) return false;
     if (filterHorario !== "TODAS" && t.horarioId !== filterHorario) return false;
     if (filterPriority !== "TODAS" && t.priority !== filterPriority) return false;
@@ -817,6 +850,24 @@ export default function TareasPage() {
         </div>
 
         <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
+          {/* Mis tareas filter */}
+          {!adminMode && myName && (
+            <button
+              onClick={() => setFilterMine(!filterMine)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors relative ${
+                filterMine ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              <User className="w-4 h-4" />
+              Mis tareas
+              {myPendingTasks.length > 0 && !filterMine && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {myPendingTasks.length}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Personal toggle */}
           {!adminMode && (
             <button
@@ -872,7 +923,7 @@ export default function TareasPage() {
         </div>
       </div>
 
-      {/* Personal name setup */}
+      {/* Personal note filter indicator */}
       {showPersonal && myName && (
         <div className="mb-4 flex items-center gap-2 text-sm text-primary">
           <Lock className="w-4 h-4" />
@@ -882,6 +933,55 @@ export default function TareasPage() {
       {showPersonal && !myName && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
           Selecciona tu usuario en el navbar para ver tus notas personales.
+        </div>
+      )}
+
+      {/* My tasks summary banner */}
+      {myPendingTasks.length > 0 && !filterMine && !adminMode && (
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-2xl">
+          <div className="flex items-start gap-3 flex-1">
+            <div className="w-9 h-9 bg-primary/15 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+              <User className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Tienes {myPendingTasks.length} tarea{myPendingTasks.length !== 1 ? "s" : ""} pendiente{myPendingTasks.length !== 1 ? "s" : ""} asignada{myPendingTasks.length !== 1 ? "s" : ""} a ti
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {myPendingTasks.slice(0, 3).map(t => (
+                  <span key={t.id} className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium truncate max-w-[160px]">
+                    {t.priority === "ALTA" && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
+                    {t.priority === "MEDIA" && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
+                    {t.priority === "BAJA" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                    {t.title}
+                  </span>
+                ))}
+                {myPendingTasks.length > 3 && (
+                  <span className="text-xs text-muted-foreground">+{myPendingTasks.length - 3} más</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setFilterMine(true)}
+            className="shrink-0 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            Ver mis tareas
+          </button>
+        </div>
+      )}
+
+      {/* "Mis tareas" active indicator */}
+      {filterMine && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-primary">
+          <User className="w-4 h-4" />
+          Mostrando tareas asignadas a <strong>{myName}</strong>
+          <button
+            onClick={() => setFilterMine(false)}
+            className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+          >
+            ver todas
+          </button>
         </div>
       )}
 

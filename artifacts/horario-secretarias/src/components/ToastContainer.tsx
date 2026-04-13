@@ -1,4 +1,4 @@
-import { X, CalendarCheck } from "lucide-react";
+import { X, CalendarCheck, ClipboardList } from "lucide-react";
 import { useLocation } from "wouter";
 import { useNotifications, type AppNotification } from "@/context/NotificationContext";
 
@@ -7,31 +7,48 @@ function ToastCard({ toast, onDismiss, onNavigate }: {
   onDismiss: () => void;
   onNavigate: () => void;
 }) {
+  const isTask = toast.type === "tarea_asignada";
+
   return (
     <div
-      className="flex items-start gap-3 w-72 rounded-2xl border border-green-200 shadow-lg p-3.5 bg-green-50 animate-in slide-in-from-right-full duration-300 cursor-pointer hover:shadow-xl hover:border-green-300 transition-all"
+      className={`flex items-start gap-3 w-72 rounded-2xl border shadow-lg p-3.5 animate-in slide-in-from-right-full duration-300 cursor-pointer hover:shadow-xl transition-all ${
+        isTask
+          ? "border-primary/30 bg-primary/5 hover:border-primary/50"
+          : "border-green-200 bg-green-50 hover:border-green-300"
+      }`}
       onClick={onNavigate}
     >
-      <div className="mt-0.5 shrink-0 w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
-        <CalendarCheck className="w-3.5 h-3.5 text-green-600" />
+      <div className={`mt-0.5 shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${
+        isTask ? "bg-primary/15" : "bg-green-100"
+      }`}>
+        {isTask
+          ? <ClipboardList className="w-3.5 h-3.5 text-primary" />
+          : <CalendarCheck className="w-3.5 h-3.5 text-green-600" />
+        }
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide leading-none mb-1">
-          Cupo disponible{toast.sede ? ` · ${toast.sede}` : ""}
+        <p className={`text-[10px] font-bold uppercase tracking-wide leading-none mb-1 ${
+          isTask ? "text-primary" : "text-green-600"
+        }`}>
+          {isTask ? "Tarea asignada" : `Cupo disponible${toast.sede ? ` · ${toast.sede}` : ""}`}
         </p>
-        <p className="text-sm font-bold text-green-900 font-mono leading-tight tracking-wide">
-          {toast.classCode || toast.message}
+        <p className={`text-sm font-semibold leading-tight ${isTask ? "text-foreground" : "text-green-900 font-mono tracking-wide font-bold"}`}>
+          {isTask ? (toast.taskTitle || toast.message) : (toast.classCode || toast.message)}
         </p>
-        {toast.cupos > 0 && (
+        {!isTask && (toast.cupos ?? 0) > 0 && (
           <p className="text-xs text-green-700 mt-0.5">
             {toast.cupos} cupo{toast.cupos !== 1 ? "s" : ""} libre{toast.cupos !== 1 ? "s" : ""}
           </p>
         )}
-        <p className="text-[10px] text-green-600/70 mt-1 font-medium">Toca para ver el curso →</p>
+        <p className={`text-[10px] mt-1 font-medium ${isTask ? "text-primary/70" : "text-green-600/70"}`}>
+          {isTask ? "Toca para ver tus tareas →" : "Toca para ver el curso →"}
+        </p>
       </div>
       <button
         onClick={e => { e.stopPropagation(); onDismiss(); }}
-        className="shrink-0 p-1 rounded-lg hover:bg-green-100 text-green-500 transition-colors"
+        className={`shrink-0 p-1 rounded-lg transition-colors ${
+          isTask ? "hover:bg-primary/10 text-primary/60" : "hover:bg-green-100 text-green-500"
+        }`}
       >
         <X className="w-3.5 h-3.5" />
       </button>
@@ -47,6 +64,10 @@ export default function ToastContainer() {
 
   function handleNavigate(toast: AppNotification) {
     dismissToast(toast.id);
+    if (toast.type === "tarea_asignada") {
+      setLocation("/tareas");
+      return;
+    }
     const params = new URLSearchParams();
     params.set("open", toast.classCode || toast.message);
     if (toast.sede) params.set("sede", toast.sede);
