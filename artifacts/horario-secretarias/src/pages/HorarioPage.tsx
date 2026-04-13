@@ -142,7 +142,7 @@ async function apiAddStudent(classCode: string, name: string): Promise<{ ok?: bo
 
 async function apiRemoveStudent(classCode: string, name: string): Promise<{ ok?: boolean; error?: string }> {
   const res = await fetch(
-    `/api/schedule/${encodeURIComponent(classCode)}/students/${encodeURIComponent(name)}`,
+    apiUrl(`/api/schedule/${encodeURIComponent(classCode)}/students/${encodeURIComponent(name)}`),
     { method: "DELETE" }
   );
   return res.json();
