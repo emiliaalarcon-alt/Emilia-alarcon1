@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Users, UserCircle2, ShieldCheck, LogIn } from "lucide-react";
 import { useCurrentUser, UserAvatar, USER_COLORS, type CurrentUser } from "@/context/UserContext";
 import { useHorario } from "@/context/HorarioContext";
@@ -28,22 +28,37 @@ export default function UserSelectionModal() {
   const { currentUser, setCurrentUser } = useCurrentUser();
   const { horarioId, horario } = useHorario();
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(!currentUser);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const checkedRef = useRef(false);
 
+  // Triggered when user clears their selection
   useEffect(() => {
-    if (!open) return;
+    if (!currentUser) checkedRef.current = false;
+  }, [currentUser]);
+
+  // On mount (or when sede changes), if no user → check if team exists
+  useEffect(() => {
+    if (currentUser || checkedRef.current) return;
+    checkedRef.current = true;
     setLoading(true);
     fetch(apiUrl(`/api/team?horarioId=${horarioId}`))
       .then(r => r.json())
-      .then(data => setMembers(Array.isArray(data) ? data : []))
-      .catch(() => setMembers([]))
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setMembers(list);
+        if (list.length > 0) {
+          setOpen(true);
+        } else {
+          setCurrentUser({ id: null, name: "Invitado", role: "invitado", horarioId, color: "slate" });
+        }
+      })
+      .catch(() => {
+        setCurrentUser({ id: null, name: "Invitado", role: "invitado", horarioId, color: "slate" });
+      })
       .finally(() => setLoading(false));
-  }, [open, horarioId]);
-
-  useEffect(() => {
-    if (!currentUser) setOpen(true);
-  }, [currentUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [horarioId]);
 
   if (!open) return null;
 
