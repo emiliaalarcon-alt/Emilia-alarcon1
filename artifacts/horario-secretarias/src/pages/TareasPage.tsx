@@ -326,9 +326,16 @@ function CreateTaskModal({
   const [isPersonal, setIsPersonal] = useState(false);
   const [personalOwner, setPersonalOwner] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [touched, setTouched] = useState(false);
 
   const handleSubmit = async () => {
-    if (!title.trim()) return;
+    setTouched(true);
+    if (!title.trim()) {
+      setError("El título es obligatorio para crear la tarea.");
+      return;
+    }
+    setError("");
     setLoading(true);
     try {
       const res = await fetch(apiUrl("/api/tasks"), {
@@ -348,12 +355,15 @@ function CreateTaskModal({
           items: items.filter((i) => i.trim()),
         }),
       });
-      if (!res.ok) throw new Error("Error al crear tarea");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Error del servidor (${res.status})`);
+      }
       const created = await res.json();
       onCreate(created);
       onClose();
-    } catch (err) {
-      console.error(err);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "No se pudo crear la tarea. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -370,19 +380,35 @@ function CreateTaskModal({
             </button>
           </div>
 
+          {error && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
           <div className="space-y-4">
             {/* Title */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
-                Título *
+                Título <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 placeholder="Ej: Revisar listas de asistencia…"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                onChange={(e) => { setTitle(e.target.value); if (error) setError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                autoFocus
+                className={`w-full px-4 py-2.5 bg-background border rounded-xl text-sm focus:outline-none focus:ring-2 transition-colors ${
+                  touched && !title.trim()
+                    ? "border-red-400 focus:ring-red-300"
+                    : "border-border focus:ring-primary/30"
+                }`}
               />
+              {touched && !title.trim() && (
+                <p className="text-xs text-red-500 mt-1">Escribe un título para continuar</p>
+              )}
             </div>
 
             {/* Description */}
@@ -545,8 +571,8 @@ function CreateTaskModal({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!title.trim() || loading}
-              className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              disabled={loading}
+              className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
               {loading ? "Creando…" : "Crear Tarea"}
             </button>
