@@ -475,13 +475,17 @@ async function seedIfEmpty() {
 })().catch(console.error);
 
 // GET /api/schedule?horario=TEMUCO&sede=LAS+ENCINAS
+// Pass horario=ALL to get classes from every campus
 router.get("/schedule", async (req, res) => {
   try {
     const { sede, horario } = req.query;
-    const horarioFilter = (typeof horario === "string" && horario) ? horario : "TEMUCO";
+    const horarioParam = typeof horario === "string" ? horario : "TEMUCO";
+    const fetchAll = horarioParam === "ALL";
 
-    const classes = await db.select().from(scheduleClassesTable)
-      .where(eq(scheduleClassesTable.horario, horarioFilter));
+    const classes = fetchAll
+      ? await db.select().from(scheduleClassesTable)
+      : await db.select().from(scheduleClassesTable)
+          .where(eq(scheduleClassesTable.horario, horarioParam));
     const students = await db.select().from(scheduleStudentsTable);
 
     const studentsByClass: Record<string, string[]> = {};
@@ -498,6 +502,7 @@ router.get("/schedule", async (req, res) => {
       sala: c.sala,
       teacher: c.teacher,
       course: c.course,
+      horario: c.horario,
       students: studentsByClass[c.classCode] ?? [],
     }));
 

@@ -7,6 +7,7 @@ export interface ClassEntry {
   students: string[];
   teacher: string;
   course: string;
+  horario?: string;
 }
 
 export const DAYS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];

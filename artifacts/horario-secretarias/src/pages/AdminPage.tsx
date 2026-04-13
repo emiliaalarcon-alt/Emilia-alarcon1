@@ -120,7 +120,15 @@ export default function AdminPage() {
   const { horarioId, horario, horarioList, reloadHorarios } = useHorario();
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState(() => ({ ...emptyForm, sede: horario.sedes?.[0] ?? "" }));
+
+  // For the "Nueva Clase" form: which campus and which sede
+  const defaultCampus = horarioList[0]?.id ?? horarioId;
+  const [formHorario, setFormHorario] = useState(defaultCampus);
+  const formCampus = horarioList.find(h => h.id === formHorario) ?? horarioList[0] ?? horario;
+  const [form, setForm] = useState(() => ({
+    ...emptyForm,
+    sede: horarioList[0]?.sedes?.[0] ?? horario.sedes?.[0] ?? "",
+  }));
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
@@ -128,6 +136,7 @@ export default function AdminPage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [search, setSearch] = useState("");
+  const [filterHorario, setFilterHorario] = useState("");
   const [filterSede, setFilterSede] = useState("");
   const [filterCourse, setFilterCourse] = useState("");
   const [importing, setImporting] = useState(false);
@@ -229,7 +238,7 @@ export default function AdminPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`));
+      const res = await fetch(apiUrl("/api/schedule?horario=ALL"));
       if (!res.ok) throw new Error("API error");
       const json = await res.json();
       setAllData(json);
@@ -239,17 +248,20 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [horarioId]);
+  }, []);
 
   useEffect(() => {
     fetchData();
-    // SSE para actualizaciones en tiempo real (carga del Excel, cambios de horario)
-    const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`));
-    es.onmessage = () => fetchData();
-    // Fallback poll cada 5s por si la conexión SSE falla
+    // SSE: subscribe to all campus streams for real-time updates
+    const streams = horarioList.map(h => {
+      const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(h.id)}`));
+      es.onmessage = () => fetchData();
+      return es;
+    });
     const interval = setInterval(fetchData, 5_000);
-    return () => { es.close(); clearInterval(interval); };
-  }, [fetchData, horarioId]);
+    return () => { streams.forEach(es => es.close()); clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchData]);
 
   const fetchTeam = useCallback(async () => {
     setTeamLoading(true);
@@ -285,15 +297,15 @@ export default function AdminPage() {
     setTeamMembers(prev => prev.filter(m => m.id !== id));
   }
 
+  // Keep formHorario in sync if horarioList changes (campus added/removed)
   useEffect(() => {
-    setAllData([]);
-    setLoading(true);
-    setForm({ ...emptyForm, sede: horario.sedes?.[0] ?? "" });
-    setSearch("");
-    setFilterSede("");
-    setFilterCourse("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [horarioId]);
+    if (horarioList.length > 0 && !horarioList.find(h => h.id === formHorario)) {
+      const first = horarioList[0];
+      setFormHorario(first.id);
+      setForm(f => ({ ...f, sede: first.sedes?.[0] ?? "" }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [horarioList]);
 
   const preview = useMemo(() => {
     if (!form.course || !form.day || !form.time || !form.teacher) return "";
@@ -302,6 +314,7 @@ export default function AdminPage() {
 
   const filteredList = useMemo(() => {
     return allData.filter(e => {
+      if (filterHorario && e.horario !== filterHorario) return false;
       if (filterSede && e.sede !== filterSede) return false;
       if (filterCourse && e.course !== filterCourse) return false;
       if (search) {
@@ -315,12 +328,13 @@ export default function AdminPage() {
       }
       return true;
     });
-  }, [allData, filterSede, filterCourse, search]);
+  }, [allData, filterHorario, filterSede, filterCourse, search]);
 
-  const statsBySede = useMemo(() => {
+  const statsByCampus = useMemo(() => {
     const map: Record<string, number> = {};
     for (const e of allData) {
-      map[e.sede] = (map[e.sede] ?? 0) + 1;
+      const key = e.horario ?? "?";
+      map[key] = (map[key] ?? 0) + 1;
     }
     return map;
   }, [allData]);
@@ -353,7 +367,7 @@ export default function AdminPage() {
         sala: Number(form.sala),
         course: form.course,
         teacher: form.teacher,
-        horario: horarioId,
+        horario: formHorario,
       });
       if (result.error === "duplicate") {
         setFormError(`Ya existe la clase "${result.message?.split('"')[1] ?? preview}".`);
@@ -727,19 +741,28 @@ export default function AdminPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
           <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">
             <div className="text-2xl font-display font-bold text-primary">{allData.length}</div>
-            <div className="text-xs text-muted-foreground mt-1">Clases totales</div>
+            <div className="text-xs text-muted-foreground mt-1">Total clases</div>
           </div>
-          <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">
-            <div className="text-2xl font-display font-bold text-secondary">{statsBySede["LAS ENCINAS"] ?? 0}</div>
-            <div className="text-xs text-muted-foreground mt-1">Las Encinas</div>
-          </div>
-          <div className="bg-card rounded-2xl border border-border/50 p-4 text-center shadow-sm">
-            <div className="text-2xl font-display font-bold text-secondary">{statsBySede["INES DE SUAREZ"] ?? 0}</div>
-            <div className="text-xs text-muted-foreground mt-1">Inés de Suárez</div>
-          </div>
+          {horarioList.map(h => (
+            <button
+              key={h.id}
+              onClick={() => setFilterHorario(filterHorario === h.id ? "" : h.id)}
+              className={`rounded-2xl border p-4 text-center shadow-sm transition-all ${
+                filterHorario === h.id
+                  ? "bg-primary/10 border-primary/40 ring-1 ring-primary/30"
+                  : "bg-card border-border/50 hover:border-primary/30 hover:bg-muted/40"
+              }`}
+            >
+              <div className="text-lg font-display font-bold text-foreground">{h.emoji}</div>
+              <div className={`text-xl font-display font-bold ${filterHorario === h.id ? "text-primary" : "text-secondary"}`}>
+                {statsByCampus[h.id] ?? 0}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5 truncate">{h.label}</div>
+            </button>
+          ))}
         </div>
 
         {/* ── Equipo Administrativo ───────────────────────────────── */}
@@ -977,10 +1000,32 @@ export default function AdminPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                {/* Campus selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Campus</label>
+                  <div className="relative">
+                    <select
+                      value={formHorario}
+                      onChange={e => {
+                        const campusId = e.target.value;
+                        setFormHorario(campusId);
+                        const campus = horarioList.find(h => h.id === campusId);
+                        setForm(f => ({ ...f, sede: campus?.sedes?.[0] ?? "" }));
+                      }}
+                      className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground appearance-none pr-8"
+                    >
+                      {horarioList.map(h => (
+                        <option key={h.id} value={h.id}>{h.emoji} {h.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Sede</label>
                   <div className="flex rounded-xl overflow-hidden border border-border/60">
-                    {(horario.sedes ?? []).map(s => (
+                    {(formCampus?.sedes ?? []).map(s => (
                       <button
                         key={s}
                         type="button"
@@ -1119,7 +1164,9 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <h2 className="font-display font-bold text-foreground">Todas las clases</h2>
-                    <p className="text-xs text-muted-foreground">{filteredList.length} de {allData.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {filteredList.length} de {allData.length} — todos los campus
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1136,15 +1183,27 @@ export default function AdminPage() {
                   />
                 </div>
                 <select
-                  value={filterSede}
-                  onChange={e => setFilterSede(e.target.value)}
+                  value={filterHorario}
+                  onChange={e => { setFilterHorario(e.target.value); setFilterSede(""); }}
                   className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
                 >
-                  <option value="">Todas las sedes</option>
-                  {(horario.sedes ?? []).map(s => (
-                    <option key={s} value={s}>{displaySede(s)}</option>
+                  <option value="">Todos los campus</option>
+                  {horarioList.map(h => (
+                    <option key={h.id} value={h.id}>{h.emoji} {h.label}</option>
                   ))}
                 </select>
+                {filterHorario && (
+                  <select
+                    value={filterSede}
+                    onChange={e => setFilterSede(e.target.value)}
+                    className="px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                  >
+                    <option value="">Todas las sedes</option>
+                    {(horarioList.find(h => h.id === filterHorario)?.sedes ?? []).map(s => (
+                      <option key={s} value={s}>{displaySede(s)}</option>
+                    ))}
+                  </select>
+                )}
                 <select
                   value={filterCourse}
                   onChange={e => setFilterCourse(e.target.value)}
@@ -1155,10 +1214,11 @@ export default function AdminPage() {
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-                {(search || filterSede || filterCourse) && (
+                {(search || filterHorario || filterSede || filterCourse) && (
                   <button
-                    onClick={() => { setSearch(""); setFilterSede(""); setFilterCourse(""); }}
+                    onClick={() => { setSearch(""); setFilterHorario(""); setFilterSede(""); setFilterCourse(""); }}
                     className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title="Limpiar filtros"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1182,6 +1242,7 @@ export default function AdminPage() {
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-muted/70 border-b border-border/50 text-left">
                         <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Código</th>
+                        <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Campus</th>
                         <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Sede</th>
                         <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Día</th>
                         <th className="px-3 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Horario</th>
@@ -1203,6 +1264,12 @@ export default function AdminPage() {
                                 {entry.course}
                               </span>
                               <div className="text-xs text-muted-foreground mt-0.5 font-mono">{entry.classCode}</div>
+                            </td>
+                            <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                              {(() => {
+                                const c = horarioList.find(h => h.id === entry.horario);
+                                return c ? <span title={c.label}>{c.emoji} <span className="hidden sm:inline">{c.label}</span></span> : (entry.horario ?? "—");
+                              })()}
                             </td>
                             <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
                               {displaySede(entry.sede)}
@@ -1261,17 +1328,21 @@ export default function AdminPage() {
                           </tr>
                           {isEditing && (
                             <tr className="bg-primary/5 border-b border-primary/20">
-                              <td colSpan={7} className="px-4 py-3">
+                              <td colSpan={8} className="px-4 py-3">
                                 <div className="flex flex-wrap gap-2 items-end">
-                                  {(horario.sedes ?? []).length > 1 && (
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sede</label>
-                                      <select value={editForm.sede} onChange={e => setEditForm(f => ({ ...f, sede: e.target.value }))}
-                                        className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
-                                        {(horario.sedes ?? []).map(s => <option key={s} value={s}>{displaySede(s)}</option>)}
-                                      </select>
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    const entryCampus = horarioList.find(h => h.id === entry.horario);
+                                    const sedes = entryCampus?.sedes ?? [];
+                                    return sedes.length > 1 ? (
+                                      <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sede</label>
+                                        <select value={editForm.sede} onChange={e => setEditForm(f => ({ ...f, sede: e.target.value }))}
+                                          className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
+                                          {sedes.map(s => <option key={s} value={s}>{displaySede(s)}</option>)}
+                                        </select>
+                                      </div>
+                                    ) : null;
+                                  })()}
                                   <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Curso</label>
                                     <select value={editForm.course} onChange={e => setEditForm(f => ({ ...f, course: e.target.value }))}
