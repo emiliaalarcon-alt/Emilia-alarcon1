@@ -254,12 +254,12 @@ export default function AdminPage() {
   const fetchTeam = useCallback(async () => {
     setTeamLoading(true);
     try {
-      const res = await fetch(apiUrl(`/api/team?horarioId=${horarioId}`));
+      const res = await fetch(apiUrl("/api/team"));
       const data = await res.json();
       setTeamMembers(Array.isArray(data) ? data : []);
     } catch { /* silent */ }
     finally { setTeamLoading(false); }
-  }, [horarioId]);
+  }, []);
 
   useEffect(() => { if (teamOpen) fetchTeam(); }, [teamOpen, fetchTeam]);
 
@@ -270,7 +270,7 @@ export default function AdminPage() {
       const res = await fetch(apiUrl("/api/team"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newMemberName.trim(), role: newMemberRole, horarioId, color: newMemberColor }),
+        body: JSON.stringify({ name: newMemberName.trim(), role: newMemberRole, color: newMemberColor }),
       });
       if (!res.ok) throw new Error("Error al crear");
       const member = await res.json();

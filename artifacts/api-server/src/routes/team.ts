@@ -5,13 +5,10 @@ import { eq } from "drizzle-orm";
 
 const router = Router();
 
-// GET /api/team?horarioId=TEMUCO
-router.get("/team", async (req, res) => {
+// GET /api/team — returns all members (team is global across all sedes)
+router.get("/team", async (_req, res) => {
   try {
-    const { horarioId } = req.query as Record<string, string>;
-    const members = horarioId && horarioId !== "ADMIN"
-      ? await db.select().from(teamMembersTable).where(eq(teamMembersTable.horarioId, horarioId))
-      : await db.select().from(teamMembersTable);
+    const members = await db.select().from(teamMembersTable);
     res.json(members);
   } catch (err) {
     console.error(err);
@@ -19,17 +16,17 @@ router.get("/team", async (req, res) => {
   }
 });
 
-// POST /api/team
+// POST /api/team — team is global, horarioId is always "GLOBAL"
 router.post("/team", async (req, res) => {
   try {
-    const { name, role, horarioId, color } = req.body;
-    if (!name || !horarioId) {
-      return res.status(400).json({ error: "name y horarioId son requeridos" });
+    const { name, role, color } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: "name es requerido" });
     }
     const [member] = await db.insert(teamMembersTable).values({
       name: name.trim(),
       role: role || "secretaria",
-      horarioId,
+      horarioId: "GLOBAL",
       color: color || "violet",
     }).returning();
     res.status(201).json(member);

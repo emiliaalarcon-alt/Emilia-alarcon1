@@ -38,12 +38,12 @@ export default function UserSelectionModal() {
     if (!currentUser) checkedRef.current = false;
   }, [currentUser]);
 
-  // On mount or sede change: if no user, fetch team and show modal
+  // On mount or sede change: if no user, fetch global team and show modal
   useEffect(() => {
     if (currentUser || checkedRef.current) return;
     checkedRef.current = true;
     setLoading(true);
-    fetch(apiUrl(`/api/team?horarioId=${horarioId}`))
+    fetch(apiUrl("/api/team"))
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : [];
