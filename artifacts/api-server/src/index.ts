@@ -55,7 +55,28 @@ async function ensureTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log("Tables ensured (tasks, task_items, team_members)");
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workshops (
+        id SERIAL PRIMARY KEY,
+        horario_id TEXT NOT NULL,
+        sede TEXT NOT NULL,
+        teacher TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        workshop_date TEXT NOT NULL DEFAULT '',
+        workshop_time TEXT NOT NULL DEFAULT '',
+        max_students INTEGER NOT NULL DEFAULT 8,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workshop_students (
+        id SERIAL PRIMARY KEY,
+        workshop_id INTEGER NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+        student_name TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {

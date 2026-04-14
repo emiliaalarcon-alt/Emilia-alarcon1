@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Minus, Trash2, RefreshCw, Pencil, Check, Bell, BellOff } from "lucide-react";
+import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Minus, Trash2, RefreshCw, Pencil, Check, Bell, BellOff, GraduationCap } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import {
   DAYS,
@@ -11,6 +11,7 @@ import {
 import { useHorario } from "@/context/HorarioContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { apiUrl } from "@/lib/api";
+import TalleresTab from "@/components/TalleresTab";
 
 const SEDE_DISPLAY_NAMES: Record<string, string> = {
   "LAS ENCINAS": "Las Encinas",
@@ -766,6 +767,7 @@ export default function HorarioPage() {
   const [search, setSearch] = useState<string>("");
   const [selectedEntry, setSelectedEntry] = useState<ClassEntry | null>(null);
   const [activeSede, setActiveSede] = useState<string>(() => horario.sedes[0]);
+  const [activeTab, setActiveTab] = useState<"horario" | "talleres">("horario");
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -792,6 +794,7 @@ export default function HorarioPage() {
 
   useEffect(() => {
     setActiveSede(horario.sedes[0]);
+    setActiveTab("horario");
     setSelectedEntry(null);
     setAllData([]);
     setLoading(true);
@@ -1214,6 +1217,28 @@ export default function HorarioPage() {
                 )}
               </div>
 
+              {/* ── Pestañas Horario / Talleres ── */}
+              <div className="flex items-center gap-1 px-4 py-2 border-b border-border/30 bg-muted/20">
+                {([
+                  { id: "horario" as const, label: "Horario", Icon: Search },
+                  { id: "talleres" as const, label: "Talleres", Icon: GraduationCap },
+                ] as const).map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setActiveTab(id)}
+                    className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      activeTab === id
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {activeTab === "horario" && (
               <div className="divide-y divide-border/30">
                 <div className="flex items-start gap-4 px-4 py-3">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pt-1 w-24 shrink-0">
@@ -1301,8 +1326,17 @@ export default function HorarioPage() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
 
+            {activeTab === "talleres" ? (
+              <TalleresTab
+                horarioId={horarioId}
+                activeSede={activeSede}
+                allSedes={horario.sedes}
+                sedeDisplayName={displaySede}
+              />
+            ) : (
             <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
               <div className="px-6 py-4 border-b border-border/50 flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary" />
@@ -1434,6 +1468,7 @@ export default function HorarioPage() {
                 </table>
               </div>
             </div>
+            )}
           </>
         )}
       </div>
