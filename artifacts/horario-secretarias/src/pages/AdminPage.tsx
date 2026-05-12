@@ -139,6 +139,9 @@ function CourseCombobox({
     );
   }, [options, query]);
 
+  const exactMatch = query && options.some(c => c.toLowerCase() === query.toLowerCase());
+  const showCustom = query.trim() && !exactMatch;
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -154,6 +157,16 @@ function CourseCombobox({
     onChange(c);
     setOpen(false);
     setQuery("");
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && query.trim()) {
+      e.preventDefault();
+      select(query.trim().toUpperCase());
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+    }
   }
 
   return (
@@ -174,6 +187,7 @@ function CourseCombobox({
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={value || placeholder}
             className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
           />
@@ -181,7 +195,17 @@ function CourseCombobox({
       </div>
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-xl shadow-xl max-h-56 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {showCustom && (
+            <button
+              type="button"
+              onMouseDown={e => { e.preventDefault(); select(query.trim().toUpperCase()); }}
+              className="w-full text-left px-3 py-2 text-sm border-b border-border hover:bg-primary/10 transition-colors flex items-center gap-2 text-primary font-semibold"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              Usar "{query.trim().toUpperCase()}"
+            </button>
+          )}
+          {filtered.length === 0 && !showCustom ? (
             <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
           ) : (
             filtered.map(c => (
