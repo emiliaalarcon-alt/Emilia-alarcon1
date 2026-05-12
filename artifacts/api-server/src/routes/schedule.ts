@@ -466,10 +466,13 @@ router.get("/schedule", async (req, res) => {
           .where(eq(scheduleClassesTable.horario, horarioParam));
     const students = await db.select().from(scheduleStudentsTable);
 
+    // Key by "classCode|classSemester" so PRIMER and SEGUNDO students
+    // for the same class code are never mixed together.
     const studentsByClass: Record<string, string[]> = {};
     for (const s of students) {
-      if (!studentsByClass[s.classCode]) studentsByClass[s.classCode] = [];
-      studentsByClass[s.classCode].push(s.studentName);
+      const key = `${s.classCode}|${s.classSemester}`;
+      if (!studentsByClass[key]) studentsByClass[key] = [];
+      studentsByClass[key].push(s.studentName);
     }
 
     let result = classes.map(c => ({
@@ -482,7 +485,7 @@ router.get("/schedule", async (req, res) => {
       course: c.course,
       horario: c.horario,
       semester: c.semester ?? "PRIMER",
-      students: studentsByClass[c.classCode] ?? [],
+      students: studentsByClass[`${c.classCode}|${c.semester ?? "PRIMER"}`] ?? [],
     }));
 
     if (sede && typeof sede === "string") {
