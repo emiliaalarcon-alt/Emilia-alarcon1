@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { db } from "@workspace/db";
 import { scheduleClassesTable, scheduleStudentsTable, scheduleHorariosTable, scheduleTransfersTable } from "@workspace/db/schema";
-import { eq, sql, and, inArray } from "drizzle-orm";
+import { eq, sql, and, inArray, ne } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -244,29 +244,41 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
 }
 
 async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
-  // Fetch PRIMER and ANUAL classes — SEGUNDO is fully independent and never touched by import
+  // Fetch PRIMER and ANUAL classes for this horario — SEGUNDO is never touched by import
   const existingClasses = await db
     .select({ classCode: scheduleClassesTable.classCode, semester: scheduleClassesTable.semester })
     .from(scheduleClassesTable)
     .where(and(
       eq(scheduleClassesTable.horario, horario),
-      sql`${scheduleClassesTable.semester} != 'SEGUNDO'`
+      ne(scheduleClassesTable.semester, "SEGUNDO")
     ));
 
-  // Map classCode → semester (PRIMER or ANUAL); first entry wins if somehow duplicated
+  // Map classCode → semester (PRIMER or ANUAL)
   const existingMap = new Map<string, string>();
   for (const cls of existingClasses) {
     if (!existingMap.has(cls.classCode)) existingMap.set(cls.classCode, cls.semester);
+  }
+
+  // ── BULK WIPE: delete ALL non-SEGUNDO students for every class in this horario ──
+  // This runs ONCE before any inserts, guaranteeing a clean slate regardless of
+  // whatever stale data (wrong semester values, old duplicates) exists in the DB.
+  const allHorarioCodes = existingClasses.map(c => c.classCode);
+  if (allHorarioCodes.length > 0) {
+    await db.delete(scheduleStudentsTable)
+      .where(and(
+        inArray(scheduleStudentsTable.classCode, allHorarioCodes),
+        ne(scheduleStudentsTable.classSemester, "SEGUNDO")
+      ));
   }
 
   const incomingCodes = new Set(byCode.keys());
   let created = 0, updated = 0, skipped = 0, removed = 0;
   const parseErrors: string[] = [];
 
-  // Remove PRIMER classes that are no longer in the Excel (ANUAL classes are manually managed)
+  // Remove PRIMER classes that are no longer in the Excel
+  // (ANUAL classes are manually managed — never auto-deleted by import)
   for (const [code, sem] of existingMap.entries()) {
     if (!incomingCodes.has(code) && sem === "PRIMER") {
-      // Students cascade-delete via FK
       await db.delete(scheduleClassesTable)
         .where(and(eq(scheduleClassesTable.classCode, code), eq(scheduleClassesTable.semester, "PRIMER")));
       removed++;
@@ -304,7 +316,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
         continue;
       }
     } else {
-      // UPDATE existing class (PRIMER or ANUAL) — only sala/sede
+      // UPDATE existing class (PRIMER or ANUAL) — sala/sede only
       const updates: Record<string, unknown> = {};
       if (sala !== null) updates.sala = sala;
       if (sede) updates.sede = sede;
@@ -317,13 +329,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
       }
     }
 
-    // Wipe ALL non-SEGUNDO students for this class before inserting fresh from Excel
-    // (catches any stale rows with mismatched class_semester from old migrations)
-    await db.delete(scheduleStudentsTable)
-      .where(and(
-        eq(scheduleStudentsTable.classCode, classCode),
-        sql`${scheduleStudentsTable.classSemester} != 'SEGUNDO'`
-      ));
+    // Insert fresh student list from Excel
     const sem = existingMap.get(classCode) ?? "PRIMER";
     if (students.length > 0) {
       await db.insert(scheduleStudentsTable)
