@@ -1168,7 +1168,7 @@ export default function AdminPage() {
               <div className="flex-1">
                 <h2 className="font-display font-bold text-foreground">Vaciar horario</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Elimina <strong>todas las clases y alumnos del 1er semestre</strong> de todos los campus. El 2do semestre y los talleres no se tocan.
+                  Elimina <strong>todas las clases y alumnos de todos los semestres</strong> en todos los campus. Los talleres no se tocan. Úsalo antes de subir el Excel para empezar desde cero.
                 </p>
               </div>
               <div className="shrink-0">

@@ -244,33 +244,12 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
 }
 
 async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
-  // ── STEP 1: FULL WIPE of all non-SEGUNDO data for this horario ───────────────
-  // Get every non-SEGUNDO class currently stored for this campus
-  const existingRows = await db
-    .select({ classCode: scheduleClassesTable.classCode, semester: scheduleClassesTable.semester })
-    .from(scheduleClassesTable)
-    .where(and(eq(scheduleClassesTable.horario, horario), ne(scheduleClassesTable.semester, "SEGUNDO")));
+  // ── STEP 1: FULL WIPE — delete ALL classes for this horario (all semesters) ──
+  // Students are deleted automatically via ON DELETE CASCADE on the FK.
+  await db.delete(scheduleClassesTable)
+    .where(eq(scheduleClassesTable.horario, horario));
 
-  if (existingRows.length > 0) {
-    const codes = existingRows.map(r => r.classCode);
-    // Delete students for those class codes (any semester except SEGUNDO)
-    await db.delete(scheduleStudentsTable)
-      .where(and(
-        inArray(scheduleStudentsTable.classCode, codes),
-        ne(scheduleStudentsTable.classSemester, "SEGUNDO")
-      ));
-    // Delete the classes themselves — one DELETE per (code, semester) pair
-    // to respect the composite PK and avoid touching SEGUNDO rows
-    for (const row of existingRows) {
-      await db.delete(scheduleClassesTable)
-        .where(and(
-          eq(scheduleClassesTable.classCode, row.classCode),
-          eq(scheduleClassesTable.semester, row.semester)
-        ));
-    }
-  }
-
-  // ── STEP 2: REBUILD from Excel — every class becomes PRIMER ──────────────────
+  // ── STEP 2: REBUILD from Excel — every class is created as PRIMER ─────────────
   let created = 0, skipped = 0;
   const parseErrors: string[] = [];
 
@@ -305,7 +284,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
     created++;
   }
 
-  return { created, updated: 0, skipped, removed: existingRows.length, parseErrors };
+  return { created, updated: 0, skipped, removed: 0, parseErrors };
 }
 
 async function seedFromExcel(): Promise<boolean> {
@@ -793,35 +772,20 @@ router.delete("/schedule/classes", async (req, res) => {
   }
 });
 
-// DELETE /api/schedule/wipe — wipes ALL non-SEGUNDO classes + students across every horario.
-// SEGUNDO data is never touched. Talleres (workshops) are in a separate table and unaffected.
+// DELETE /api/schedule/wipe — wipes ALL classes + students across every horario and semester.
+// Talleres (workshops) are in a separate table and are never affected.
+// Students are removed automatically via ON DELETE CASCADE.
 router.delete("/schedule/wipe", async (_req, res) => {
   try {
-    // 1. Find all non-SEGUNDO classes across all horarios
+    // Count before deleting so we can report how many were removed
     const rows = await db
-      .select({ classCode: scheduleClassesTable.classCode, semester: scheduleClassesTable.semester })
-      .from(scheduleClassesTable)
-      .where(ne(scheduleClassesTable.semester, "SEGUNDO"));
+      .select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable);
 
-    if (rows.length > 0) {
-      const codes = [...new Set(rows.map(r => r.classCode))];
-      // 2. Delete students whose class_semester is not SEGUNDO (preserves SEGUNDO student rows)
-      await db.delete(scheduleStudentsTable)
-        .where(and(
-          inArray(scheduleStudentsTable.classCode, codes),
-          ne(scheduleStudentsTable.classSemester, "SEGUNDO")
-        ));
-      // 3. Delete the non-SEGUNDO class rows one-by-one to respect composite PK
-      for (const row of rows) {
-        await db.delete(scheduleClassesTable)
-          .where(and(
-            eq(scheduleClassesTable.classCode, row.classCode),
-            eq(scheduleClassesTable.semester, row.semester)
-          ));
-      }
-    }
+    // Delete all classes — students cascade automatically
+    await db.delete(scheduleClassesTable);
 
-    // Notify all horarios of the change
+    // Notify all horarios
     const horarios = await db.select({ id: scheduleHorariosTable.id }).from(scheduleHorariosTable);
     for (const h of horarios) broadcastScheduleChange(h.id);
 
