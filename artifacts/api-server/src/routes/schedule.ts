@@ -244,10 +244,11 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
 }
 
 async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
+  // Only operate on PRIMER semester — SEGUNDO is independent and untouched by import
   const existingClasses = await db
     .select({ classCode: scheduleClassesTable.classCode })
     .from(scheduleClassesTable)
-    .where(eq(scheduleClassesTable.horario, horario));
+    .where(and(eq(scheduleClassesTable.horario, horario), eq(scheduleClassesTable.semester, "PRIMER")));
   const existingCodes = new Set(existingClasses.map(c => c.classCode));
   const incomingCodes = new Set(byCode.keys());
   let created = 0, updated = 0, skipped = 0, removed = 0;
@@ -294,7 +295,8 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
       if (sala !== null) updates.sala = sala;
       if (sede) updates.sede = sede;
       if (Object.keys(updates).length > 0) {
-        await db.update(scheduleClassesTable).set(updates).where(eq(scheduleClassesTable.classCode, classCode));
+        await db.update(scheduleClassesTable).set(updates)
+          .where(and(eq(scheduleClassesTable.classCode, classCode), eq(scheduleClassesTable.semester, "PRIMER")));
       }
     }
     await db.delete(scheduleStudentsTable)
