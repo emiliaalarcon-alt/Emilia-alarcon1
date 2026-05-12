@@ -244,19 +244,28 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
 }
 
 async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
-  // Only operate on PRIMER semester — SEGUNDO is independent and untouched by import
+  // Fetch PRIMER and ANUAL classes — SEGUNDO is fully independent and never touched by import
   const existingClasses = await db
-    .select({ classCode: scheduleClassesTable.classCode })
+    .select({ classCode: scheduleClassesTable.classCode, semester: scheduleClassesTable.semester })
     .from(scheduleClassesTable)
-    .where(and(eq(scheduleClassesTable.horario, horario), eq(scheduleClassesTable.semester, "PRIMER")));
-  const existingCodes = new Set(existingClasses.map(c => c.classCode));
+    .where(and(
+      eq(scheduleClassesTable.horario, horario),
+      sql`${scheduleClassesTable.semester} != 'SEGUNDO'`
+    ));
+
+  // Map classCode → semester (PRIMER or ANUAL); first entry wins if somehow duplicated
+  const existingMap = new Map<string, string>();
+  for (const cls of existingClasses) {
+    if (!existingMap.has(cls.classCode)) existingMap.set(cls.classCode, cls.semester);
+  }
+
   const incomingCodes = new Set(byCode.keys());
   let created = 0, updated = 0, skipped = 0, removed = 0;
   const parseErrors: string[] = [];
 
-  // Remove classes that are in the DB but NOT in the new Excel (full replace, PRIMER only)
-  for (const code of existingCodes) {
-    if (!incomingCodes.has(code)) {
+  // Remove PRIMER classes that are no longer in the Excel (ANUAL classes are manually managed)
+  for (const [code, sem] of existingMap.entries()) {
+    if (!incomingCodes.has(code) && sem === "PRIMER") {
       // Students cascade-delete via FK
       await db.delete(scheduleClassesTable)
         .where(and(eq(scheduleClassesTable.classCode, code), eq(scheduleClassesTable.semester, "PRIMER")));
@@ -265,7 +274,10 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
   }
 
   for (const [classCode, { students, sala, sede }] of byCode.entries()) {
-    if (!existingCodes.has(classCode)) {
+    const existingSemester = existingMap.get(classCode); // PRIMER, ANUAL, or undefined (new)
+
+    if (!existingSemester) {
+      // CREATE new PRIMER class
       const parsed = parseClassCode(classCode);
       if (!parsed || !parsed.course || !parsed.day || !parsed.time) {
         parseErrors.push(classCode);
@@ -282,8 +294,9 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
           teacher: parsed.teacher,
           sede,
           sala: sala ?? 1,
+          semester: "PRIMER",
         });
-        existingCodes.add(classCode);
+        existingMap.set(classCode, "PRIMER");
         created++;
       } catch {
         parseErrors.push(classCode);
@@ -291,19 +304,26 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
         continue;
       }
     } else {
+      // UPDATE existing class (PRIMER or ANUAL) — only sala/sede
       const updates: Record<string, unknown> = {};
       if (sala !== null) updates.sala = sala;
       if (sede) updates.sede = sede;
       if (Object.keys(updates).length > 0) {
         await db.update(scheduleClassesTable).set(updates)
-          .where(and(eq(scheduleClassesTable.classCode, classCode), eq(scheduleClassesTable.semester, "PRIMER")));
+          .where(and(
+            eq(scheduleClassesTable.classCode, classCode),
+            eq(scheduleClassesTable.semester, existingSemester)
+          ));
       }
     }
+
+    // Replace student list — use the class's actual semester (PRIMER or ANUAL)
+    const sem = existingMap.get(classCode) ?? "PRIMER";
     await db.delete(scheduleStudentsTable)
-      .where(and(eq(scheduleStudentsTable.classCode, classCode), eq(scheduleStudentsTable.classSemester, "PRIMER")));
+      .where(and(eq(scheduleStudentsTable.classCode, classCode), eq(scheduleStudentsTable.classSemester, sem)));
     if (students.length > 0) {
       await db.insert(scheduleStudentsTable)
-        .values(students.map(studentName => ({ classCode, classSemester: "PRIMER", studentName })));
+        .values(students.map(studentName => ({ classCode, classSemester: sem, studentName })));
     }
     updated++;
   }
