@@ -118,7 +118,7 @@ const emptyForm = {
 };
 
 function CourseCombobox({
-  value, onChange, options, placeholder = "Buscar asignatura...", className = "",
+  value, onChange, options, placeholder = "Escribe o selecciona...", className = "",
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -126,83 +126,88 @@ function CourseCombobox({
   placeholder?: string;
   className?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [inputVal, setInputVal] = useState(value);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep input in sync when value changes externally
+  useEffect(() => { setInputVal(value); }, [value]);
 
   const filtered = useMemo(() => {
-    if (!query) return options;
-    const q = query.toLowerCase();
+    const q = inputVal.toLowerCase();
+    if (!q) return options;
     return options.filter(c =>
       c.toLowerCase().includes(q) ||
       (COURSE_FULL_NAMES[c] ?? "").toLowerCase().includes(q)
     );
-  }, [options, query]);
+  }, [options, inputVal]);
 
-  const exactMatch = query && options.some(c => c.toLowerCase() === query.toLowerCase());
-  const showCustom = query.trim() && !exactMatch;
+  const exactMatch = options.some(c => c.toLowerCase() === inputVal.toLowerCase());
+  const showCustom = inputVal.trim() && !exactMatch;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
-        setQuery("");
+        // Accept whatever is typed when clicking away
+        const trimmed = inputVal.trim().toUpperCase();
+        if (trimmed) onChange(trimmed);
+        else setInputVal(value);
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  }, [inputVal, value, onChange]);
 
   function select(c: string) {
     onChange(c);
+    setInputVal(c);
     setOpen(false);
-    setQuery("");
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" && query.trim()) {
+    if (e.key === "Enter") {
       e.preventDefault();
-      select(query.trim().toUpperCase());
+      const trimmed = inputVal.trim().toUpperCase();
+      if (trimmed) { onChange(trimmed); setInputVal(trimmed); setOpen(false); }
     } else if (e.key === "Escape") {
+      setInputVal(value);
       setOpen(false);
-      setQuery("");
     }
   }
 
   return (
     <div ref={ref} className={`relative ${className}`}>
-      <div
-        className="flex items-center border border-border rounded-xl bg-background overflow-hidden focus-within:ring-2 focus-within:ring-primary/50"
-        onClick={() => setOpen(true)}
-      >
-        {!open ? (
-          <div className="flex-1 flex items-center justify-between px-3 py-2 cursor-pointer">
-            <span className={`text-sm ${value ? "text-foreground" : "text-muted-foreground"}`}>
-              {value ? `${value}${COURSE_FULL_NAMES[value] ? ` — ${COURSE_FULL_NAMES[value]}` : ""}` : placeholder}
-            </span>
-            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
-          </div>
-        ) : (
-          <input
-            autoFocus
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={value || placeholder}
-            className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
-          />
-        )}
+      <div className="flex items-center border border-border rounded-xl bg-background overflow-hidden focus-within:ring-2 focus-within:ring-primary/50">
+        <input
+          ref={inputRef}
+          value={inputVal}
+          onChange={e => { setInputVal(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onMouseDown={e => { e.preventDefault(); setOpen(o => !o); inputRef.current?.focus(); }}
+          className="px-2 py-2 text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
       </div>
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-xl shadow-xl max-h-56 overflow-y-auto">
           {showCustom && (
             <button
               type="button"
-              onMouseDown={e => { e.preventDefault(); select(query.trim().toUpperCase()); }}
+              onMouseDown={e => { e.preventDefault(); select(inputVal.trim().toUpperCase()); }}
               className="w-full text-left px-3 py-2 text-sm border-b border-border hover:bg-primary/10 transition-colors flex items-center gap-2 text-primary font-semibold"
             >
               <Plus className="w-3.5 h-3.5 shrink-0" />
-              Usar "{query.trim().toUpperCase()}"
+              Usar "{inputVal.trim().toUpperCase()}"
             </button>
           )}
           {filtered.length === 0 && !showCustom ? (
