@@ -767,10 +767,9 @@ router.delete("/schedule/classes", async (req, res) => {
 });
 
 // POST /api/schedule/copy-semester?horario=TEMUCO
-// Copies all PRIMER semester classes to SEGUNDO within the same horario.
-// "Int" courses (course name contains "INT") are duplicated with empty student lists.
-// Other courses keep their student lists.
-// Already-existing SEGUNDO classes for the same classCode (with "_S2" suffix) are skipped.
+// Idempotent: deletes all existing SEGUNDO classes for this horario, then recreates
+// them from PRIMER. INT and M2 courses are copied with empty student lists.
+// Other courses keep their student lists from PRIMER.
 router.post("/schedule/copy-semester", async (req, res) => {
   try {
     const { horario } = req.query;
@@ -784,15 +783,13 @@ router.post("/schedule/copy-semester", async (req, res) => {
       ));
 
     if (!primerClasses.length) {
-      return res.json({ ok: true, created: 0, skipped: 0, message: "No hay clases de 1er semestre para copiar" });
+      return res.json({ ok: true, created: 0, message: "No hay clases de 1er semestre para copiar" });
     }
 
-    // Get all students for these classes
+    // Get all students for PRIMER classes
     const primerCodes = primerClasses.map(c => c.classCode);
-    const allStudents = primerCodes.length > 0
-      ? await db.select().from(scheduleStudentsTable)
-          .where(inArray(scheduleStudentsTable.classCode, primerCodes))
-      : [];
+    const allStudents = await db.select().from(scheduleStudentsTable)
+      .where(inArray(scheduleStudentsTable.classCode, primerCodes));
 
     const studentsByCode: Record<string, string[]> = {};
     for (const s of allStudents) {
@@ -800,26 +797,26 @@ router.post("/schedule/copy-semester", async (req, res) => {
       studentsByCode[s.classCode].push(s.studentName);
     }
 
-    // Check which SEGUNDO codes already exist
+    // Delete all existing SEGUNDO classes for this horario (students cascade-delete)
     const existingSegundo = await db.select({ classCode: scheduleClassesTable.classCode })
       .from(scheduleClassesTable)
       .where(and(
         eq(scheduleClassesTable.horario, horarioVal),
         eq(scheduleClassesTable.semester, "SEGUNDO")
       ));
-    const existingCodes = new Set(existingSegundo.map(c => c.classCode));
+    if (existingSegundo.length) {
+      await db.delete(scheduleClassesTable)
+        .where(and(
+          eq(scheduleClassesTable.horario, horarioVal),
+          eq(scheduleClassesTable.semester, "SEGUNDO")
+        ));
+    }
 
+    // Create fresh SEGUNDO classes from PRIMER
     let created = 0;
-    let skipped = 0;
-
     for (const cls of primerClasses) {
-      const isInt = /\bINT\b/i.test(cls.course) || /\bM2\b/i.test(cls.course);
+      const isIntensive = /\bINT\b/i.test(cls.course) || /\bM2\b/i.test(cls.course);
       const newCode = cls.classCode + "_S2";
-
-      if (existingCodes.has(newCode)) {
-        skipped++;
-        continue;
-      }
 
       await db.insert(scheduleClassesTable).values({
         classCode: newCode,
@@ -831,16 +828,16 @@ router.post("/schedule/copy-semester", async (req, res) => {
         teacher: cls.teacher,
         course: cls.course,
         semester: "SEGUNDO",
-      }).onConflictDoNothing();
+      });
 
-      // Copy students only for non-Int courses
-      if (!isInt) {
+      // Copy students only for non-intensive courses
+      if (!isIntensive) {
         const students = studentsByCode[cls.classCode] ?? [];
         for (const name of students) {
           await db.insert(scheduleStudentsTable).values({
             classCode: newCode,
             studentName: name,
-          }).onConflictDoNothing();
+          });
         }
       }
 
@@ -848,7 +845,7 @@ router.post("/schedule/copy-semester", async (req, res) => {
     }
 
     broadcastScheduleChange(horarioVal);
-    res.json({ ok: true, created, skipped });
+    res.json({ ok: true, created });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });

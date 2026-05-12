@@ -180,7 +180,7 @@ export default function AdminPage() {
   const [addingSedeFor, setAddingSedeFor] = useState<string | null>(null);
   const [sedeError, setSedeError] = useState("");
   const [copyingSemester, setCopyingSemester] = useState(false);
-  const [copyResult, setCopyResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [copyResult, setCopyResult] = useState<{ created: number } | null>(null);
   const [copyError, setCopyError] = useState("");
   const [confirmCopy, setConfirmCopy] = useState(false);
 
@@ -194,7 +194,7 @@ export default function AdminPage() {
       const res = await fetch(apiUrl(`/api/schedule/copy-semester?horario=${target}`), { method: "POST" });
       const json = await res.json();
       if (json.error) { setCopyError(json.error || "Error desconocido"); }
-      else { setCopyResult({ created: json.created, skipped: json.skipped }); fetchData(); }
+      else { setCopyResult({ created: json.created }); fetchData(); }
     } catch { setCopyError("Error de conexión."); }
     finally { setCopyingSemester(false); }
   }
@@ -1014,8 +1014,8 @@ export default function AdminPage() {
             <div className="flex-1">
               <h2 className="font-display font-bold text-foreground text-sm">Copiar 1er Semestre → 2do Semestre</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Duplica todas las clases del 1er semestre al 2do.
-                Los cursos Intensivos (INT) se copian <strong>sin alumnos</strong>; el resto conserva su lista.
+                Reemplaza el 2do semestre con una copia del 1er semestre.
+                Los cursos <strong>INT</strong> y <strong>M2</strong> se copian sin alumnos; el resto conserva su lista.
                 {filterHorario ? ` Solo aplica al campus seleccionado (${horarioList.find(h => h.id === filterHorario)?.label ?? filterHorario}).` : " Aplica al campus activo."}
               </p>
             </div>
@@ -1027,7 +1027,7 @@ export default function AdminPage() {
                     disabled={copyingSemester}
                     className="px-3 py-2 text-xs font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors"
                   >
-                    {copyingSemester ? "Copiando..." : "Sí, copiar"}
+                    {copyingSemester ? "Copiando..." : "Sí, reemplazar"}
                   </button>
                   <button
                     onClick={() => setConfirmCopy(false)}
@@ -1054,7 +1054,6 @@ export default function AdminPage() {
                 <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span className="text-sm text-indigo-800 font-medium">
                   {copyResult.created} clases copiadas al 2do semestre
-                  {copyResult.skipped > 0 && <span className="ml-2 text-indigo-600 font-normal">({copyResult.skipped} ya existían)</span>}
                 </span>
               </div>
             </div>
