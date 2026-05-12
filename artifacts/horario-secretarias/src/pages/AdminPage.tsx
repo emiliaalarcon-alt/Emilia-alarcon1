@@ -117,6 +117,91 @@ const emptyForm = {
   semester: "PRIMER" as string,
 };
 
+function CourseCombobox({
+  value, onChange, options, placeholder = "Buscar asignatura...", className = "",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+  className?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!query) return options;
+    const q = query.toLowerCase();
+    return options.filter(c =>
+      c.toLowerCase().includes(q) ||
+      (COURSE_FULL_NAMES[c] ?? "").toLowerCase().includes(q)
+    );
+  }, [options, query]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function select(c: string) {
+    onChange(c);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <div
+        className="flex items-center border border-border rounded-xl bg-background overflow-hidden focus-within:ring-2 focus-within:ring-primary/50"
+        onClick={() => setOpen(true)}
+      >
+        {!open ? (
+          <div className="flex-1 flex items-center justify-between px-3 py-2 cursor-pointer">
+            <span className={`text-sm ${value ? "text-foreground" : "text-muted-foreground"}`}>
+              {value ? `${value}${COURSE_FULL_NAMES[value] ? ` — ${COURSE_FULL_NAMES[value]}` : ""}` : placeholder}
+            </span>
+            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
+          </div>
+        ) : (
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={value || placeholder}
+            className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+          />
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-xl shadow-xl max-h-56 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-muted-foreground">Sin resultados</div>
+          ) : (
+            filtered.map(c => (
+              <button
+                key={c}
+                type="button"
+                onMouseDown={e => { e.preventDefault(); select(c); }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2 ${c === value ? "bg-primary/10 font-semibold text-primary" : "text-foreground"}`}
+              >
+                <span className="font-bold min-w-[3rem]">{c}</span>
+                {COURSE_FULL_NAMES[c] && <span className="text-muted-foreground text-xs truncate">{COURSE_FULL_NAMES[c]}</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { horarioId, horario, horarioList, reloadHorarios } = useHorario();
   const [allData, setAllData] = useState<ClassEntry[]>([]);
@@ -1163,19 +1248,12 @@ export default function AdminPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Asignatura</label>
-                  <div className="relative">
-                    <select
-                      value={form.course}
-                      onChange={e => setField("course", e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground appearance-none pr-8"
-                    >
-                      <option value="">Seleccionar asignatura...</option>
-                      {COURSES.map(c => (
-                        <option key={c} value={c}>{c} — {COURSE_FULL_NAMES[c]}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  </div>
+                  <CourseCombobox
+                    value={form.course}
+                    onChange={v => setField("course", v)}
+                    options={COURSES}
+                    placeholder="Seleccionar asignatura..."
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1484,11 +1562,13 @@ export default function AdminPage() {
                                   })()}
                                   <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Curso</label>
-                                    <select value={editForm.course} onChange={e => setEditForm(f => ({ ...f, course: e.target.value }))}
-                                      className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
-                                      <option value="">Curso...</option>
-                                      {editSemesterCourses.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
+                                    <CourseCombobox
+                                      value={editForm.course}
+                                      onChange={v => setEditForm(f => ({ ...f, course: v }))}
+                                      options={editSemesterCourses}
+                                      placeholder="Curso..."
+                                      className="text-xs"
+                                    />
                                   </div>
                                   <div className="flex flex-col gap-1">
                                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Día</label>
