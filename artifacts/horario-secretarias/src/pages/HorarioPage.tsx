@@ -1351,6 +1351,24 @@ export default function HorarioPage() {
                 allSedes={horario.sedes}
                 sedeDisplayName={displaySede}
               />
+            ) : sedeData.length === 0 && !loading ? (
+              <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
+                <div className="flex flex-col items-center justify-center py-20 px-8 text-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center">
+                    <Search className="w-8 h-8 text-muted-foreground/40" />
+                  </div>
+                  <div>
+                    <p className="font-display font-bold text-foreground text-lg">
+                      {activeTab === "SEGUNDO" ? "No hay clases para el 2do Semestre" : "No hay clases para este semestre"}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                      {activeTab === "SEGUNDO"
+                        ? "Ve al Panel Admin y usa el botón \"Copiar semestre\" para duplicar las clases del 1er semestre."
+                        : "Crea clases desde el Panel Admin o importa un archivo Excel."}
+                    </p>
+                  </div>
+                </div>
+              </div>
             ) : (
             <div className="bg-card rounded-3xl border border-border/50 shadow-xl shadow-black/5 overflow-hidden">
               <div className="px-6 py-4 border-b border-border/50 flex items-center gap-3">

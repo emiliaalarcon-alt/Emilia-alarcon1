@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { db } from "@workspace/db";
 import { scheduleClassesTable, scheduleStudentsTable, scheduleHorariosTable, scheduleTransfersTable } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, inArray } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -767,7 +767,10 @@ router.post("/schedule/copy-semester", async (req, res) => {
 
     // Fetch all PRIMER classes for this horario
     const primerClasses = await db.select().from(scheduleClassesTable)
-      .where(sql`${scheduleClassesTable.horario} = ${horarioVal} AND ${scheduleClassesTable.semester} = 'PRIMER'`);
+      .where(and(
+        eq(scheduleClassesTable.horario, horarioVal),
+        eq(scheduleClassesTable.semester, "PRIMER")
+      ));
 
     if (!primerClasses.length) {
       return res.json({ ok: true, created: 0, skipped: 0, message: "No hay clases de 1er semestre para copiar" });
@@ -777,7 +780,7 @@ router.post("/schedule/copy-semester", async (req, res) => {
     const primerCodes = primerClasses.map(c => c.classCode);
     const allStudents = primerCodes.length > 0
       ? await db.select().from(scheduleStudentsTable)
-          .where(sql`${scheduleStudentsTable.classCode} = ANY(${primerCodes})`)
+          .where(inArray(scheduleStudentsTable.classCode, primerCodes))
       : [];
 
     const studentsByCode: Record<string, string[]> = {};
@@ -789,7 +792,10 @@ router.post("/schedule/copy-semester", async (req, res) => {
     // Check which SEGUNDO codes already exist
     const existingSegundo = await db.select({ classCode: scheduleClassesTable.classCode })
       .from(scheduleClassesTable)
-      .where(sql`${scheduleClassesTable.horario} = ${horarioVal} AND ${scheduleClassesTable.semester} = 'SEGUNDO'`);
+      .where(and(
+        eq(scheduleClassesTable.horario, horarioVal),
+        eq(scheduleClassesTable.semester, "SEGUNDO")
+      ));
     const existingCodes = new Set(existingSegundo.map(c => c.classCode));
 
     let created = 0;
