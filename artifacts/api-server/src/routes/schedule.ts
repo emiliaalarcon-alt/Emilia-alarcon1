@@ -813,7 +813,7 @@ router.post("/schedule/copy-semester", async (req, res) => {
     let skipped = 0;
 
     for (const cls of primerClasses) {
-      const isInt = /\bINT\b/i.test(cls.course);
+      const isInt = /\bINT\b/i.test(cls.course) || /\bM2\b/i.test(cls.course);
       const newCode = cls.classCode + "_S2";
 
       if (existingCodes.has(newCode)) {
