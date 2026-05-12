@@ -244,100 +244,68 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
 }
 
 async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
-  // Fetch PRIMER and ANUAL classes for this horario — SEGUNDO is never touched by import
-  const existingClasses = await db
+  // ── STEP 1: FULL WIPE of all non-SEGUNDO data for this horario ───────────────
+  // Get every non-SEGUNDO class currently stored for this campus
+  const existingRows = await db
     .select({ classCode: scheduleClassesTable.classCode, semester: scheduleClassesTable.semester })
     .from(scheduleClassesTable)
-    .where(and(
-      eq(scheduleClassesTable.horario, horario),
-      ne(scheduleClassesTable.semester, "SEGUNDO")
-    ));
+    .where(and(eq(scheduleClassesTable.horario, horario), ne(scheduleClassesTable.semester, "SEGUNDO")));
 
-  // Map classCode → semester (PRIMER or ANUAL)
-  const existingMap = new Map<string, string>();
-  for (const cls of existingClasses) {
-    if (!existingMap.has(cls.classCode)) existingMap.set(cls.classCode, cls.semester);
-  }
-
-  // ── BULK WIPE: delete ALL non-SEGUNDO students for every class in this horario ──
-  // This runs ONCE before any inserts, guaranteeing a clean slate regardless of
-  // whatever stale data (wrong semester values, old duplicates) exists in the DB.
-  const allHorarioCodes = existingClasses.map(c => c.classCode);
-  if (allHorarioCodes.length > 0) {
+  if (existingRows.length > 0) {
+    const codes = existingRows.map(r => r.classCode);
+    // Delete students for those class codes (any semester except SEGUNDO)
     await db.delete(scheduleStudentsTable)
       .where(and(
-        inArray(scheduleStudentsTable.classCode, allHorarioCodes),
+        inArray(scheduleStudentsTable.classCode, codes),
         ne(scheduleStudentsTable.classSemester, "SEGUNDO")
       ));
+    // Delete the classes themselves — one DELETE per (code, semester) pair
+    // to respect the composite PK and avoid touching SEGUNDO rows
+    for (const row of existingRows) {
+      await db.delete(scheduleClassesTable)
+        .where(and(
+          eq(scheduleClassesTable.classCode, row.classCode),
+          eq(scheduleClassesTable.semester, row.semester)
+        ));
+    }
   }
 
-  const incomingCodes = new Set(byCode.keys());
-  let created = 0, updated = 0, skipped = 0, removed = 0;
+  // ── STEP 2: REBUILD from Excel — every class becomes PRIMER ──────────────────
+  let created = 0, skipped = 0;
   const parseErrors: string[] = [];
 
-  // Remove PRIMER classes that are no longer in the Excel
-  // (ANUAL classes are manually managed — never auto-deleted by import)
-  for (const [code, sem] of existingMap.entries()) {
-    if (!incomingCodes.has(code) && sem === "PRIMER") {
-      await db.delete(scheduleClassesTable)
-        .where(and(eq(scheduleClassesTable.classCode, code), eq(scheduleClassesTable.semester, "PRIMER")));
-      removed++;
-    }
-  }
-
   for (const [classCode, { students, sala, sede }] of byCode.entries()) {
-    const existingSemester = existingMap.get(classCode); // PRIMER, ANUAL, or undefined (new)
-
-    if (!existingSemester) {
-      // CREATE new PRIMER class
-      const parsed = parseClassCode(classCode);
-      if (!parsed || !parsed.course || !parsed.day || !parsed.time) {
-        parseErrors.push(classCode);
-        skipped++;
-        continue;
-      }
-      try {
-        await db.insert(scheduleClassesTable).values({
-          classCode,
-          horario,
-          course: parsed.course,
-          day: parsed.day,
-          time: parsed.time,
-          teacher: parsed.teacher,
-          sede,
-          sala: sala ?? 1,
-          semester: "PRIMER",
-        });
-        existingMap.set(classCode, "PRIMER");
-        created++;
-      } catch {
-        parseErrors.push(classCode);
-        skipped++;
-        continue;
-      }
-    } else {
-      // UPDATE existing class (PRIMER or ANUAL) — sala/sede only
-      const updates: Record<string, unknown> = {};
-      if (sala !== null) updates.sala = sala;
-      if (sede) updates.sede = sede;
-      if (Object.keys(updates).length > 0) {
-        await db.update(scheduleClassesTable).set(updates)
-          .where(and(
-            eq(scheduleClassesTable.classCode, classCode),
-            eq(scheduleClassesTable.semester, existingSemester)
-          ));
-      }
+    const parsed = parseClassCode(classCode);
+    if (!parsed || !parsed.course || !parsed.day || !parsed.time) {
+      parseErrors.push(classCode);
+      skipped++;
+      continue;
     }
-
-    // Insert fresh student list from Excel
-    const sem = existingMap.get(classCode) ?? "PRIMER";
+    try {
+      await db.insert(scheduleClassesTable).values({
+        classCode,
+        horario,
+        course: parsed.course,
+        day: parsed.day,
+        time: parsed.time,
+        teacher: parsed.teacher,
+        sede,
+        sala: sala ?? 1,
+        semester: "PRIMER",
+      });
+    } catch {
+      parseErrors.push(classCode);
+      skipped++;
+      continue;
+    }
     if (students.length > 0) {
       await db.insert(scheduleStudentsTable)
-        .values(students.map(studentName => ({ classCode, classSemester: sem, studentName })));
+        .values(students.map(studentName => ({ classCode, classSemester: "PRIMER", studentName })));
     }
-    updated++;
+    created++;
   }
-  return { created, updated, skipped, removed, parseErrors };
+
+  return { created, updated: 0, skipped, removed: existingRows.length, parseErrors };
 }
 
 async function seedFromExcel(): Promise<boolean> {
