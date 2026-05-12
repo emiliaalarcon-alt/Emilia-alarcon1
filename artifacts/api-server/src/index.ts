@@ -79,7 +79,63 @@ async function ensureTables() {
     await client.query(`
       ALTER TABLE schedule_classes ADD COLUMN IF NOT EXISTS semester TEXT NOT NULL DEFAULT 'PRIMER'
     `);
-    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, semester column)");
+    await client.query(`
+      ALTER TABLE schedule_students ADD COLUMN IF NOT EXISTS class_semester TEXT NOT NULL DEFAULT 'PRIMER'
+    `);
+    await client.query(`
+      UPDATE schedule_students ss
+      SET class_semester = sc.semester
+      FROM schedule_classes sc
+      WHERE ss.class_code = sc.class_code
+        AND ss.class_semester = 'PRIMER'
+        AND sc.semester != 'PRIMER'
+    `);
+    await client.query(`
+      DELETE FROM schedule_classes WHERE class_code LIKE '%\\_S2'
+    `);
+    await client.query(`
+      DO $$ DECLARE r text; BEGIN
+        FOR r IN
+          SELECT c.conname FROM pg_constraint c
+          JOIN pg_class t  ON t.oid  = c.conrelid
+          JOIN pg_class ft ON ft.oid = c.confrelid
+          WHERE t.relname = 'schedule_students'
+            AND ft.relname = 'schedule_classes'
+            AND c.contype = 'f'
+        LOOP
+          EXECUTE format('ALTER TABLE schedule_students DROP CONSTRAINT IF EXISTS %I', r);
+        END LOOP;
+      END $$;
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'schedule_classes_pkey'
+            AND conrelid = 'schedule_classes'::regclass
+        ) AND NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'schedule_classes_class_code_semester_pk'
+            AND conrelid = 'schedule_classes'::regclass
+        ) THEN
+          ALTER TABLE schedule_classes DROP CONSTRAINT schedule_classes_pkey;
+          ALTER TABLE schedule_classes ADD CONSTRAINT schedule_classes_class_code_semester_pk PRIMARY KEY (class_code, semester);
+        END IF;
+      END $$;
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'schedule_students_class_fk'
+        ) THEN
+          ALTER TABLE schedule_students
+            ADD CONSTRAINT schedule_students_class_fk
+            FOREIGN KEY (class_code, class_semester)
+            REFERENCES schedule_classes(class_code, semester) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, semester column, composite PK/FK)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {

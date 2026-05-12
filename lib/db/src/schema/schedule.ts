@@ -1,7 +1,7 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, primaryKey, foreignKey } from "drizzle-orm/pg-core";
 
 export const scheduleClassesTable = pgTable("schedule_classes", {
-  classCode: text("class_code").primaryKey(),
+  classCode: text("class_code").notNull(),
   horario: text("horario").notNull().default("TEMUCO"),
   day: text("day").notNull(),
   time: text("time").notNull(),
@@ -11,14 +11,22 @@ export const scheduleClassesTable = pgTable("schedule_classes", {
   course: text("course").notNull(),
   semester: text("semester").notNull().default("PRIMER"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  pk: primaryKey({ columns: [table.classCode, table.semester] }),
+}));
 
 export const scheduleStudentsTable = pgTable("schedule_students", {
   id: serial("id").primaryKey(),
-  classCode: text("class_code").notNull().references(() => scheduleClassesTable.classCode, { onDelete: "cascade" }),
+  classCode: text("class_code").notNull(),
+  classSemester: text("class_semester").notNull().default("PRIMER"),
   studentName: text("student_name").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  classFk: foreignKey({
+    columns: [table.classCode, table.classSemester],
+    foreignColumns: [scheduleClassesTable.classCode, scheduleClassesTable.semester],
+  }).onDelete("cascade"),
+}));
 
 export const scheduleHorariosTable = pgTable("schedule_horarios", {
   id: text("id").primaryKey(),

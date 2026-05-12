@@ -132,8 +132,8 @@ function getConflicts(entry: ClassEntry, allData: ClassEntry[]): DuplicateConfli
   return conflicts;
 }
 
-async function apiAddStudent(classCode: string, name: string): Promise<{ ok?: boolean; error?: string; message?: string }> {
-  const res = await fetch(apiUrl(`/api/schedule/${encodeURIComponent(classCode)}/students`), {
+async function apiAddStudent(classCode: string, semester: string, name: string): Promise<{ ok?: boolean; error?: string; message?: string }> {
+  const res = await fetch(apiUrl(`/api/schedule/${encodeURIComponent(classCode)}/students?semester=${encodeURIComponent(semester)}`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -141,16 +141,16 @@ async function apiAddStudent(classCode: string, name: string): Promise<{ ok?: bo
   return res.json();
 }
 
-async function apiRemoveStudent(classCode: string, name: string): Promise<{ ok?: boolean; error?: string }> {
+async function apiRemoveStudent(classCode: string, semester: string, name: string): Promise<{ ok?: boolean; error?: string }> {
   const res = await fetch(
-    apiUrl(`/api/schedule/${encodeURIComponent(classCode)}/students/${encodeURIComponent(name)}`),
+    apiUrl(`/api/schedule/${encodeURIComponent(classCode)}/students/${encodeURIComponent(name)}?semester=${encodeURIComponent(semester)}`),
     { method: "DELETE" }
   );
   return res.json();
 }
 
-async function apiUpdateSala(classCode: string, sala: number): Promise<{ ok?: boolean; error?: string }> {
-  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}`), {
+async function apiUpdateSala(classCode: string, semester: string, sala: number): Promise<{ ok?: boolean; error?: string }> {
+  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}?semester=${encodeURIComponent(semester)}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sala }),
@@ -303,7 +303,7 @@ function DetailPanel({
     setSavingSala(true);
     setSalaError("");
     try {
-      const result = await apiUpdateSala(entry.classCode, num);
+      const result = await apiUpdateSala(entry.classCode, entry.semester ?? "PRIMER", num);
       if (result.error) { setSalaError(result.error); }
       else { setEditingSala(false); onStudentChange(); }
     } catch { setSalaError("Error de conexión"); }
@@ -346,7 +346,7 @@ function DetailPanel({
     setAdding(true);
     setAddError("");
     try {
-      const result = await apiAddStudent(entry.classCode, name);
+      const result = await apiAddStudent(entry.classCode, entry.semester ?? "PRIMER", name);
       if (result.error === "class_full") {
         setAddError("La clase ya tiene 7 alumnos.");
       } else if (result.error) {
@@ -415,7 +415,7 @@ function DetailPanel({
   async function handleRemove(studentName: string) {
     setRemovingStudent(studentName);
     try {
-      await apiRemoveStudent(entry.classCode, studentName);
+      await apiRemoveStudent(entry.classCode, entry.semester ?? "PRIMER", studentName);
       onStudentChange();
 
       // Auto-registrar el cambio en la tabla de Cambios
