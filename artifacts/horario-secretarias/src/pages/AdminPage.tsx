@@ -140,6 +140,7 @@ export default function AdminPage() {
   const [filterHorario, setFilterHorario] = useState("");
   const [filterSede, setFilterSede] = useState("");
   const [filterCourse, setFilterCourse] = useState("");
+  const [filterSemester, setFilterSemester] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     created: number; updated: number; skipped: number; totalStudents: number; parseErrors: string[];
@@ -337,6 +338,7 @@ export default function AdminPage() {
       if (filterHorario && e.horario !== filterHorario) return false;
       if (filterSede && e.sede !== filterSede) return false;
       if (filterCourse && e.course !== filterCourse) return false;
+      if (filterSemester && e.semester !== filterSemester) return false;
       if (search) {
         const q = search.toLowerCase();
         if (
@@ -348,7 +350,7 @@ export default function AdminPage() {
       }
       return true;
     });
-  }, [allData, filterHorario, filterSede, filterCourse, search]);
+  }, [allData, filterHorario, filterSede, filterCourse, filterSemester, search]);
 
   const statsByCampus = useMemo(() => {
     const map: Record<string, number> = {};
@@ -359,10 +361,12 @@ export default function AdminPage() {
     return map;
   }, [allData]);
 
-  const existingCourses = useMemo(
-    () => [...new Set(allData.map(e => e.course))].sort(),
-    [allData]
-  );
+  const existingCourses = useMemo(() => {
+    const base = filterSemester
+      ? allData.filter(e => e.semester === filterSemester)
+      : allData;
+    return [...new Set(base.map(e => e.course))].sort();
+  }, [allData, filterSemester]);
 
   const editSemesterCourses = useMemo(() => {
     if (!editingCode) return COURSES;
@@ -1319,6 +1323,26 @@ export default function AdminPage() {
                     ))}
                   </select>
                 )}
+                <div className="flex items-center gap-1 border border-border rounded-xl overflow-hidden bg-background">
+                  {[
+                    { value: "", label: "Todos" },
+                    { value: "PRIMER", label: "1er Sem." },
+                    { value: "SEGUNDO", label: "2do Sem." },
+                    { value: "ANUAL", label: "Anual" },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setFilterSemester(opt.value); setFilterCourse(""); }}
+                      className={`px-3 py-2 text-xs font-semibold transition-colors border-r border-border last:border-r-0 ${
+                        filterSemester === opt.value
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
                 <select
                   value={filterCourse}
                   onChange={e => setFilterCourse(e.target.value)}
@@ -1329,9 +1353,9 @@ export default function AdminPage() {
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-                {(search || filterHorario || filterSede || filterCourse) && (
+                {(search || filterHorario || filterSede || filterCourse || filterSemester) && (
                   <button
-                    onClick={() => { setSearch(""); setFilterHorario(""); setFilterSede(""); setFilterCourse(""); }}
+                    onClick={() => { setSearch(""); setFilterHorario(""); setFilterSede(""); setFilterCourse(""); setFilterSemester(""); }}
                     className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     title="Limpiar filtros"
                   >
