@@ -364,6 +364,16 @@ export default function AdminPage() {
     [allData]
   );
 
+  const editSemesterCourses = useMemo(() => {
+    if (!editingCode) return COURSES;
+    const sem = editForm.semester || "PRIMER";
+    const filtered = allData.filter(e =>
+      e.semester === sem || e.semester === "ANUAL"
+    );
+    const unique = [...new Set(filtered.map(e => e.course))].sort();
+    return unique.length > 0 ? unique : COURSES;
+  }, [allData, editingCode, editForm.semester]);
+
   function setField(key: keyof typeof form, value: string) {
     setForm(f => ({ ...f, [key]: value }));
     setFormError("");
@@ -1453,7 +1463,7 @@ export default function AdminPage() {
                                     <select value={editForm.course} onChange={e => setEditForm(f => ({ ...f, course: e.target.value }))}
                                       className="px-2 py-1.5 text-xs border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground">
                                       <option value="">Curso...</option>
-                                      {COURSES.map(c => <option key={c} value={c}>{c}</option>)}
+                                      {editSemesterCourses.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                   </div>
                                   <div className="flex flex-col gap-1">
