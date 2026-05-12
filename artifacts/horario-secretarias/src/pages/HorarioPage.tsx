@@ -473,9 +473,20 @@ function DetailPanel({
         <div className="p-6 border-b border-border/50">
           <div className="flex items-start justify-between">
             <div>
-              <span className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold border mb-2 ${badge}`}>
-                {entry.course}
-              </span>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold border ${badge}`}>
+                  {entry.course}
+                </span>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-semibold border ${
+                  entry.semester === "SEGUNDO"
+                    ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800"
+                    : entry.semester === "ANUAL"
+                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                }`}>
+                  {entry.semester === "SEGUNDO" ? "2do Semestre" : entry.semester === "ANUAL" ? "Anual" : "1er Semestre"}
+                </span>
+              </div>
               <h2 className="text-2xl font-display font-bold text-foreground">
                 {COURSE_FULL_NAMES[entry.course] ?? entry.course}
               </h2>
