@@ -74,7 +74,7 @@ function generateClassCode(course: string, day: string, time: string, teacher: s
 }
 
 async function apiCreateClass(data: {
-  day: string; time: string; sede: string; sala: number; course: string; teacher: string; horario: string;
+  day: string; time: string; sede: string; sala: number; course: string; teacher: string; horario: string; semester: string;
 }) {
   const res = await fetch(apiUrl("/api/schedule/classes"), {
     method: "POST",
@@ -114,6 +114,7 @@ const emptyForm = {
   time: "",
   sala: "",
   teacher: "",
+  semester: "PRIMER" as string,
 };
 
 export default function AdminPage() {
@@ -178,6 +179,25 @@ export default function AdminPage() {
   const [newSedeMaxSalas, setNewSedeMaxSalas] = useState("6");
   const [addingSedeFor, setAddingSedeFor] = useState<string | null>(null);
   const [sedeError, setSedeError] = useState("");
+  const [copyingSemester, setCopyingSemester] = useState(false);
+  const [copyResult, setCopyResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [copyError, setCopyError] = useState("");
+  const [confirmCopy, setConfirmCopy] = useState(false);
+
+  async function handleCopySemester() {
+    setConfirmCopy(false);
+    setCopyingSemester(true);
+    setCopyResult(null);
+    setCopyError("");
+    try {
+      const target = filterHorario || horarioId;
+      const res = await fetch(apiUrl(`/api/schedule/copy-semester?horario=${target}`), { method: "POST" });
+      const json = await res.json();
+      if (json.error) { setCopyError(json.error || "Error desconocido"); }
+      else { setCopyResult({ created: json.created, skipped: json.skipped }); fetchData(); }
+    } catch { setCopyError("Error de conexión."); }
+    finally { setCopyingSemester(false); }
+  }
 
   async function handleCreateCampus() {
     if (!newCampusName.trim()) { setCampusError("El nombre es requerido."); return; }
@@ -368,6 +388,7 @@ export default function AdminPage() {
         course: form.course,
         teacher: form.teacher,
         horario: formHorario,
+        semester: form.semester || "PRIMER",
       });
       if (result.error === "duplicate") {
         setFormError(`Ya existe la clase "${result.message?.split('"')[1] ?? preview}".`);
@@ -407,6 +428,7 @@ export default function AdminPage() {
       time: entry.time,
       sala: String(entry.sala),
       teacher: entry.teacher,
+      semester: entry.semester ?? "PRIMER",
     });
     setEditError("");
     setEditingCode(entry.classCode);
@@ -983,6 +1005,70 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* ── Copiar 1er → 2do Semestre ───────────────────────────────── */}
+        <div className="mb-6 bg-card border border-border/50 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+              <RefreshCw className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-display font-bold text-foreground text-sm">Copiar 1er Semestre → 2do Semestre</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Duplica todas las clases del 1er semestre al 2do.
+                Los cursos Intensivos (INT) se copian <strong>sin alumnos</strong>; el resto conserva su lista.
+                {filterHorario ? ` Solo aplica al campus seleccionado (${horarioList.find(h => h.id === filterHorario)?.label ?? filterHorario}).` : " Aplica al campus activo."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {confirmCopy ? (
+                <>
+                  <button
+                    onClick={handleCopySemester}
+                    disabled={copyingSemester}
+                    className="px-3 py-2 text-xs font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                  >
+                    {copyingSemester ? "Copiando..." : "Sí, copiar"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmCopy(false)}
+                    className="px-3 py-2 text-xs font-semibold bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { setCopyResult(null); setCopyError(""); setConfirmCopy(true); }}
+                  disabled={copyingSemester}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Copiar semestre
+                </button>
+              )}
+            </div>
+          </div>
+          {copyResult && (
+            <div className="px-5 pb-4">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="text-sm text-indigo-800 font-medium">
+                  {copyResult.created} clases copiadas al 2do semestre
+                  {copyResult.skipped > 0 && <span className="ml-2 text-indigo-600 font-normal">({copyResult.skipped} ya existían)</span>}
+                </span>
+              </div>
+            </div>
+          )}
+          {copyError && (
+            <div className="px-5 pb-4">
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                <span className="text-sm text-red-700">{copyError}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           <div className="lg:col-span-1">
@@ -1037,6 +1123,26 @@ export default function AdminPage() {
                         }`}
                       >
                         {displaySede(s)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Semestre</label>
+                  <div className="flex rounded-xl overflow-hidden border border-border/60">
+                    {(["PRIMER", "SEGUNDO", "ANUAL"] as const).map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setField("semester", s)}
+                        className={`flex-1 py-2 text-xs font-bold transition-colors ${
+                          form.semester === s
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {s === "PRIMER" ? "1er Sem." : s === "SEGUNDO" ? "2do Sem." : "Anual"}
                       </button>
                     ))}
                   </div>

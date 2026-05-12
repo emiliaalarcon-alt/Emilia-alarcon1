@@ -76,7 +76,10 @@ async function ensureTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students)");
+    await client.query(`
+      ALTER TABLE schedule_classes ADD COLUMN IF NOT EXISTS semester TEXT NOT NULL DEFAULT 'PRIMER'
+    `);
+    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, semester column)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {

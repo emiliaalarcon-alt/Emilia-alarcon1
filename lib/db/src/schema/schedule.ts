@@ -9,6 +9,7 @@ export const scheduleClassesTable = pgTable("schedule_classes", {
   sala: integer("sala").notNull(),
   teacher: text("teacher").notNull(),
   course: text("course").notNull(),
+  semester: text("semester").notNull().default("PRIMER"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

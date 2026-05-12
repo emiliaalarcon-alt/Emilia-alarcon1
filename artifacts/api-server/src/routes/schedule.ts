@@ -503,6 +503,7 @@ router.get("/schedule", async (req, res) => {
       teacher: c.teacher,
       course: c.course,
       horario: c.horario,
+      semester: c.semester ?? "PRIMER",
       students: studentsByClass[c.classCode] ?? [],
     }));
 
@@ -619,11 +620,13 @@ router.delete("/schedule/:classCode/students/:name", async (req, res) => {
 // POST /api/schedule/classes — create a new class
 router.post("/schedule/classes", async (req, res) => {
   try {
-    const { day, time, sede, sala, course, teacher, horario } = req.body;
+    const { day, time, sede, sala, course, teacher, horario, semester } = req.body;
     if (!day || !time || !sede || !sala || !course || !teacher) {
       return res.status(400).json({ error: "Todos los campos son obligatorios" });
     }
     const horarioVal = (typeof horario === "string" && horario) ? horario.toUpperCase() : "TEMUCO";
+    const VALID_SEMESTERS = ["PRIMER", "SEGUNDO", "ANUAL"];
+    const semesterVal = (typeof semester === "string" && VALID_SEMESTERS.includes(semester.toUpperCase())) ? semester.toUpperCase() : "PRIMER";
     const dayShortMap: Record<string, string> = {
       LUNES: "LUN", MARTES: "MAR", MIERCOLES: "MIE", JUEVES: "JUE", VIERNES: "VIE",
     };
@@ -645,6 +648,7 @@ router.post("/schedule/classes", async (req, res) => {
       sala: Number(sala),
       teacher: teacher.toUpperCase(),
       course: course.toUpperCase(),
+      semester: semesterVal,
     });
 
     broadcastScheduleChange(horarioVal);
@@ -659,8 +663,8 @@ router.post("/schedule/classes", async (req, res) => {
 router.patch("/schedule/classes/:classCode", async (req, res) => {
   try {
     const oldCode = decodeURIComponent(req.params.classCode);
-    const { sala, course, day, time, teacher, sede } = req.body as {
-      sala?: number; course?: string; day?: string; time?: string; teacher?: string; sede?: string;
+    const { sala, course, day, time, teacher, sede, semester } = req.body as {
+      sala?: number; course?: string; day?: string; time?: string; teacher?: string; sede?: string; semester?: string;
     };
 
     // Fetch existing class
@@ -669,12 +673,16 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: "Clase no encontrada" });
     const cls = existing[0];
 
-    const newCourse  = course  ?? cls.course;
-    const newDay     = day     ?? cls.day;
-    const newTime    = time    ?? cls.time;
-    const newTeacher = teacher ?? cls.teacher;
-    const newSede    = sede    ?? cls.sede;
-    const newSala    = sala !== undefined ? Number(sala) : cls.sala;
+    const newCourse    = course   ?? cls.course;
+    const newDay       = day      ?? cls.day;
+    const newTime      = time     ?? cls.time;
+    const newTeacher   = teacher  ?? cls.teacher;
+    const newSede      = sede     ?? cls.sede;
+    const newSala      = sala !== undefined ? Number(sala) : cls.sala;
+    const VALID_SEMS   = ["PRIMER", "SEGUNDO", "ANUAL"];
+    const newSemester  = (typeof semester === "string" && VALID_SEMS.includes(semester.toUpperCase()))
+      ? semester.toUpperCase()
+      : (cls.semester ?? "PRIMER");
 
     if (!Number.isInteger(newSala) || newSala < 1) {
       return res.status(400).json({ error: "Sala inválida" });
@@ -697,7 +705,7 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
 
     await db.update(scheduleClassesTable)
       .set({ classCode: newCode, course: newCourse, day: newDay, time: newTime,
-             teacher: newTeacher, sede: newSede, sala: newSala })
+             teacher: newTeacher, sede: newSede, sala: newSala, semester: newSemester })
       .where(eq(scheduleClassesTable.classCode, oldCode));
 
     broadcastScheduleChange(cls.horario);
@@ -741,6 +749,89 @@ router.delete("/schedule/classes", async (req, res) => {
     }
     broadcastScheduleChange(horarioFilter);
     res.json({ ok: true, deleted: codes.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/schedule/copy-semester?horario=TEMUCO
+// Copies all PRIMER semester classes to SEGUNDO within the same horario.
+// "Int" courses (course name contains "INT") are duplicated with empty student lists.
+// Other courses keep their student lists.
+// Already-existing SEGUNDO classes for the same classCode (with "_S2" suffix) are skipped.
+router.post("/schedule/copy-semester", async (req, res) => {
+  try {
+    const { horario } = req.query;
+    const horarioVal = (typeof horario === "string" && horario) ? horario.toUpperCase() : "TEMUCO";
+
+    // Fetch all PRIMER classes for this horario
+    const primerClasses = await db.select().from(scheduleClassesTable)
+      .where(sql`${scheduleClassesTable.horario} = ${horarioVal} AND ${scheduleClassesTable.semester} = 'PRIMER'`);
+
+    if (!primerClasses.length) {
+      return res.json({ ok: true, created: 0, skipped: 0, message: "No hay clases de 1er semestre para copiar" });
+    }
+
+    // Get all students for these classes
+    const primerCodes = primerClasses.map(c => c.classCode);
+    const allStudents = primerCodes.length > 0
+      ? await db.select().from(scheduleStudentsTable)
+          .where(sql`${scheduleStudentsTable.classCode} = ANY(${primerCodes})`)
+      : [];
+
+    const studentsByCode: Record<string, string[]> = {};
+    for (const s of allStudents) {
+      if (!studentsByCode[s.classCode]) studentsByCode[s.classCode] = [];
+      studentsByCode[s.classCode].push(s.studentName);
+    }
+
+    // Check which SEGUNDO codes already exist
+    const existingSegundo = await db.select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable)
+      .where(sql`${scheduleClassesTable.horario} = ${horarioVal} AND ${scheduleClassesTable.semester} = 'SEGUNDO'`);
+    const existingCodes = new Set(existingSegundo.map(c => c.classCode));
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const cls of primerClasses) {
+      const isInt = /\bINT\b/i.test(cls.course);
+      const newCode = cls.classCode + "_S2";
+
+      if (existingCodes.has(newCode)) {
+        skipped++;
+        continue;
+      }
+
+      await db.insert(scheduleClassesTable).values({
+        classCode: newCode,
+        horario: cls.horario,
+        day: cls.day,
+        time: cls.time,
+        sede: cls.sede,
+        sala: cls.sala,
+        teacher: cls.teacher,
+        course: cls.course,
+        semester: "SEGUNDO",
+      }).onConflictDoNothing();
+
+      // Copy students only for non-Int courses
+      if (!isInt) {
+        const students = studentsByCode[cls.classCode] ?? [];
+        for (const name of students) {
+          await db.insert(scheduleStudentsTable).values({
+            classCode: newCode,
+            studentName: name,
+          }).onConflictDoNothing();
+        }
+      }
+
+      created++;
+    }
+
+    broadcastScheduleChange(horarioVal);
+    res.json({ ok: true, created, skipped });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });

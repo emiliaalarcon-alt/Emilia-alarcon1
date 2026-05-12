@@ -767,7 +767,7 @@ export default function HorarioPage() {
   const [search, setSearch] = useState<string>("");
   const [selectedEntry, setSelectedEntry] = useState<ClassEntry | null>(null);
   const [activeSede, setActiveSede] = useState<string>(() => horario.sedes[0]);
-  const [activeTab, setActiveTab] = useState<"horario" | "talleres">("horario");
+  const [activeTab, setActiveTab] = useState<"PRIMER" | "SEGUNDO" | "talleres">("PRIMER");
   const [allData, setAllData] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -794,7 +794,7 @@ export default function HorarioPage() {
 
   useEffect(() => {
     setActiveSede(horario.sedes[0]);
-    setActiveTab("horario");
+    setActiveTab("PRIMER");
     setSelectedEntry(null);
     setAllData([]);
     setLoading(true);
@@ -944,8 +944,22 @@ export default function HorarioPage() {
   }, [fetchData, horarioId]);
 
   const sedeData = useMemo(
-    () => allData.filter(e => e.sede === activeSede),
-    [allData, activeSede]
+    () => allData.filter(e => {
+      if (e.sede !== activeSede) return false;
+      if (activeTab === "PRIMER") return !e.semester || e.semester === "PRIMER" || e.semester === "ANUAL";
+      if (activeTab === "SEGUNDO") return e.semester === "SEGUNDO" || e.semester === "ANUAL";
+      return true;
+    }),
+    [allData, activeSede, activeTab]
+  );
+
+  const semesterAllData = useMemo(
+    () => {
+      if (activeTab === "PRIMER") return allData.filter(e => !e.semester || e.semester === "PRIMER" || e.semester === "ANUAL");
+      if (activeTab === "SEGUNDO") return allData.filter(e => e.semester === "SEGUNDO" || e.semester === "ANUAL");
+      return allData;
+    },
+    [allData, activeTab]
   );
 
   const gridData = useMemo(() => {
@@ -1217,11 +1231,12 @@ export default function HorarioPage() {
                 )}
               </div>
 
-              {/* ── Pestañas Horario / Talleres ── */}
+              {/* ── Pestañas Semestre / Talleres ── */}
               <div className="flex items-center gap-1 px-4 py-2 border-b border-border/30 bg-muted/20">
                 {([
-                  { id: "horario" as const, label: "Horario", Icon: Search },
-                  { id: "talleres" as const, label: "Talleres", Icon: GraduationCap },
+                  { id: "PRIMER"   as const, label: "1er Semestre", Icon: Search },
+                  { id: "SEGUNDO"  as const, label: "2do Semestre", Icon: Search },
+                  { id: "talleres" as const, label: "Talleres",     Icon: GraduationCap },
                 ] as const).map(({ id, label, Icon }) => (
                   <button
                     key={id}
@@ -1238,7 +1253,7 @@ export default function HorarioPage() {
                 ))}
               </div>
 
-              {activeTab === "horario" && (
+              {activeTab !== "talleres" && (
               <div className="divide-y divide-border/30">
                 <div className="flex items-start gap-4 px-4 py-3">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pt-1 w-24 shrink-0">
@@ -1476,7 +1491,7 @@ export default function HorarioPage() {
       {liveSelectedEntry && (
         <DetailPanel
           entry={liveSelectedEntry}
-          allData={allData}
+          allData={semesterAllData}
           onClose={() => setSelectedEntry(null)}
           onStudentChange={fetchData}
           sessionId={sessionId}
