@@ -317,10 +317,14 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
       }
     }
 
-    // Replace student list — use the class's actual semester (PRIMER or ANUAL)
-    const sem = existingMap.get(classCode) ?? "PRIMER";
+    // Wipe ALL non-SEGUNDO students for this class before inserting fresh from Excel
+    // (catches any stale rows with mismatched class_semester from old migrations)
     await db.delete(scheduleStudentsTable)
-      .where(and(eq(scheduleStudentsTable.classCode, classCode), eq(scheduleStudentsTable.classSemester, sem)));
+      .where(and(
+        eq(scheduleStudentsTable.classCode, classCode),
+        sql`${scheduleStudentsTable.classSemester} != 'SEGUNDO'`
+      ));
+    const sem = existingMap.get(classCode) ?? "PRIMER";
     if (students.length > 0) {
       await db.insert(scheduleStudentsTable)
         .values(students.map(studentName => ({ classCode, classSemester: sem, studentName })));
