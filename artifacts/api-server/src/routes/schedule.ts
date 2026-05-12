@@ -793,6 +793,45 @@ router.delete("/schedule/classes", async (req, res) => {
   }
 });
 
+// DELETE /api/schedule/wipe — wipes ALL non-SEGUNDO classes + students across every horario.
+// SEGUNDO data is never touched. Talleres (workshops) are in a separate table and unaffected.
+router.delete("/schedule/wipe", async (_req, res) => {
+  try {
+    // 1. Find all non-SEGUNDO classes across all horarios
+    const rows = await db
+      .select({ classCode: scheduleClassesTable.classCode, semester: scheduleClassesTable.semester })
+      .from(scheduleClassesTable)
+      .where(ne(scheduleClassesTable.semester, "SEGUNDO"));
+
+    if (rows.length > 0) {
+      const codes = [...new Set(rows.map(r => r.classCode))];
+      // 2. Delete students whose class_semester is not SEGUNDO (preserves SEGUNDO student rows)
+      await db.delete(scheduleStudentsTable)
+        .where(and(
+          inArray(scheduleStudentsTable.classCode, codes),
+          ne(scheduleStudentsTable.classSemester, "SEGUNDO")
+        ));
+      // 3. Delete the non-SEGUNDO class rows one-by-one to respect composite PK
+      for (const row of rows) {
+        await db.delete(scheduleClassesTable)
+          .where(and(
+            eq(scheduleClassesTable.classCode, row.classCode),
+            eq(scheduleClassesTable.semester, row.semester)
+          ));
+      }
+    }
+
+    // Notify all horarios of the change
+    const horarios = await db.select({ id: scheduleHorariosTable.id }).from(scheduleHorariosTable);
+    for (const h of horarios) broadcastScheduleChange(h.id);
+
+    res.json({ ok: true, deletedClasses: rows.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al vaciar el horario" });
+  }
+});
+
 // POST /api/schedule/copy-semester?horario=TEMUCO
 // Idempotent: deletes all existing SEGUNDO classes for this horario, then recreates
 // them from PRIMER. INT and M2 courses are copied with empty student lists.

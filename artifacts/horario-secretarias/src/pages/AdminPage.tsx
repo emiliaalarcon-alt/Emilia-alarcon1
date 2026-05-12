@@ -107,6 +107,11 @@ async function apiResetAll(horarioId: string) {
   return res.json();
 }
 
+async function apiWipeSchedule() {
+  const res = await fetch(apiUrl("/api/schedule/wipe"), { method: "DELETE" });
+  return res.json();
+}
+
 const emptyForm = {
   sede: "LAS ENCINAS" as string,
   course: "",
@@ -250,6 +255,9 @@ export default function AdminPage() {
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [confirmWipe, setConfirmWipe] = useState(false);
+  const [wiping, setWiping] = useState(false);
+  const [wipeResult, setWipeResult] = useState<{ deletedClasses: number } | null>(null);
   const [search, setSearch] = useState("");
   const [filterHorario, setFilterHorario] = useState("");
   const [filterSede, setFilterSede] = useState("");
@@ -602,6 +610,21 @@ export default function AdminPage() {
       fetchData();
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function handleWipe() {
+    setWiping(true);
+    setWipeResult(null);
+    try {
+      const json = await apiWipeSchedule();
+      if (!json.error) {
+        setWipeResult(json);
+        setConfirmWipe(false);
+        fetchData();
+      }
+    } finally {
+      setWiping(false);
     }
   }
 
@@ -1129,6 +1152,62 @@ export default function AdminPage() {
                 <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                   <span className="text-sm text-red-700 font-medium">{importError}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Vaciar horario (wipe) ────────────────────────────────────── */}
+        <div className="mb-6">
+          <div className="bg-card border border-red-200 rounded-3xl shadow-sm overflow-hidden">
+            <div className="px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h2 className="font-display font-bold text-foreground">Vaciar horario</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Elimina <strong>todas las clases y alumnos del 1er semestre</strong> de todos los campus. El 2do semestre y los talleres no se tocan.
+                </p>
+              </div>
+              <div className="shrink-0">
+                {!confirmWipe ? (
+                  <button
+                    onClick={() => { setConfirmWipe(true); setWipeResult(null); }}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-700 border border-red-300 rounded-xl bg-red-50 hover:bg-red-100 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Vaciar horario
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span className="text-sm font-medium text-red-700">¿Confirmar borrado total?</span>
+                    <button
+                      onClick={handleWipe}
+                      disabled={wiping}
+                      className="px-3 py-1.5 text-xs font-bold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-60"
+                    >
+                      {wiping ? "Vaciando..." : "Sí, vaciar"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmWipe(false)}
+                      className="px-3 py-1.5 text-xs font-bold bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {wipeResult && (
+              <div className="px-6 pb-5">
+                <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+                  <span className="text-sm text-green-800 font-medium">
+                    Horario vaciado — {wipeResult.deletedClasses} clases eliminadas. Ya puedes subir el Excel.
+                  </span>
                 </div>
               </div>
             )}
