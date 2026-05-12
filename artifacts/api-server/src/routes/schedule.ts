@@ -801,47 +801,47 @@ router.post("/schedule/copy-semester", async (req, res) => {
     const { horario } = req.query;
     const horarioVal = (typeof horario === "string" && horario) ? horario.toUpperCase() : "TEMUCO";
 
-    // Fetch all PRIMER classes for this horario
-    const primerClasses = await db.select().from(scheduleClassesTable)
+    // Fetch PRIMER and ANUAL classes for this horario (both are copied to SEGUNDO)
+    const sourceClasses = await db.select().from(scheduleClassesTable)
       .where(and(
         eq(scheduleClassesTable.horario, horarioVal),
-        eq(scheduleClassesTable.semester, "PRIMER")
+        inArray(scheduleClassesTable.semester, ["PRIMER", "ANUAL"])
       ));
 
-    if (!primerClasses.length) {
+    if (!sourceClasses.length) {
       return res.json({ ok: true, created: 0, message: "No hay clases de 1er semestre para copiar" });
     }
 
-    // Get all students for PRIMER classes
-    const primerCodes = primerClasses.map(c => c.classCode);
-    const allStudents = await db.select().from(scheduleStudentsTable)
-      .where(inArray(scheduleStudentsTable.classCode, primerCodes));
+    // Get ONLY PRIMER students (filter by classSemester='PRIMER' to avoid picking up
+    // stale SEGUNDO rows from a previous copy, which would cause duplication)
+    const sourceCodes = sourceClasses.map(c => c.classCode);
+    const primerStudents = await db.select().from(scheduleStudentsTable)
+      .where(and(
+        inArray(scheduleStudentsTable.classCode, sourceCodes),
+        eq(scheduleStudentsTable.classSemester, "PRIMER")
+      ));
 
     const studentsByCode: Record<string, string[]> = {};
-    for (const s of allStudents) {
+    for (const s of primerStudents) {
       if (!studentsByCode[s.classCode]) studentsByCode[s.classCode] = [];
       studentsByCode[s.classCode].push(s.studentName);
     }
 
     // Delete all existing SEGUNDO classes for this horario (students cascade-delete)
-    const existingSegundo = await db.select({ classCode: scheduleClassesTable.classCode })
-      .from(scheduleClassesTable)
+    await db.delete(scheduleClassesTable)
       .where(and(
         eq(scheduleClassesTable.horario, horarioVal),
         eq(scheduleClassesTable.semester, "SEGUNDO")
       ));
-    if (existingSegundo.length) {
-      await db.delete(scheduleClassesTable)
-        .where(and(
-          eq(scheduleClassesTable.horario, horarioVal),
-          eq(scheduleClassesTable.semester, "SEGUNDO")
-        ));
-    }
 
-    // Create fresh SEGUNDO classes from PRIMER (same classCode, semester='SEGUNDO')
+    // Create fresh SEGUNDO classes. Copy students only for regular courses.
+    // ANUAL, INT, and M2 courses are copied without students (empty list for enrollment).
     let created = 0;
-    for (const cls of primerClasses) {
-      const isIntensive = /\bINT\b/i.test(cls.course) || /\bM2\b/i.test(cls.course);
+    for (const cls of sourceClasses) {
+      const noStudents =
+        cls.semester === "ANUAL" ||
+        /\bINT\b/i.test(cls.course) ||
+        /\bM2\b/i.test(cls.course);
 
       await db.insert(scheduleClassesTable).values({
         classCode: cls.classCode,
@@ -855,15 +855,15 @@ router.post("/schedule/copy-semester", async (req, res) => {
         semester: "SEGUNDO",
       });
 
-      // Copy students only for non-intensive courses
-      if (!isIntensive) {
+      if (!noStudents) {
         const students = studentsByCode[cls.classCode] ?? [];
-        for (const name of students) {
-          await db.insert(scheduleStudentsTable).values({
-            classCode: cls.classCode,
-            classSemester: "SEGUNDO",
-            studentName: name,
-          });
+        if (students.length > 0) {
+          await db.insert(scheduleStudentsTable)
+            .values(students.map(name => ({
+              classCode: cls.classCode,
+              classSemester: "SEGUNDO",
+              studentName: name,
+            })));
         }
       }
 
