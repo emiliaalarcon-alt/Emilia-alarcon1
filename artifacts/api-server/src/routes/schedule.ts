@@ -244,12 +244,8 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
 }
 
 async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
-  // ── STEP 1: FULL WIPE — delete ALL classes for this horario (all semesters) ──
-  // Students are deleted automatically via ON DELETE CASCADE on the FK.
-  await db.delete(scheduleClassesTable)
-    .where(eq(scheduleClassesTable.horario, horario));
-
-  // ── STEP 2: REBUILD from Excel — every class is created as PRIMER ─────────────
+  // The caller (import route) already wiped the entire schedule_classes table.
+  // This function only inserts fresh data from the Excel for the given horario.
   let created = 0, skipped = 0;
   const parseErrors: string[] = [];
 
@@ -885,31 +881,37 @@ router.post("/schedule/copy-semester", async (req, res) => {
 const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as const;
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
-// Processes ALL campuses from the same file in a single upload
+// Processes ALL campuses from the same file in a single upload.
+// ALWAYS does a full DB wipe first so each upload is a clean slate.
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    let totalCreated = 0, totalUpdated = 0, totalSkipped = 0, totalStudents = 0;
+    // ── WIPE EVERYTHING first ─────────────────────────────────────────────────
+    // Deletes ALL classes across ALL horarios and semesters in one shot.
+    // Students are removed automatically via ON DELETE CASCADE.
+    await db.delete(scheduleClassesTable);
+
+    // ── INSERT from Excel per campus ──────────────────────────────────────────
+    let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
     const allParseErrors: string[] = [];
     const perCampus: Record<string, { students: number; created: number; updated: number }> = {};
 
     for (const horarioId of ALL_HORARIO_IDS) {
       const { byCode, totalStudents: ts } = importExcelBuffer(req.file.buffer, horarioId);
       const result = await upsertFromParsed(byCode, horarioId);
-      totalCreated   += result.created;
-      totalUpdated   += result.updated;
-      totalSkipped   += result.skipped;
-      totalStudents  += ts;
+      totalCreated  += result.created;
+      totalSkipped  += result.skipped;
+      totalStudents += ts;
       allParseErrors.push(...result.parseErrors);
-      perCampus[horarioId] = { students: ts, created: result.created, updated: result.updated };
+      perCampus[horarioId] = { students: ts, created: result.created, updated: 0 };
       broadcastScheduleChange(horarioId);
     }
 
     res.json({
       ok: true,
       created: totalCreated,
-      updated: totalUpdated,
+      updated: 0,
       skipped: totalSkipped,
       totalStudents,
       perCampus,
