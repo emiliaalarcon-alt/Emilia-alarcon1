@@ -696,8 +696,15 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
     const timeShort = newTime.split(/[\s\-–]+/)[0].replace(":", ".");
     const newCode   = `${newCourse} ${dayShort} ${timeShort} ${newTeacher}`.toUpperCase();
 
-    // If classCode changes, update students table too
+    // If classCode changes, verify no collision then update students table too
     if (newCode !== oldCode) {
+      const conflict = await db.select({ classCode: scheduleClassesTable.classCode })
+        .from(scheduleClassesTable)
+        .where(eq(scheduleClassesTable.classCode, newCode))
+        .limit(1);
+      if (conflict.length) {
+        return res.status(409).json({ error: `Ya existe una clase con código "${newCode}". Cambia algún campo para evitar la duplicación.` });
+      }
       await db.update(scheduleStudentsTable)
         .set({ classCode: newCode })
         .where(eq(scheduleStudentsTable.classCode, oldCode));
@@ -710,9 +717,13 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
 
     broadcastScheduleChange(cls.horario);
     res.json({ ok: true, classCode: newCode });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ error: "Internal server error" });
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "Ya existe una clase con ese código. Cambia algún campo para evitar la duplicación." });
+    } else {
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
   }
 });
 
