@@ -196,6 +196,31 @@ async function ensureTables() {
     await client.query(`
       ALTER TABLE citas_orientacion ADD COLUMN IF NOT EXISTS nota_rapida TEXT
     `);
+    // ── Estados configurables de citas ───────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS orientacion_estados (
+        id SERIAL PRIMARY KEY,
+        tipo TEXT NOT NULL DEFAULT 'confirma',
+        label TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#94a3b8',
+        orden INTEGER NOT NULL DEFAULT 99
+      )
+    `);
+    // Seed defaults if empty
+    const { rows: estadosRows } = await client.query(`SELECT COUNT(*) FROM orientacion_estados`);
+    if (parseInt(estadosRows[0].count) === 0) {
+      await client.query(`
+        INSERT INTO orientacion_estados (tipo, label, color, orden) VALUES
+          ('confirma','pendiente','#f59e0b',0),
+          ('confirma','confirma','#10b981',1),
+          ('confirma','reagenda','#3b82f6',2),
+          ('confirma','cancela','#ef4444',3),
+          ('confirma','osorno','#8b5cf6',4),
+          ('asiste','pendiente','#94a3b8',0),
+          ('asiste','asiste','#10b981',1),
+          ('asiste','no asiste','#f43f5e',2)
+      `);
+    }
     // ── Notas ─────────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS notas (

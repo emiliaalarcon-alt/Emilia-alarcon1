@@ -48,20 +48,10 @@ const HORAS_DISPONIBLES = [
   "08:00","09:00","10:00","11:00","12:00","13:00","14:00",
   "15:00","16:00","17:00","18:00","19:00","20:00",
 ];
-const CONFIRM_OPTS = ["pendiente","confirma","reagenda","cancela","osorno"];
-const ASISTE_OPTS  = ["pendiente","asiste","no asiste"];
-const CONFIRM_COLORS: Record<string,string> = {
-  pendiente:"bg-yellow-100 text-yellow-800",
-  confirma: "bg-green-100 text-green-800",
-  reagenda: "bg-blue-100 text-blue-800",
-  cancela:  "bg-red-100 text-red-800",
-  osorno:   "bg-purple-100 text-purple-800",
-};
-const ASISTE_COLORS: Record<string,string> = {
-  pendiente:  "bg-gray-100 text-gray-600",
-  asiste:     "bg-emerald-100 text-emerald-700",
-  "no asiste":"bg-rose-100 text-rose-700",
-};
+// ─── Estado DB type ───────────────────────────────────────────────────────────
+interface EstadoDB {
+  id: number; tipo: string; label: string; color: string; orden: number;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,18 +69,34 @@ function getDOW(fecha: string) {
 }
 function daysInMonth(y: number, m: number) { return new Date(y, m, 0).getDate(); }
 
-// ─── Status Select ────────────────────────────────────────────────────────────
+// ─── Status Select (usa colores hex dinámicos) ────────────────────────────────
+
+function hexToRgb(hex: string) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return { r, g, b };
+}
+function colorStyle(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const bg = `rgba(${r},${g},${b},0.15)`;
+  const text = hex;
+  return { backgroundColor: bg, color: text, border: "none" };
+}
 
 function StatusSelect({
-  value, options, colorMap, onChange,
-}: { value: string; options: string[]; colorMap: Record<string,string>; onChange:(v:string)=>void }) {
+  value, estados, onChange,
+}: { value: string; estados: EstadoDB[]; onChange:(v:string)=>void }) {
+  const current = estados.find(e => e.label === value);
+  const style = current ? colorStyle(current.color) : { backgroundColor: "#f1f5f9", color: "#64748b", border: "none" };
   return (
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border-0 outline-none cursor-pointer w-full ${colorMap[value] ?? "bg-gray-100 text-gray-600"}`}
+      style={style}
+      className="text-[10px] font-semibold rounded-full px-2 py-0.5 outline-none cursor-pointer w-full capitalize"
     >
-      {options.map(o => <option key={o} value={o}>{o}</option>)}
+      {estados.map(e => <option key={e.id} value={e.label}>{e.label}</option>)}
     </select>
   );
 }
@@ -150,18 +156,158 @@ function BookingModal({
   );
 }
 
-// ─── Admin Modal (checkbox grid + feriados) ────────────────────────────────────
+// ─── Panel de edición de estados (tipo Excel) ─────────────────────────────────
+
+const PRESET_COLORS = [
+  "#f59e0b","#10b981","#3b82f6","#ef4444","#8b5cf6",
+  "#f43f5e","#06b6d4","#84cc16","#f97316","#94a3b8",
+];
+
+function EstadosPanel({
+  estados, onRefresh,
+}: { estados: EstadoDB[]; onRefresh: () => void }) {
+  const confirmaList = estados.filter(e => e.tipo === "confirma");
+  const asisteList   = estados.filter(e => e.tipo === "asiste");
+  const [saving, setSaving] = useState(false);
+
+  async function addEstado(tipo: string) {
+    setSaving(true);
+    await fetch(apiUrl("/api/orientacion/estados"), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo, label: "nuevo estado", color: "#94a3b8", orden: 99 }),
+    });
+    await onRefresh();
+    setSaving(false);
+  }
+
+  async function updateEstado(id: number, patch: { label?: string; color?: string }) {
+    await fetch(apiUrl(`/api/orientacion/estados/${id}`), {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    await onRefresh();
+  }
+
+  async function deleteEstado(id: number) {
+    setSaving(true);
+    await fetch(apiUrl(`/api/orientacion/estados/${id}`), { method: "DELETE" });
+    await onRefresh();
+    setSaving(false);
+  }
+
+  function EstadoRow({ e }: { e: EstadoDB }) {
+    const [label, setLabel] = useState(e.label);
+    const [showColors, setShowColors] = useState(false);
+
+    return (
+      <tr className="border-b border-border/40 last:border-0 group/row hover:bg-muted/30 transition-colors">
+        {/* Color dot — clic abre picker */}
+        <td className="py-1.5 pl-2 pr-1 w-8 relative">
+          <button
+            onClick={() => setShowColors(v => !v)}
+            className="w-6 h-6 rounded-full border-2 border-white shadow transition-transform hover:scale-110"
+            style={{ backgroundColor: e.color }}
+            title="Cambiar color"
+          />
+          {showColors && (
+            <div className="absolute z-10 left-0 top-8 bg-card border border-border rounded-xl shadow-xl p-2 grid grid-cols-5 gap-1.5 w-40">
+              {PRESET_COLORS.map(c => (
+                <button key={c} onClick={() => { updateEstado(e.id, { color: c }); setShowColors(false); }}
+                  className="w-6 h-6 rounded-full border-2 border-white shadow hover:scale-110 transition-transform"
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+              <input type="color" value={e.color}
+                onChange={ev => { updateEstado(e.id, { color: ev.target.value }); setShowColors(false); }}
+                className="col-span-5 w-full h-6 rounded cursor-pointer border-0"
+                title="Color personalizado"
+              />
+            </div>
+          )}
+        </td>
+        {/* Label editable inline */}
+        <td className="py-1.5 px-1 flex-1">
+          <input
+            value={label}
+            onChange={ev => setLabel(ev.target.value)}
+            onBlur={() => { if (label.trim() && label !== e.label) updateEstado(e.id, { label }); }}
+            onKeyDown={ev => { if (ev.key === "Enter") (ev.target as HTMLInputElement).blur(); }}
+            className="w-full bg-transparent text-sm text-foreground outline-none focus:bg-muted/40 rounded px-1 py-0.5 capitalize"
+          />
+        </td>
+        {/* Preview badge */}
+        <td className="py-1.5 px-2">
+          <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 capitalize"
+            style={colorStyle(e.color)}>{label}</span>
+        </td>
+        {/* Delete */}
+        <td className="py-1.5 pr-2">
+          <button onClick={() => deleteEstado(e.id)} disabled={saving}
+            className="opacity-0 group-hover/row:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 disabled:opacity-30">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
+  function Section({ tipo, label, list }: { tipo: string; label: string; list: EstadoDB[] }) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{label}</span>
+          <button onClick={() => addEstado(tipo)} disabled={saving}
+            className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-40 transition-colors">
+            <Plus className="w-3 h-3" /> Agregar
+          </button>
+        </div>
+        <div className="border border-border rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-muted/40 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <th className="text-left py-1.5 pl-2 pr-1 w-8">Color</th>
+                <th className="text-left py-1.5 px-1">Nombre (editable)</th>
+                <th className="text-left py-1.5 px-2">Vista previa</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {list.length === 0 && (
+                <tr><td colSpan={4} className="py-3 text-center text-xs text-muted-foreground italic">Sin estados</td></tr>
+              )}
+              {list.map(e => <EstadoRow key={e.id} e={e} />)}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Clic en el punto de color para cambiarlo · Clic en el nombre para editarlo · Enter o clic fuera para guardar
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <Section tipo="confirma" label="Estados de confirmación" list={confirmaList} />
+      <Section tipo="asiste" label="Estados de asistencia" list={asisteList} />
+    </div>
+  );
+}
+
+// ─── Admin Modal (checkbox grid + feriados + estados) ─────────────────────────
 
 function AdminModal({
-  orientadora, horario, bloqueos, onClose, onRefresh,
+  orientadora, horario, bloqueos, estados, onClose, onRefresh, onRefreshEstados,
 }: {
   orientadora: Orientadora;
   horario: HorarioSlot[];
   bloqueos: Bloqueo[];
+  estados: EstadoDB[];
   onClose: () => void;
   onRefresh: () => void;
+  onRefreshEstados: () => void;
 }) {
-  const [tab, setTab] = useState<"horario"|"feriados">("horario");
+  const [tab, setTab] = useState<"horario"|"feriados"|"estados">("horario");
   const [saving, setSaving] = useState(false);
   // Feriado form
   const [feriadoDesde, setFeriadoDesde] = useState("");
@@ -249,10 +395,14 @@ function AdminModal({
 
         {/* Tabs */}
         <div className="flex gap-1 bg-muted/60 rounded-xl p-1">
-          {(["horario","feriados"] as const).map(t => (
+          {([
+            ["horario",  "📅 Horario"],
+            ["feriados", "🚫 Sin atención"],
+            ["estados",  "🎨 Estados"],
+          ] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab===t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-              {t === "horario" ? "📅 Horario semanal" : "🚫 Días sin atención"}
+              {label}
             </button>
           ))}
         </div>
@@ -322,6 +472,10 @@ function AdminModal({
               💡 Los cambios se guardan automáticamente. Si la orientadora trabaja todos los días, haz clic en cada nombre de día. Si solo trabaja Martes, Jueves y Viernes, haz clic solo en esos tres.
             </p>
           </div>
+        )}
+
+        {tab === "estados" && (
+          <EstadosPanel estados={estados} onRefresh={onRefreshEstados} />
         )}
 
         {tab === "feriados" && (
@@ -433,14 +587,10 @@ function NuevaOrientadoraModal({ onConfirm, onClose }: {
   );
 }
 
-// ─── Status left-border colors (inline style to avoid Tailwind purge) ─────────
-const CONFIRM_BORDER_COLOR: Record<string, string> = {
-  pendiente: "#f59e0b",
-  confirma:  "#10b981",
-  reagenda:  "#60a5fa",
-  cancela:   "#f87171",
-  osorno:    "#c084fc",
-};
+// Border color se resuelve dinámicamente desde estados
+function getBorderColor(estadoLabel: string, estados: EstadoDB[]) {
+  return estados.find(e => e.label === estadoLabel)?.color ?? "#94a3b8";
+}
 
 // Day accent colors
 const DOW_ACCENT: Record<string, { header: string; text: string }> = {
@@ -454,11 +604,12 @@ const DOW_ACCENT: Record<string, { header: string; text: string }> = {
 // ─── Appointment Cell ──────────────────────────────────────────────────────────
 
 function AppointmentCell({
-  slot, canBook, canManage,
+  slot, canBook, canManage, estadosConfirma, estadosAsiste,
   onBook, onUpdateCita, onDeleteCita,
 }: {
   slot: Slot | undefined;
   canBook: boolean; canManage: boolean;
+  estadosConfirma: EstadoDB[]; estadosAsiste: EstadoDB[];
   onBook: () => void;
   onUpdateCita: (id: number, patch: Record<string, string | null>) => void;
   onDeleteCita: (id: number) => void;
@@ -495,7 +646,7 @@ function AppointmentCell({
 
   // ── Booked ──────────────────────────────────────────────────────────────────
   const cita = slot.cita!;
-  const accentColor = CONFIRM_BORDER_COLOR[cita.estadoConfirma] ?? CONFIRM_BORDER_COLOR.pendiente;
+  const accentColor = getBorderColor(cita.estadoConfirma, estadosConfirma);
   const canEdit = canBook || canManage;
 
   return (
@@ -516,23 +667,24 @@ function AppointmentCell({
         )}
       </div>
 
-      {/* Estado confirma — editable para todos (secretaria, admin, orientadora) */}
+      {/* Estado confirma — editable para todos */}
       {canEdit ? (
-        <StatusSelect value={cita.estadoConfirma} options={CONFIRM_OPTS} colorMap={CONFIRM_COLORS}
+        <StatusSelect value={cita.estadoConfirma} estados={estadosConfirma}
           onChange={v => onUpdateCita(cita.id, { estadoConfirma: v })} />
       ) : (
-        <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${CONFIRM_COLORS[cita.estadoConfirma] ?? CONFIRM_COLORS.pendiente}`}>
+        <span className="text-[10px] font-semibold rounded-full px-2 py-0.5 capitalize"
+          style={colorStyle(accentColor)}>
           {cita.estadoConfirma}
         </span>
       )}
 
       {/* Estado asiste — solo admin/orientadora */}
-      {canManage && (
-        <StatusSelect value={cita.estadoAsiste} options={ASISTE_OPTS} colorMap={ASISTE_COLORS}
+      {canManage && estadosAsiste.length > 0 && (
+        <StatusSelect value={cita.estadoAsiste} estados={estadosAsiste}
           onChange={v => onUpdateCita(cita.id, { estadoAsiste: v })} />
       )}
 
-      {/* Nota rápida — guarda al perder el foco */}
+      {/* Nota rápida */}
       {canEdit ? (
         <input
           key={`nota-${cita.id}`}
@@ -554,11 +706,11 @@ function AppointmentCell({
   );
 }
 
-// ─── Day Section (all Tuesdays, all Thursdays, etc.) ─────────────────────────
+// ─── Day Section ──────────────────────────────────────────────────────────────
 
 function DaySection({
   dow, dates, slotsByDateHora, allHours,
-  canBook, canManage,
+  canBook, canManage, estadosConfirma, estadosAsiste,
   onBook, onUpdateCita, onDeleteCita,
 }: {
   dow: string;
@@ -566,6 +718,7 @@ function DaySection({
   slotsByDateHora: Record<string, Record<string, Slot>>;
   allHours: string[];
   canBook: boolean; canManage: boolean;
+  estadosConfirma: EstadoDB[]; estadosAsiste: EstadoDB[];
   onBook: (fecha: string, hora: string) => void;
   onUpdateCita: (id: number, patch: Record<string, string | null>) => void;
   onDeleteCita: (id: number) => void;
@@ -664,6 +817,8 @@ function DaySection({
                         slot={slot}
                         canBook={canBook}
                         canManage={canManage}
+                        estadosConfirma={estadosConfirma}
+                        estadosAsiste={estadosAsiste}
                         onBook={() => onBook(fecha, hora)}
                         onUpdateCita={onUpdateCita}
                         onDeleteCita={onDeleteCita}
@@ -692,6 +847,7 @@ export default function OrientacionPage() {
   const [slots, setSlots]               = useState<Slot[]>([]);
   const [horario, setHorario]           = useState<HorarioSlot[]>([]);
   const [bloqueos, setBloqueos]         = useState<Bloqueo[]>([]);
+  const [estados, setEstados]           = useState<EstadoDB[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [bookingModal, setBookingModal] = useState<{fecha:string; hora:string}|null>(null);
   const [adminModal, setAdminModal]     = useState(false);
@@ -725,7 +881,17 @@ export default function OrientacionPage() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadOrientadoras(); }, []);
+  // ── Load estados ──────────────────────────────────────────────────────────
+  const loadEstados = useCallback(async () => {
+    try {
+      const r = await fetch(apiUrl("/api/orientacion/estados"));
+      if (!r.ok) return;
+      const data: EstadoDB[] = await r.json();
+      setEstados(data);
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadOrientadoras(); loadEstados(); }, []);
 
   // ── Load slots ────────────────────────────────────────────────────────────
   const loadSlots = useCallback(async () => {
@@ -1021,6 +1187,8 @@ export default function OrientacionPage() {
                         allHours={allHours}
                         canBook={canBook}
                         canManage={canManage}
+                        estadosConfirma={estados.filter(e => e.tipo === "confirma")}
+                        estadosAsiste={estados.filter(e => e.tipo === "asiste")}
                         onBook={(fecha, hora) => setBookingModal({ fecha, hora })}
                         onUpdateCita={handleUpdateCita}
                         onDeleteCita={handleDeleteCita}
@@ -1048,8 +1216,10 @@ export default function OrientacionPage() {
         <AdminModal
           orientadora={selectedOrientadora}
           horario={horario} bloqueos={bloqueos}
+          estados={estados}
           onClose={() => { setAdminModal(false); loadSlots(); }}
           onRefresh={loadAdminData}
+          onRefreshEstados={loadEstados}
         />
       )}
 

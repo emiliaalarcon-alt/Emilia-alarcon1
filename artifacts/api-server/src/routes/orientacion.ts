@@ -406,4 +406,61 @@ router.get("/orientacion/orientadoras/:id/bloqueos", async (req, res) => {
   }
 });
 
+// ── GET /api/orientacion/estados ─────────────────────────────────────────────
+router.get("/orientacion/estados", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM orientacion_estados ORDER BY tipo, orden, id`
+    );
+    res.json(rows);
+  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
+});
+
+// ── POST /api/orientacion/estados ────────────────────────────────────────────
+router.post("/orientacion/estados", async (req, res) => {
+  try {
+    const { tipo, label, color, orden } = req.body as {
+      tipo: string; label: string; color?: string; orden?: number;
+    };
+    if (!tipo || !label?.trim()) return res.status(400).json({ error: "tipo y label requeridos" });
+    const { rows } = await pool.query(
+      `INSERT INTO orientacion_estados (tipo, label, color, orden) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [tipo, label.trim(), color ?? "#94a3b8", orden ?? 99]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
+});
+
+// ── PATCH /api/orientacion/estados/:id ───────────────────────────────────────
+router.patch("/orientacion/estados/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { label, color, orden } = req.body as {
+      label?: string; color?: string; orden?: number;
+    };
+    const sets: string[] = [];
+    const params: (string | number)[] = [];
+    if (label !== undefined) { params.push(label.trim()); sets.push(`label=$${params.length}`); }
+    if (color !== undefined) { params.push(color); sets.push(`color=$${params.length}`); }
+    if (orden !== undefined) { params.push(orden); sets.push(`orden=$${params.length}`); }
+    if (!sets.length) return res.status(400).json({ error: "Nada que actualizar" });
+    params.push(id);
+    const { rows } = await pool.query(
+      `UPDATE orientacion_estados SET ${sets.join(",")} WHERE id=$${params.length} RETURNING *`,
+      params
+    );
+    if (!rows.length) return res.status(404).json({ error: "No encontrado" });
+    res.json(rows[0]);
+  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
+});
+
+// ── DELETE /api/orientacion/estados/:id ──────────────────────────────────────
+router.delete("/orientacion/estados/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await pool.query(`DELETE FROM orientacion_estados WHERE id=$1`, [id]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
+});
+
 export default router;
