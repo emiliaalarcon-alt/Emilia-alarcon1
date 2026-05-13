@@ -431,6 +431,24 @@ function NuevaOrientadoraModal({ onConfirm, onClose }: {
   );
 }
 
+// ─── Status left-border colors (inline style to avoid Tailwind purge) ─────────
+const CONFIRM_BORDER_COLOR: Record<string, string> = {
+  pendiente: "#f59e0b",
+  confirma:  "#10b981",
+  reagenda:  "#60a5fa",
+  cancela:   "#f87171",
+  osorno:    "#c084fc",
+};
+
+// Day accent colors
+const DOW_ACCENT: Record<string, { header: string; text: string }> = {
+  lunes:     { header: "bg-sky-50 dark:bg-sky-950/30",    text: "text-sky-700 dark:text-sky-400" },
+  martes:    { header: "bg-violet-50 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-400" },
+  miercoles: { header: "bg-cyan-50 dark:bg-cyan-950/30",  text: "text-cyan-700 dark:text-cyan-400" },
+  jueves:    { header: "bg-amber-50 dark:bg-amber-950/30",text: "text-amber-700 dark:text-amber-400" },
+  viernes:   { header: "bg-rose-50 dark:bg-rose-950/30",  text: "text-rose-700 dark:text-rose-400" },
+};
+
 // ─── Appointment Cell ──────────────────────────────────────────────────────────
 
 function AppointmentCell({
@@ -443,58 +461,66 @@ function AppointmentCell({
   onUpdateCita: (id: number, field: "estadoConfirma"|"estadoAsiste", value: string) => void;
   onDeleteCita: (id: number) => void;
 }) {
+  const H = "h-[72px]";
+
   if (!slot) {
-    return <div className="h-[90px]" />;
+    return <div className={H} />;
   }
 
   if (slot.status === "blocked") {
     return (
-      <div className="h-[90px] flex items-center justify-center rounded-md bg-gray-100 dark:bg-gray-800">
-        <span className="text-[10px] text-gray-400">Sin atención</span>
+      <div className={`${H} flex items-center justify-center rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40`}>
+        <span className="text-[10px] font-medium text-red-400">🚫 Sin atención</span>
       </div>
     );
   }
 
   if (slot.status === "available") {
-    return (
+    return canBook ? (
       <button
-        onClick={canBook ? onBook : undefined}
-        disabled={!canBook}
-        className={`w-full h-[90px] rounded-md border border-dashed flex items-center justify-center transition-all text-[11px] font-medium ${
-          canBook
-            ? "border-primary/30 text-primary/60 hover:border-primary hover:bg-primary/5 hover:text-primary cursor-pointer"
-            : "border-border/40 text-muted-foreground/40 cursor-default"
-        }`}
+        onClick={onBook}
+        className={`${H} w-full rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 border-2 border-emerald-200 hover:border-emerald-400 dark:border-emerald-800 flex items-center justify-center gap-1.5 transition-all group cursor-pointer`}
       >
-        {canBook && <><Plus className="w-3 h-3 mr-1" />Agendar</>}
+        <Plus className="w-3.5 h-3.5 text-emerald-500 group-hover:text-emerald-700 transition-colors" />
+        <span className="text-[11px] font-bold text-emerald-600 group-hover:text-emerald-700 dark:text-emerald-400 transition-colors">
+          Agendar
+        </span>
       </button>
+    ) : (
+      <div className={`${H} rounded-lg bg-muted/20 border border-border/20 flex items-center justify-center`}>
+        <span className="text-[10px] text-muted-foreground/40 font-medium">Disponible</span>
+      </div>
     );
   }
 
-  // Booked
+  // Booked — colored left accent border
   const cita = slot.cita!;
+  const accentColor = CONFIRM_BORDER_COLOR[cita.estadoConfirma] ?? CONFIRM_BORDER_COLOR.pendiente;
   return (
-    <div className="h-[90px] rounded-md bg-card border border-border p-1.5 flex flex-col gap-1 group relative overflow-hidden">
+    <div
+      className={`${H} rounded-lg bg-card border border-border border-l-[4px] p-1.5 flex flex-col justify-between group overflow-hidden shadow-sm`}
+      style={{ borderLeftColor: accentColor }}
+    >
       <div className="flex items-start justify-between gap-1">
-        <span className="text-[10px] font-semibold text-foreground leading-tight line-clamp-2 flex-1">
+        <span className="text-[11px] font-bold text-foreground leading-tight line-clamp-2 flex-1">
           {cita.nombreEstudiante}
         </span>
         {canManage && (
           <button onClick={() => onDeleteCita(cita.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 shrink-0">
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 shrink-0 mt-0.5">
             <X className="w-3 h-3" />
           </button>
         )}
       </div>
       {canManage ? (
-        <div className="flex flex-col gap-0.5 mt-auto">
+        <div className="flex flex-col gap-0.5">
           <StatusSelect value={cita.estadoConfirma} options={CONFIRM_OPTS} colorMap={CONFIRM_COLORS}
             onChange={v => onUpdateCita(cita.id, "estadoConfirma", v)} />
           <StatusSelect value={cita.estadoAsiste} options={ASISTE_OPTS} colorMap={ASISTE_COLORS}
             onChange={v => onUpdateCita(cita.id, "estadoAsiste", v)} />
         </div>
       ) : (
-        <div className="flex flex-col gap-0.5 mt-auto">
+        <div className="flex flex-col gap-0.5">
           <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${CONFIRM_COLORS[cita.estadoConfirma] ?? CONFIRM_COLORS.pendiente}`}>
             {cita.estadoConfirma}
           </span>
@@ -525,52 +551,94 @@ function DaySection({
 }) {
   if (dates.length === 0) return null;
 
+  const accent = DOW_ACCENT[dow] ?? { header: "bg-muted/30", text: "text-foreground" };
+
+  // Section-level counts
+  const totalAvailable = dates.reduce((s, f) =>
+    s + allHours.filter(h => slotsByDateHora[f]?.[h]?.status === "available").length, 0);
+  const totalBooked = dates.reduce((s, f) =>
+    s + allHours.filter(h => slotsByDateHora[f]?.[h]?.status === "booked").length, 0);
+
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
       {/* Section header */}
-      <div className="bg-primary/5 border-b border-border px-4 py-2.5 flex items-center gap-2">
-        <span className="text-sm font-bold text-primary uppercase tracking-wide">{DOW_ES[dow]}</span>
-        <span className="text-xs text-muted-foreground">· {dates.length} semanas</span>
+      <div className={`${accent.header} border-b border-border px-4 py-3 flex items-center gap-3 flex-wrap`}>
+        <span className={`text-sm font-extrabold ${accent.text} uppercase tracking-widest`}>
+          {DOW_ES[dow]}
+        </span>
+        <span className="text-xs text-muted-foreground font-medium">{dates.length} semanas</span>
+        <div className="ml-auto flex items-center gap-2">
+          {totalAvailable > 0 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              {totalAvailable} disponibles
+            </span>
+          )}
+          {totalBooked > 0 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-[11px] font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" />
+              {totalBooked} agendadas
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Grid */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse min-w-max">
           <thead>
-            <tr className="border-b border-border">
-              <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground bg-muted/30 w-16 sticky left-0 z-10">
+            <tr className="border-b-2 border-border">
+              {/* Hour column header */}
+              <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground bg-muted/40 w-16 sticky left-0 z-10 border-r border-border/40">
                 Hora
               </th>
               {dates.map(fecha => {
                 const dt = parseDateSafe(fecha);
-                // Check if whole day is blocked
                 const daySlots = slotsByDateHora[fecha] ?? {};
                 const allBlocked = allHours.length > 0 && allHours.every(h => daySlots[h]?.status === "blocked");
+                const dayAvail  = allHours.filter(h => daySlots[h]?.status === "available").length;
+                const dayBooked = allHours.filter(h => daySlots[h]?.status === "booked").length;
                 return (
-                  <th key={fecha} className="px-2 py-2 text-xs font-semibold text-foreground bg-muted/30 text-center min-w-[130px]">
-                    <div className="space-y-0.5">
-                      <div>{DOW_ES[dow]?.slice(0,3)} {dt.getDate()}</div>
-                      {allBlocked && (
-                        <div className="text-[10px] font-normal text-red-500 bg-red-50 dark:bg-red-950/20 rounded px-1.5 py-0.5">
-                          {Object.values(daySlots)[0]?.status === "blocked" ? "Sin atención" : ""}
-                        </div>
-                      )}
-                    </div>
+                  <th key={fecha} className={`px-2 py-2 text-center min-w-[130px] ${allBlocked ? "bg-red-50 dark:bg-red-950/20" : "bg-muted/20"}`}>
+                    {/* Day number */}
+                    <div className="text-xl font-black text-foreground leading-none">{dt.getDate()}</div>
+                    {/* Month abbrev */}
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{MONTH_NAMES[dt.getMonth()].slice(0,3)}</div>
+                    {/* Mini status bar */}
+                    {allBlocked ? (
+                      <div className="mt-1 text-[9px] font-bold text-red-500 bg-red-100 dark:bg-red-900/30 rounded-full px-2 py-0.5 inline-block">
+                        Sin atención
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-1.5 mt-1">
+                        {dayAvail > 0 && (
+                          <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />{dayAvail}
+                          </span>
+                        )}
+                        {dayBooked > 0 && (
+                          <span className="text-[9px] font-bold text-blue-600 flex items-center gap-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" />{dayBooked}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </th>
                 );
               })}
             </tr>
           </thead>
           <tbody>
-            {allHours.map(hora => (
-              <tr key={hora} className="border-b border-border/50 last:border-0">
-                <td className="px-3 py-1.5 text-xs font-mono font-semibold text-muted-foreground bg-muted/10 sticky left-0 z-10">
+            {allHours.map((hora, idx) => (
+              <tr key={hora} className={`border-b border-border/40 last:border-0 ${idx % 2 === 1 ? "bg-muted/[0.06]" : ""}`}>
+                {/* Hour cell — sticky */}
+                <td className="px-3 py-1 text-xs font-mono font-bold text-muted-foreground bg-muted/30 sticky left-0 z-10 border-r border-border/30">
                   {hora}
                 </td>
                 {dates.map(fecha => {
                   const slot = slotsByDateHora[fecha]?.[hora];
                   return (
-                    <td key={fecha} className="px-2 py-1.5 align-top">
+                    <td key={fecha} className="px-1.5 py-1 align-top">
                       <AppointmentCell
                         slot={slot}
                         canBook={canBook}
@@ -798,6 +866,22 @@ export default function OrientacionPage() {
                 </button>
               ))}
             </div>
+
+            {/* Legend */}
+            {canBook && (
+              <div className="flex items-center gap-3 flex-wrap text-[11px] font-semibold text-muted-foreground">
+                <span className="uppercase tracking-wide text-[10px] font-bold">Referencias:</span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <Plus className="w-3 h-3" /> Hora libre — clic para agendar
+                </span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-card text-foreground border-l-[3px] border border-border shadow-sm" style={{borderLeftColor:"#10b981"}}>
+                  Estudiante agendado/a
+                </span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-400 border border-red-100">
+                  🚫 Sin atención
+                </span>
+              </div>
+            )}
 
             {selectedOrientadora && (
               <>
