@@ -359,6 +359,7 @@ export default function FotoPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
   const [selectedSede, setSelectedSede] = useState(horario.sedes[0]);
+  const [selectedSemester, setSelectedSemester] = useState<"PRIMER" | "SEGUNDO">("PRIMER");
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const gridRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -398,7 +399,7 @@ export default function FotoPage() {
         height: IMG_H,
       });
       const link = document.createElement("a");
-      link.download = `${(SEDE_LABELS[sede] ?? sede).replace(/\s+/g, "_")}_${DAY_LABELS[day]}.png`;
+      link.download = `${(SEDE_LABELS[sede] ?? sede).replace(/\s+/g, "_")}_${DAY_LABELS[day]}_${selectedSemester === "PRIMER" ? "1erSem" : "2doSem"}.png`;
       link.href = dataUrl;
       link.click();
     } catch (e) {
@@ -419,6 +420,26 @@ export default function FotoPage() {
           <h1 className="text-2xl font-display font-extrabold text-foreground">Fotos de Horario</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Descarga la imagen del horario diario por sede</p>
         </div>
+      </div>
+
+      {/* Semester tabs */}
+      <div className="flex items-center gap-2 mb-5">
+        {([
+          { id: "PRIMER" as const, label: "1er Semestre" },
+          { id: "SEGUNDO" as const, label: "2do Semestre" },
+        ]).map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setSelectedSemester(id)}
+            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all border ${
+              selectedSemester === id
+                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20"
+                : "bg-card border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Day selector */}
@@ -467,7 +488,11 @@ export default function FotoPage() {
           {horario.sedes.map(sede => {
             if (sede !== selectedSede) return null;
             const key = `${sede}-${selectedDay}`;
-            const sedeClasses = allData.filter(c => c.day === selectedDay && c.sede === sede);
+            const sedeClasses = allData.filter(c => {
+              if (c.day !== selectedDay || c.sede !== sede) return false;
+              if (selectedSemester === "PRIMER") return !c.semester || c.semester === "PRIMER" || c.semester === "ANUAL";
+              return c.semester === "SEGUNDO" || c.semester === "ANUAL";
+            });
             return (
               <div key={key} className="space-y-3">
                 <div className="flex items-center justify-between">
