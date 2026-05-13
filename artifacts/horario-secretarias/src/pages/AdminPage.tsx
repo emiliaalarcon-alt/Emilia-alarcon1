@@ -259,7 +259,7 @@ export default function AdminPage() {
   const [wiping, setWiping] = useState(false);
   const [wipeResult, setWipeResult] = useState<{ deletedClasses: number } | null>(null);
   const [search, setSearch] = useState("");
-  const [filterHorario, setFilterHorario] = useState("");
+  const [filterHorario, setFilterHorario] = useState(horarioId);
   const [filterSede, setFilterSede] = useState("");
   const [filterCourse, setFilterCourse] = useState("");
   const [filterSemester, setFilterSemester] = useState("");
