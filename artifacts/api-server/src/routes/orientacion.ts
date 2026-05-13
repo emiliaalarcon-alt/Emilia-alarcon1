@@ -318,15 +318,16 @@ router.post("/orientacion/citas", async (req, res) => {
 router.patch("/orientacion/citas/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { estadoConfirma, estadoAsiste, nombreEstudiante, motivo } = req.body as {
+    const { estadoConfirma, estadoAsiste, nombreEstudiante, motivo, notaRapida } = req.body as {
       estadoConfirma?: string; estadoAsiste?: string;
-      nombreEstudiante?: string; motivo?: string;
+      nombreEstudiante?: string; motivo?: string; notaRapida?: string | null;
     };
     const updates: Partial<typeof citasOrientacionTable.$inferInsert> = {};
     if (estadoConfirma !== undefined) updates.estadoConfirma = estadoConfirma;
     if (estadoAsiste !== undefined) updates.estadoAsiste = estadoAsiste;
     if (nombreEstudiante !== undefined) updates.nombreEstudiante = nombreEstudiante.trim();
     if (motivo !== undefined) updates.motivo = motivo.trim() || null;
+    if (notaRapida !== undefined) updates.notaRapida = notaRapida?.trim() || null;
     const [row] = await db.update(citasOrientacionTable).set(updates)
       .where(eq(citasOrientacionTable.id, id)).returning();
     if (!row) return res.status(404).json({ error: "Cita no encontrada" });

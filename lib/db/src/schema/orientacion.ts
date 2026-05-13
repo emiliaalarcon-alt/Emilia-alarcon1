@@ -44,5 +44,6 @@ export const citasOrientacionTable = pgTable("citas_orientacion", {
   motivo: text("motivo"),
   estadoConfirma: text("estado_confirma").notNull().default("pendiente"),
   estadoAsiste: text("estado_asiste").notNull().default("pendiente"),
+  notaRapida: text("nota_rapida"),
   creadaEn: timestamp("creada_en").defaultNow(),
 });

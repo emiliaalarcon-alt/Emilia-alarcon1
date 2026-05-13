@@ -192,6 +192,10 @@ async function ensureTables() {
     await client.query(`
       ALTER TABLE schedule_classes ADD COLUMN IF NOT EXISTS school_year INTEGER NOT NULL DEFAULT ${new Date().getFullYear()}
     `);
+    // ── nota_rapida en citas ──────────────────────────────────────────────
+    await client.query(`
+      ALTER TABLE citas_orientacion ADD COLUMN IF NOT EXISTS nota_rapida TEXT
+    `);
     // ── Notas ─────────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS notas (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Settings,
   User, CalendarDays, Clock,
@@ -23,6 +23,7 @@ interface Cita {
   id: number; orientadoraId: number; nombreEstudiante: string;
   agendadoPor: string; fecha: string; horaInicio: string;
   motivo: string | null; estadoConfirma: string; estadoAsiste: string;
+  notaRapida: string | null;
 }
 interface Slot {
   fecha: string; horaInicio: string;
@@ -458,18 +459,16 @@ function AppointmentCell({
   slot: Slot | undefined;
   canBook: boolean; canManage: boolean;
   onBook: () => void;
-  onUpdateCita: (id: number, field: "estadoConfirma"|"estadoAsiste", value: string) => void;
+  onUpdateCita: (id: number, patch: Record<string, string | null>) => void;
   onDeleteCita: (id: number) => void;
 }) {
-  const H = "h-[72px]";
+  const EMPTY_H = "h-[72px]";
 
-  if (!slot) {
-    return <div className={H} />;
-  }
+  if (!slot) return <div className={EMPTY_H} />;
 
   if (slot.status === "blocked") {
     return (
-      <div className={`${H} flex items-center justify-center rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40`}>
+      <div className={`${EMPTY_H} flex items-center justify-center rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40`}>
         <span className="text-[10px] font-medium text-red-400">🚫 Sin atención</span>
       </div>
     );
@@ -479,7 +478,7 @@ function AppointmentCell({
     return canBook ? (
       <button
         onClick={onBook}
-        className={`${H} w-full rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 border-2 border-emerald-200 hover:border-emerald-400 dark:border-emerald-800 flex items-center justify-center gap-1.5 transition-all group cursor-pointer`}
+        className={`${EMPTY_H} w-full rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 border-2 border-emerald-200 hover:border-emerald-400 dark:border-emerald-800 flex items-center justify-center gap-1.5 transition-all group cursor-pointer`}
       >
         <Plus className="w-3.5 h-3.5 text-emerald-500 group-hover:text-emerald-700 transition-colors" />
         <span className="text-[11px] font-bold text-emerald-600 group-hover:text-emerald-700 dark:text-emerald-400 transition-colors">
@@ -487,48 +486,69 @@ function AppointmentCell({
         </span>
       </button>
     ) : (
-      <div className={`${H} rounded-lg bg-muted/20 border border-border/20 flex items-center justify-center`}>
+      <div className={`${EMPTY_H} rounded-lg bg-muted/20 border border-border/20 flex items-center justify-center`}>
         <span className="text-[10px] text-muted-foreground/40 font-medium">Disponible</span>
       </div>
     );
   }
 
-  // Booked — colored left accent border
+  // ── Booked ──────────────────────────────────────────────────────────────────
   const cita = slot.cita!;
   const accentColor = CONFIRM_BORDER_COLOR[cita.estadoConfirma] ?? CONFIRM_BORDER_COLOR.pendiente;
+  const canEdit = canBook || canManage;
+
   return (
     <div
-      className={`${H} rounded-lg bg-card border border-border border-l-[4px] p-1.5 flex flex-col justify-between group overflow-hidden shadow-sm`}
+      className="min-h-[72px] rounded-lg bg-card border border-border border-l-[4px] p-1.5 flex flex-col gap-0.5 group shadow-sm"
       style={{ borderLeftColor: accentColor }}
     >
+      {/* Name row */}
       <div className="flex items-start justify-between gap-1">
-        <span className="text-[11px] font-bold text-foreground leading-tight line-clamp-2 flex-1">
+        <span className="text-[11px] font-bold text-foreground leading-tight line-clamp-1 flex-1">
           {cita.nombreEstudiante}
         </span>
         {canManage && (
           <button onClick={() => onDeleteCita(cita.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 shrink-0 mt-0.5">
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 shrink-0">
             <X className="w-3 h-3" />
           </button>
         )}
       </div>
-      {canManage ? (
-        <div className="flex flex-col gap-0.5">
-          <StatusSelect value={cita.estadoConfirma} options={CONFIRM_OPTS} colorMap={CONFIRM_COLORS}
-            onChange={v => onUpdateCita(cita.id, "estadoConfirma", v)} />
-          <StatusSelect value={cita.estadoAsiste} options={ASISTE_OPTS} colorMap={ASISTE_COLORS}
-            onChange={v => onUpdateCita(cita.id, "estadoAsiste", v)} />
-        </div>
+
+      {/* Estado confirma — editable para todos (secretaria, admin, orientadora) */}
+      {canEdit ? (
+        <StatusSelect value={cita.estadoConfirma} options={CONFIRM_OPTS} colorMap={CONFIRM_COLORS}
+          onChange={v => onUpdateCita(cita.id, { estadoConfirma: v })} />
       ) : (
-        <div className="flex flex-col gap-0.5">
-          <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${CONFIRM_COLORS[cita.estadoConfirma] ?? CONFIRM_COLORS.pendiente}`}>
-            {cita.estadoConfirma}
-          </span>
-          <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${ASISTE_COLORS[cita.estadoAsiste] ?? ASISTE_COLORS.pendiente}`}>
-            {cita.estadoAsiste}
-          </span>
-        </div>
+        <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${CONFIRM_COLORS[cita.estadoConfirma] ?? CONFIRM_COLORS.pendiente}`}>
+          {cita.estadoConfirma}
+        </span>
       )}
+
+      {/* Estado asiste — solo admin/orientadora */}
+      {canManage && (
+        <StatusSelect value={cita.estadoAsiste} options={ASISTE_OPTS} colorMap={ASISTE_COLORS}
+          onChange={v => onUpdateCita(cita.id, { estadoAsiste: v })} />
+      )}
+
+      {/* Nota rápida — guarda al perder el foco */}
+      {canEdit ? (
+        <input
+          key={`nota-${cita.id}`}
+          defaultValue={cita.notaRapida ?? ""}
+          onBlur={e => {
+            const val = e.target.value.trim();
+            const prev = cita.notaRapida ?? "";
+            if (val !== prev) onUpdateCita(cita.id, { notaRapida: val || null });
+          }}
+          placeholder="Nota rápida…"
+          className="w-full text-[10px] bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/30 leading-tight"
+        />
+      ) : cita.notaRapida ? (
+        <span className="text-[10px] text-muted-foreground italic leading-tight truncate">
+          {cita.notaRapida}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -546,7 +566,7 @@ function DaySection({
   allHours: string[];
   canBook: boolean; canManage: boolean;
   onBook: (fecha: string, hora: string) => void;
-  onUpdateCita: (id: number, field: "estadoConfirma"|"estadoAsiste", value: string) => void;
+  onUpdateCita: (id: number, patch: Record<string, string | null>) => void;
   onDeleteCita: (id: number) => void;
 }) {
   if (dates.length === 0) return null;
@@ -760,14 +780,14 @@ export default function OrientacionPage() {
     await loadSlots();
   }
 
-  async function handleUpdateCita(id: number, field: "estadoConfirma"|"estadoAsiste", value: string) {
+  async function handleUpdateCita(id: number, patch: Record<string, string | null>) {
+    setSlots(prev => prev.map(s =>
+      s.cita?.id === id ? { ...s, cita: { ...s.cita!, ...patch } } : s
+    ));
     await fetch(apiUrl(`/api/orientacion/citas/${id}`), {
       method: "PATCH", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ [field]: value }),
+      body: JSON.stringify(patch),
     });
-    setSlots(prev => prev.map(s =>
-      s.cita?.id === id ? {...s, cita:{...s.cita!, [field]: value}} : s
-    ));
   }
 
   async function handleDeleteCita(id: number) {
