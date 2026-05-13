@@ -461,14 +461,21 @@ export default function AdminPage() {
       if (filterHorario && e.horario !== filterHorario) return false;
       if (filterSede && e.sede !== filterSede) return false;
       if (filterCourse && e.course !== filterCourse) return false;
-      if (filterSemester && e.semester !== filterSemester) return false;
+      if (filterSemester) {
+        // PRIMER tab: show PRIMER + ANUAL; SEGUNDO tab: show SEGUNDO + ANUAL; ANUAL tab: only ANUAL
+        if (filterSemester === "PRIMER" && e.semester !== "PRIMER" && e.semester !== "ANUAL") return false;
+        if (filterSemester === "SEGUNDO" && e.semester !== "SEGUNDO" && e.semester !== "ANUAL") return false;
+        if (filterSemester === "ANUAL" && e.semester !== "ANUAL") return false;
+      }
       if (search) {
         const q = search.toLowerCase();
+        const dayLabel = DAY_LABELS[e.day]?.toLowerCase() ?? e.day?.toLowerCase() ?? "";
         if (
           !e.classCode.toLowerCase().includes(q) &&
           !e.course.toLowerCase().includes(q) &&
           !e.teacher.toLowerCase().includes(q) &&
-          !DAY_LABELS[e.day]?.toLowerCase().includes(q)
+          !dayLabel.includes(q) &&
+          !e.students.some(s => s.toLowerCase().includes(q))
         ) return false;
       }
       return true;
