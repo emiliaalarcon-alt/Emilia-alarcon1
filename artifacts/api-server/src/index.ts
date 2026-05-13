@@ -192,7 +192,21 @@ async function ensureTables() {
     await client.query(`
       ALTER TABLE schedule_classes ADD COLUMN IF NOT EXISTS school_year INTEGER NOT NULL DEFAULT ${new Date().getFullYear()}
     `);
-    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientación, semester column, composite PK/FK)");
+    // ── Notas ─────────────────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notas (
+        id SERIAL PRIMARY KEY,
+        horario_id TEXT NOT NULL,
+        autor TEXT NOT NULL DEFAULT '',
+        titulo TEXT NOT NULL DEFAULT '',
+        contenido TEXT NOT NULL DEFAULT '',
+        color TEXT NOT NULL DEFAULT 'amarillo',
+        pinned INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientación, notas, semester column, composite PK/FK)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {

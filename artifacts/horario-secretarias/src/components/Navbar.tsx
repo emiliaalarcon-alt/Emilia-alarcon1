@@ -1,50 +1,166 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera, Bell, ArrowLeftRight, ClipboardList, HeartHandshake } from "lucide-react";
+import {
+  CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera,
+  Bell, ArrowLeftRight, ClipboardList, HeartHandshake, StickyNote,
+  SlidersHorizontal, RotateCcw, Check,
+} from "lucide-react";
 import { useHorario } from "@/context/HorarioContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useCurrentUser, UserAvatar } from "@/context/UserContext";
+import {
+  getNavConfig, saveNavConfig, resetNavConfig, NAV_DEFAULTS, type NavItem,
+} from "@/lib/navConfig";
 
-const navLinks = [
-  { href: "/", label: "Inicio", icon: Home },
-  { href: "/horarios", label: "Horarios", icon: Grid3x3 },
-  { href: "/tareas", label: "Tareas", icon: ClipboardList },
-  { href: "/cambios", label: "Cambios", icon: ArrowLeftRight },
-  { href: "/guias", label: "Guías", icon: Printer },
-  { href: "/foto", label: "Fotos", icon: Camera },
-  { href: "/orientacion", label: "Orientación", icon: HeartHandshake },
-  { href: "/admin", label: "Admin", icon: Settings },
-];
+// Icon map by href
+const ICON_MAP: Record<string, React.ElementType> = {
+  "/":            Home,
+  "/horarios":    Grid3x3,
+  "/tareas":      ClipboardList,
+  "/cambios":     ArrowLeftRight,
+  "/notas":       StickyNote,
+  "/guias":       Printer,
+  "/foto":        Camera,
+  "/orientacion": HeartHandshake,
+  "/admin":       Settings,
+};
+
+// ─── Nav Config Modal ─────────────────────────────────────────────────────────
+
+function NavConfigModal({
+  onClose,
+  onSave,
+}: { onClose: () => void; onSave: (items: NavItem[]) => void }) {
+  const [items, setItems] = useState<NavItem[]>(() => getNavConfig());
+
+  function toggle(href: string) {
+    setItems(prev => prev.map(i => i.href === href ? { ...i, visible: !i.visible } : i));
+  }
+  function rename(href: string, label: string) {
+    setItems(prev => prev.map(i => i.href === href ? { ...i, label } : i));
+  }
+  function handleReset() {
+    resetNavConfig();
+    setItems(NAV_DEFAULTS.map(d => ({ ...d })));
+  }
+  function handleSave() {
+    saveNavConfig(items);
+    onSave(items);
+    onClose();
+  }
+
+  const Icon = ({ href }: { href: string }) => {
+    const I = ICON_MAP[href] ?? Home;
+    return <I className="w-4 h-4 shrink-0 text-muted-foreground" />;
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+            <SlidersHorizontal className="w-4 h-4" /> Personalizar menú
+          </h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Activa o desactiva pestañas y edita sus nombres. Los cambios se guardan en este navegador.
+        </p>
+
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+          {items.map(item => (
+            <div key={item.href} className="flex items-center gap-2">
+              {/* Toggle */}
+              <button
+                onClick={() => toggle(item.href)}
+                className={`w-8 h-5 rounded-full transition-colors shrink-0 ${item.visible ? "bg-primary" : "bg-muted"}`}
+              >
+                <span
+                  className={`block w-3.5 h-3.5 rounded-full bg-white shadow transition-transform mx-0.5 ${item.visible ? "translate-x-3" : "translate-x-0"}`}
+                />
+              </button>
+              <Icon href={item.href} />
+              {/* Label input */}
+              <input
+                value={item.label}
+                onChange={e => rename(item.href, e.target.value)}
+                className="flex-1 text-sm px-2 py-1 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 text-foreground"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <RotateCcw className="w-3 h-3" /> Restaurar
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <Check className="w-3.5 h-3.5" /> Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Navbar ───────────────────────────────────────────────────────────────────
 
 export default function Navbar() {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
-  const { horarioId, horario } = useHorario();
+  const [showNavCfg, setShowNavCfg] = useState(false);
+  const [navConfig, setNavConfig] = useState<NavItem[]>(() => getNavConfig());
+
+  const { horario } = useHorario();
   const { notifications } = useNotifications();
   const { currentUser, clearUser } = useCurrentUser();
 
-  const horarioUnread = notifications.filter(n => n.horarioId === horarioId && !n.read).length;
+  // Reload config if it changes (e.g. after save)
+  useEffect(() => { setNavConfig(getNavConfig()); }, []);
+
+  const isAdmin = currentUser?.role === "admin";
+  const horarioUnread = notifications.filter(
+    n => n.horarioId === horario?.id && !n.read,
+  ).length;
+
+  // Visible links filtered/renamed by config
+  const visibleLinks = navConfig.filter(n => n.visible);
 
   return (
     <>
       <header className="sticky top-0 z-50 glass border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
+
+            {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-md group-hover:shadow-primary/20 transition-all duration-300 group-hover:scale-105">
                 <CalendarDays className="w-5 h-5 text-white" />
               </div>
               <div className="hidden sm:flex flex-col leading-tight">
                 <span className="font-display font-bold text-xl tracking-tight text-foreground">
-                  {horario.label}
+                  {horario?.label}
                 </span>
               </div>
             </Link>
 
+            {/* Desktop nav */}
             <div className="hidden md:flex items-center gap-2">
               <nav className="flex items-center gap-1">
-                {navLinks.map(({ href, label, icon: Icon }) => {
+                {visibleLinks.map(({ href, label }) => {
+                  const Icon = ICON_MAP[href] ?? Home;
                   const active = location === href;
+                  // Notifications tab special handling
+                  if (href === "/notificaciones") return null;
                   return (
                     <Link
                       key={href}
@@ -61,6 +177,7 @@ export default function Navbar() {
                   );
                 })}
 
+                {/* Notifications — always visible */}
                 <Link
                   href="/notificaciones"
                   className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -77,7 +194,7 @@ export default function Navbar() {
                       </span>
                     )}
                   </div>
-                  Notificaciones
+                  Alertas
                 </Link>
               </nav>
 
@@ -86,21 +203,35 @@ export default function Navbar() {
                 title="Cambiar sede"
                 className="ml-2 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-bold hover:bg-primary/20 transition-colors shrink-0"
               >
-                {horario.label}
+                {horario?.label}
               </Link>
 
               {currentUser && (
                 <button
                   onClick={clearUser}
-                  title={`${currentUser.name} — click para cambiar`}
+                  title={`${currentUser.name} — clic para cambiar`}
                   className="ml-1 flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-muted transition-colors"
                 >
                   <UserAvatar name={currentUser.name} color={currentUser.color} size="sm" />
-                  <span className="text-xs font-medium text-foreground hidden lg:block max-w-[80px] truncate">{currentUser.name}</span>
+                  <span className="text-xs font-medium text-foreground hidden lg:block max-w-[80px] truncate">
+                    {currentUser.name}
+                  </span>
+                </button>
+              )}
+
+              {/* Admin — nav config button */}
+              {isAdmin && (
+                <button
+                  onClick={() => setShowNavCfg(true)}
+                  title="Personalizar menú"
+                  className="ml-1 p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
                 </button>
               )}
             </div>
 
+            {/* Mobile hamburger */}
             <button
               onClick={() => setOpen(!open)}
               className="md:hidden p-2 rounded-xl hover:bg-muted transition-colors"
@@ -110,15 +241,15 @@ export default function Navbar() {
           </div>
         </div>
 
+        {/* Mobile dropdown */}
         {open && (
           <div className="md:hidden border-t border-border/50 px-4 py-3 space-y-1">
             <div className="px-4 py-2 mb-1">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Campus activo
-              </span>
-              <p className="text-sm font-bold text-primary mt-0.5">{horario.label}</p>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campus activo</span>
+              <p className="text-sm font-bold text-primary mt-0.5">{horario?.label}</p>
             </div>
-            {navLinks.map(({ href, label, icon: Icon }) => {
+            {visibleLinks.map(({ href, label }) => {
+              const Icon = ICON_MAP[href] ?? Home;
               const active = location === href;
               return (
                 <Link
@@ -168,13 +299,24 @@ export default function Navbar() {
               <CalendarDays className="w-5 h-5" />
               Cambiar campus
             </Link>
+            {isAdmin && (
+              <button
+                onClick={() => { setOpen(false); setShowNavCfg(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+              >
+                <SlidersHorizontal className="w-5 h-5" />
+                Personalizar menú
+              </button>
+            )}
           </div>
         )}
       </header>
 
+      {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/50">
         <div className="flex items-center justify-around p-2 pb-safe">
-          {navLinks.map(({ href, label, icon: Icon }) => {
+          {visibleLinks.slice(0, 5).map(({ href, label }) => {
+            const Icon = ICON_MAP[href] ?? Home;
             const active = location === href;
             return (
               <Link
@@ -209,6 +351,14 @@ export default function Navbar() {
           </Link>
         </div>
       </nav>
+
+      {/* Nav config modal */}
+      {showNavCfg && (
+        <NavConfigModal
+          onClose={() => setShowNavCfg(false)}
+          onSave={items => setNavConfig(items)}
+        />
+      )}
     </>
   );
 }

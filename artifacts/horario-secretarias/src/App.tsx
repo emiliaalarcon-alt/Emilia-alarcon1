@@ -16,6 +16,7 @@ import NotificationsPage from "@/pages/NotificationsPage";
 import CambiosPage from "@/pages/CambiosPage";
 import TareasPage from "@/pages/TareasPage";
 import OrientacionPage from "@/pages/OrientacionPage";
+import NotasPage from "@/pages/NotasPage";
 import NotFound from "@/pages/not-found";
 import { UserProvider } from "@/context/UserContext";
 import UserSelectionModal from "@/components/UserSelectionModal";
@@ -75,6 +76,7 @@ function Router() {
                 <Route path="/cambios" component={CambiosPage} />
                 <Route path="/tareas" component={TareasPage} />
                 <Route path="/orientacion" component={OrientacionPage} />
+                <Route path="/notas" component={NotasPage} />
                 <Route component={NotFound} />
               </Switch>
             </main>
