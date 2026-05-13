@@ -784,6 +784,13 @@ export default function OrientacionPage() {
     await loadOrientadoras();
   }
 
+  async function handleDeleteOrientadora(id: number, nombre: string) {
+    if (!window.confirm(`¿Eliminar a ${nombre}?\n\nSe eliminarán también su horario y todas las citas agendadas.`)) return;
+    await fetch(apiUrl(`/api/orientacion/orientadoras/${id}`), { method: "DELETE" });
+    setSelectedId(prev => (prev === id ? null : prev));
+    await loadOrientadoras();
+  }
+
   // ── Build calendar data ───────────────────────────────────────────────────
   // Group slots by: dowName → fecha → hora
   const { workingDows, slotsByDow } = useMemo(() => {
@@ -853,17 +860,30 @@ export default function OrientacionPage() {
             {/* Orientadora tabs */}
             <div className="flex gap-2 overflow-x-auto pb-1">
               {orientadoras.map(o => (
-                <button key={o.id} onClick={() => setSelectedId(o.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                    selectedId===o.id
-                      ? "bg-primary/10 text-primary border border-primary/30"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
-                  }`}>
-                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                    {o.nombre[0]}
-                  </div>
-                  {o.nombre}
-                </button>
+                <div key={o.id} className="relative group/tab flex-shrink-0">
+                  <button onClick={() => setSelectedId(o.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                      isAdmin ? "pr-8" : ""
+                    } ${
+                      selectedId===o.id
+                        ? "bg-primary/10 text-primary border border-primary/30"
+                        : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
+                    }`}>
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                      {o.nombre[0]}
+                    </div>
+                    {o.nombre}
+                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleDeleteOrientadora(o.id, o.nombre)}
+                      title={`Eliminar ${o.nombre}`}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md opacity-0 group-hover/tab:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
 
