@@ -852,6 +852,7 @@ export default function OrientacionPage() {
   const [bookingModal, setBookingModal] = useState<{fecha:string; hora:string}|null>(null);
   const [adminModal, setAdminModal]     = useState(false);
   const [nuevaModal, setNuevaModal]     = useState(false);
+  const [estadosModal, setEstadosModal] = useState(false);
   const [showStats, setShowStats]       = useState(false);
 
   const isAdmin     = currentUser?.role === "admin";
@@ -1046,6 +1047,12 @@ export default function OrientacionPage() {
                 Estadísticas
               </button>
             </div>
+            {isAdmin && (
+              <button onClick={() => setEstadosModal(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors">
+                🎨 Editar estados
+              </button>
+            )}
             {isAdmin && !showStats && (
               <button onClick={() => setNuevaModal(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
@@ -1221,6 +1228,23 @@ export default function OrientacionPage() {
           onRefresh={loadAdminData}
           onRefreshEstados={loadEstados}
         />
+      )}
+
+      {estadosModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-lg text-foreground">🎨 Editar estados</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Personaliza los nombres y colores de los estados de citas</p>
+              </div>
+              <button onClick={() => setEstadosModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <EstadosPanel estados={estados} onRefresh={loadEstados} />
+          </div>
+        </div>
       )}
 
       {nuevaModal && (
