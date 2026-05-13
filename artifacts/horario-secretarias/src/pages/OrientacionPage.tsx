@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Settings,
-  User, CalendarDays, Clock,
+  User, CalendarDays, Clock, BarChart2,
 } from "lucide-react";
+import OrientacionStats from "@/pages/OrientacionStats";
 import { apiUrl } from "@/lib/api";
 import { useCurrentUser } from "@/context/UserContext";
 
@@ -695,6 +696,7 @@ export default function OrientacionPage() {
   const [bookingModal, setBookingModal] = useState<{fecha:string; hora:string}|null>(null);
   const [adminModal, setAdminModal]     = useState(false);
   const [nuevaModal, setNuevaModal]     = useState(false);
+  const [showStats, setShowStats]       = useState(false);
 
   const isAdmin     = currentUser?.role === "admin";
   const isCounselor = currentUser?.role === "orientadora";
@@ -856,12 +858,35 @@ export default function OrientacionPage() {
             <h1 className="text-2xl font-display font-bold text-foreground">Orientación</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Agenda de citas con orientadoras</p>
           </div>
-          {isAdmin && (
-            <button onClick={() => setNuevaModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
-              <Plus className="w-4 h-4" />Nueva orientadora
-            </button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Calendar / Stats toggle */}
+            <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-1">
+              <button
+                onClick={() => setShowStats(false)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  !showStats ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                Calendario
+              </button>
+              <button
+                onClick={() => setShowStats(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  showStats ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <BarChart2 className="w-3.5 h-3.5" />
+                Estadísticas
+              </button>
+            </div>
+            {isAdmin && !showStats && (
+              <button onClick={() => setNuevaModal(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
+                <Plus className="w-4 h-4" />Nueva orientadora
+              </button>
+            )}
+          </div>
         </div>
 
         {orientadoras.length === 0 ? (
@@ -875,6 +900,12 @@ export default function OrientacionPage() {
               </button>
             )}
           </div>
+        ) : showStats ? (
+          <OrientacionStats
+            orientadoras={orientadoras}
+            selectedId={selectedId}
+            onSelectId={setSelectedId}
+          />
         ) : (
           <>
             {/* Orientadora tabs */}

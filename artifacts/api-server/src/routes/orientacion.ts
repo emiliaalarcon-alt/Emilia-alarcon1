@@ -350,6 +350,48 @@ router.delete("/orientacion/citas/:id", async (req, res) => {
   }
 });
 
+// ── GET /api/orientacion/citas/all ───────────────────────────────────────────
+// Returns all citas for stats (no month filter). Optional: orientadoraId, año
+router.get("/orientacion/citas/all", async (req, res) => {
+  try {
+    const { orientadoraId, año } = req.query as { orientadoraId?: string; año?: string };
+    let query = `SELECT * FROM citas_orientacion`;
+    const params: (string | number)[] = [];
+    const conds: string[] = [];
+
+    if (orientadoraId) {
+      params.push(parseInt(orientadoraId));
+      conds.push(`orientadora_id = $${params.length}`);
+    }
+    if (año) {
+      params.push(`${año}-%`);
+      conds.push(`fecha LIKE $${params.length}`);
+    }
+    if (conds.length) query += ` WHERE ${conds.join(" AND ")}`;
+    query += ` ORDER BY fecha, hora_inicio`;
+
+    const { rows } = await pool.query(query, params);
+    // Camel-case the rows
+    const mapped = rows.map((r: Record<string, unknown>) => ({
+      id: r.id,
+      orientadoraId: r.orientadora_id,
+      nombreEstudiante: r.nombre_estudiante,
+      agendadoPor: r.agendado_por,
+      fecha: r.fecha,
+      horaInicio: r.hora_inicio,
+      motivo: r.motivo,
+      estadoConfirma: r.estado_confirma,
+      estadoAsiste: r.estado_asiste,
+      notaRapida: r.nota_rapida,
+      creadaEn: r.creada_en,
+    }));
+    res.json(mapped);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al obtener citas" });
+  }
+});
+
 // ── GET /api/orientacion/orientadoras/:id/bloqueos ───────────────────────────
 router.get("/orientacion/orientadoras/:id/bloqueos", async (req, res) => {
   try {
