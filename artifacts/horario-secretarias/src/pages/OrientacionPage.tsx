@@ -162,7 +162,8 @@ function AdminModal({
   const [tab, setTab] = useState<"horario"|"feriados">("horario");
   const [saving, setSaving] = useState(false);
   // Feriado form
-  const [feriadoFecha, setFeriadoFecha] = useState("");
+  const [feriadoDesde, setFeriadoDesde] = useState("");
+  const [feriadoHasta, setFeriadoHasta] = useState("");
   const [feriadoMotivo, setFeriadoMotivo] = useState("Feriado");
 
   // Build set of active slots: "diaSemana|horaInicio" → slotId
@@ -187,13 +188,41 @@ function AdminModal({
     setSaving(false);
   }
 
+  // Toggle ALL hours for a given day
+  async function toggleDay(dia: string) {
+    setSaving(true);
+    const diaSlots = HORAS_DISPONIBLES.map(h => ({ h, key: `${dia}|${h}` }));
+    const allOn = diaSlots.every(({ key }) => slotMap[key] !== undefined);
+    if (allOn) {
+      // Remove all
+      await Promise.all(diaSlots.map(({ key }) =>
+        slotMap[key] !== undefined
+          ? fetch(apiUrl(`/api/orientacion/horario/${slotMap[key]}`), { method: "DELETE" })
+          : Promise.resolve()
+      ));
+    } else {
+      // Add missing
+      await Promise.all(diaSlots.map(({ key, h }) =>
+        slotMap[key] === undefined
+          ? fetch(apiUrl(`/api/orientacion/orientadoras/${orientadora.id}/horario`), {
+              method: "POST", headers: {"Content-Type":"application/json"},
+              body: JSON.stringify({ diaSemana: dia, horaInicio: h }),
+            })
+          : Promise.resolve()
+      ));
+    }
+    await onRefresh();
+    setSaving(false);
+  }
+
   async function addFeriado() {
-    if (!feriadoFecha) return;
+    if (!feriadoDesde) return;
+    const hasta = feriadoHasta || feriadoDesde;
     await fetch(apiUrl(`/api/orientacion/orientadoras/${orientadora.id}/bloqueo`), {
       method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ fechaInicio: feriadoFecha, fechaFin: feriadoFecha, motivo: feriadoMotivo }),
+      body: JSON.stringify({ fechaInicio: feriadoDesde, fechaFin: hasta, motivo: feriadoMotivo }),
     });
-    setFeriadoFecha(""); setFeriadoMotivo("Feriado");
+    setFeriadoDesde(""); setFeriadoHasta(""); setFeriadoMotivo("Feriado");
     onRefresh();
   }
 
@@ -229,33 +258,49 @@ function AdminModal({
         {tab === "horario" && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Marca los horarios en que la orientadora atiende cada semana. Estos se repetirán automáticamente todos los meses.
+              Haz clic en un casillero para activar/desactivar ese horario. Haz clic en el <strong>nombre del día</strong> para marcar o desmarcar todo el día de un golpe.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr>
-                    <th className="text-left py-2 pr-4 text-xs font-semibold text-muted-foreground w-16">Hora</th>
-                    {DOW_ORDER.map(d => (
-                      <th key={d} className="text-center py-2 px-2 text-xs font-semibold text-foreground">
-                        {d === "miercoles" ? "Mié" : DOW_ES[d]?.slice(0,3)}
-                      </th>
-                    ))}
+                    <th className="text-left py-2 pr-3 text-xs font-semibold text-muted-foreground w-14">Hora</th>
+                    {DOW_ORDER.map(d => {
+                      const allChecked = HORAS_DISPONIBLES.every(h => slotMap[`${d}|${h}`] !== undefined);
+                      const someChecked = HORAS_DISPONIBLES.some(h => slotMap[`${d}|${h}`] !== undefined);
+                      return (
+                        <th key={d} className="text-center py-1 px-1">
+                          <button
+                            disabled={saving}
+                            onClick={() => toggleDay(d)}
+                            className={`w-full px-2 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${
+                              allChecked
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : someChecked
+                                ? "bg-primary/20 border-primary/40 text-primary"
+                                : "border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
+                            } disabled:opacity-50`}
+                          >
+                            {d === "miercoles" ? "Mié" : DOW_ES[d]?.slice(0,3)}
+                          </button>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {HORAS_DISPONIBLES.map(hora => (
                     <tr key={hora} className="border-t border-border/50">
-                      <td className="py-2 pr-4 text-xs font-mono text-muted-foreground">{hora}</td>
+                      <td className="py-1.5 pr-3 text-xs font-mono text-muted-foreground">{hora}</td>
                       {DOW_ORDER.map(dia => {
                         const key = `${dia}|${hora}`;
                         const checked = slotMap[key] !== undefined;
                         return (
-                          <td key={dia} className="py-2 px-2 text-center">
+                          <td key={dia} className="py-1.5 px-1 text-center">
                             <button
                               disabled={saving}
                               onClick={() => toggleSlot(dia, hora)}
-                              className={`w-8 h-8 rounded-lg border-2 transition-all font-bold text-sm ${
+                              className={`w-9 h-8 rounded-lg border-2 transition-all font-bold text-sm ${
                                 checked
                                   ? "bg-primary border-primary text-primary-foreground"
                                   : "border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
@@ -272,7 +317,7 @@ function AdminModal({
               </table>
             </div>
             <p className="text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
-              💡 Los cambios se guardan automáticamente al marcar/desmarcar. El calendario se actualiza al cerrar este panel.
+              💡 Los cambios se guardan automáticamente. Si la orientadora trabaja todos los días, haz clic en cada nombre de día. Si solo trabaja Martes, Jueves y Viernes, haz clic solo en esos tres.
             </p>
           </div>
         )}
@@ -309,21 +354,29 @@ function AdminModal({
 
             {/* Add block */}
             <div className="border-t border-border pt-4 space-y-3">
-              <h4 className="text-sm font-semibold text-foreground">Agregar día sin atención</h4>
-              <div className="flex gap-2 flex-wrap">
-                <div className="flex-1 min-w-[140px]">
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Fecha</label>
-                  <input type="date" value={feriadoFecha} onChange={e => setFeriadoFecha(e.target.value)}
+              <h4 className="text-sm font-semibold text-foreground">Agregar período sin atención</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
+                  <input type="date" value={feriadoDesde} onChange={e => {
+                    setFeriadoDesde(e.target.value);
+                    if (!feriadoHasta || feriadoHasta < e.target.value) setFeriadoHasta(e.target.value);
+                  }}
                     className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
                 </div>
-                <div className="flex-1 min-w-[140px]">
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Motivo</label>
-                  <input value={feriadoMotivo} onChange={e => setFeriadoMotivo(e.target.value)}
-                    placeholder="Feriado, Reunión, Vacaciones…"
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta <span className="text-muted-foreground/60">(mismo día si es 1 día)</span></label>
+                  <input type="date" value={feriadoHasta} min={feriadoDesde} onChange={e => setFeriadoHasta(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
                 </div>
               </div>
-              <button onClick={addFeriado} disabled={!feriadoFecha}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Motivo</label>
+                <input value={feriadoMotivo} onChange={e => setFeriadoMotivo(e.target.value)}
+                  placeholder="Feriado, Reunión, Vacaciones…"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+              </div>
+              <button onClick={addFeriado} disabled={!feriadoDesde}
                 className="w-full px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-40 transition-colors">
                 Marcar como sin atención
               </button>
