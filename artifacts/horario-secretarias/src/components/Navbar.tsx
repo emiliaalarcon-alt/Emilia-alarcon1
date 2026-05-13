@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera, Bell, ArrowLeftRight, ClipboardList } from "lucide-react";
+import { CalendarDays, Home, Grid3x3, Settings, Menu, X, Printer, Camera, Bell, ArrowLeftRight, ClipboardList, HeartHandshake } from "lucide-react";
 import { useHorario } from "@/context/HorarioContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useCurrentUser, UserAvatar } from "@/context/UserContext";
@@ -12,6 +12,7 @@ const navLinks = [
   { href: "/cambios", label: "Cambios", icon: ArrowLeftRight },
   { href: "/guias", label: "Guías", icon: Printer },
   { href: "/foto", label: "Fotos", icon: Camera },
+  { href: "/orientacion", label: "Orientación", icon: HeartHandshake },
   { href: "/admin", label: "Admin", icon: Settings },
 ];
 

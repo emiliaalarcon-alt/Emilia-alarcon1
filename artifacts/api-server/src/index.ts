@@ -135,7 +135,64 @@ async function ensureTables() {
         END IF;
       END $$;
     `);
-    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, semester column, composite PK/FK)");
+    // ── Orientación tables ────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS orientadoras (
+        id SERIAL PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        titulo TEXT NOT NULL DEFAULT 'Orientadora',
+        foto_url TEXT NOT NULL DEFAULT '',
+        activa INTEGER NOT NULL DEFAULT 1,
+        orden INTEGER NOT NULL DEFAULT 99,
+        creada_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS orientacion_horario_habitual (
+        id SERIAL PRIMARY KEY,
+        orientadora_id INTEGER NOT NULL REFERENCES orientadoras(id) ON DELETE CASCADE,
+        dia_semana TEXT NOT NULL,
+        hora_inicio TEXT NOT NULL,
+        activo INTEGER NOT NULL DEFAULT 1
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS orientacion_bloqueo_fecha (
+        id SERIAL PRIMARY KEY,
+        orientadora_id INTEGER NOT NULL REFERENCES orientadoras(id) ON DELETE CASCADE,
+        fecha_inicio TEXT NOT NULL,
+        fecha_fin TEXT NOT NULL,
+        hora_inicio TEXT,
+        motivo TEXT
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS orientacion_desbloqueo_fecha (
+        id SERIAL PRIMARY KEY,
+        orientadora_id INTEGER NOT NULL REFERENCES orientadoras(id) ON DELETE CASCADE,
+        fecha TEXT NOT NULL,
+        hora_inicio TEXT NOT NULL
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS citas_orientacion (
+        id SERIAL PRIMARY KEY,
+        orientadora_id INTEGER NOT NULL REFERENCES orientadoras(id) ON DELETE CASCADE,
+        nombre_estudiante TEXT NOT NULL,
+        agendado_por TEXT NOT NULL DEFAULT '',
+        fecha TEXT NOT NULL,
+        hora_inicio TEXT NOT NULL,
+        motivo TEXT,
+        estado_confirma TEXT NOT NULL DEFAULT 'pendiente',
+        estado_asiste TEXT NOT NULL DEFAULT 'pendiente',
+        creada_en TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // ── Schedule year column ──────────────────────────────────────────────
+    await client.query(`
+      ALTER TABLE schedule_classes ADD COLUMN IF NOT EXISTS school_year INTEGER NOT NULL DEFAULT ${new Date().getFullYear()}
+    `);
+    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientación, semester column, composite PK/FK)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {
