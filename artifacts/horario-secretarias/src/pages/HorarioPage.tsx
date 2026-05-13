@@ -1039,7 +1039,10 @@ export default function HorarioPage() {
 
   const liveSelectedEntry = useMemo(() => {
     if (!selectedEntry) return null;
-    return allData.find(e => e.classCode === selectedEntry.classCode) ?? null;
+    return allData.find(e =>
+      e.classCode === selectedEntry.classCode &&
+      (e.semester ?? "PRIMER") === (selectedEntry.semester ?? "PRIMER")
+    ) ?? null;
   }, [selectedEntry, allData]);
 
   const salasPerDay = useMemo(() => {
@@ -1489,7 +1492,7 @@ export default function HorarioPage() {
                                           key={entry.classCode}
                                           entry={entry}
                                           onSelect={setSelectedEntry}
-                                          selected={liveSelectedEntry?.classCode === entry.classCode}
+                                          selected={liveSelectedEntry?.classCode === entry.classCode && (liveSelectedEntry?.semester ?? "PRIMER") === (entry.semester ?? "PRIMER")}
                                           highlighted={!!selectedCourse && entry.course === selectedCourse}
                                           dimmed={!!selectedCourse && entry.course !== selectedCourse}
                                           typingBy={typingMap.get(entry.classCode)}
