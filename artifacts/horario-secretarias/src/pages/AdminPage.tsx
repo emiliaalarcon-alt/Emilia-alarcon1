@@ -475,8 +475,7 @@ export default function AdminPage() {
           !e.classCode.toLowerCase().includes(q) &&
           !e.course.toLowerCase().includes(q) &&
           !e.teacher.toLowerCase().includes(q) &&
-          !dayLabel.includes(q) &&
-          !e.students.some(s => s.toLowerCase().includes(q))
+          !dayLabel.includes(q)
         ) return false;
       }
       return true;
@@ -493,11 +492,16 @@ export default function AdminPage() {
   }, [allData]);
 
   const existingCourses = useMemo(() => {
-    const base = filterSemester
-      ? allData.filter(e => e.semester === filterSemester)
-      : allData;
+    let base = allData;
+    if (filterHorario) base = base.filter(e => e.horario === filterHorario);
+    if (filterSede)    base = base.filter(e => e.sede === filterSede);
+    if (filterSemester) {
+      if (filterSemester === "PRIMER")  base = base.filter(e => e.semester === "PRIMER"  || e.semester === "ANUAL");
+      if (filterSemester === "SEGUNDO") base = base.filter(e => e.semester === "SEGUNDO" || e.semester === "ANUAL");
+      if (filterSemester === "ANUAL")   base = base.filter(e => e.semester === "ANUAL");
+    }
     return [...new Set(base.map(e => e.course))].sort();
-  }, [allData, filterSemester]);
+  }, [allData, filterHorario, filterSede, filterSemester]);
 
   const editSemesterCourses = useMemo(() => {
     if (!editingCode) return COURSES;
@@ -1618,16 +1622,28 @@ export default function AdminPage() {
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {filteredList.map(entry => {
+                        const rowKey = `${entry.classCode}|${entry.semester ?? "PRIMER"}`;
                         const badge = COURSE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
-                        const isDeleting = deletingCode === entry.classCode;
-                        const isEditing = editingCode === entry.classCode;
+                        const isDeleting = deletingCode === entry.classCode && confirmDeleteCode === entry.classCode;
+                        const isEditing = editingCode === entry.classCode && editingSemester === (entry.semester ?? "PRIMER");
+                        const semBadge = entry.semester === "SEGUNDO"
+                          ? "bg-purple-100 text-purple-700 border-purple-200"
+                          : entry.semester === "ANUAL"
+                          ? "bg-amber-100 text-amber-700 border-amber-200"
+                          : "bg-blue-100 text-blue-700 border-blue-200";
+                        const semLabel = entry.semester === "SEGUNDO" ? "2do" : entry.semester === "ANUAL" ? "Anual" : "1er";
                         return (
-                          <React.Fragment key={entry.classCode}>
+                          <React.Fragment key={rowKey}>
                           <tr className={`hover:bg-muted/30 transition-colors ${isDeleting ? "opacity-40" : ""} ${isEditing ? "bg-primary/5" : ""}`}>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border ${badge}`}>
-                                {entry.course}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold border ${badge}`}>
+                                  {entry.course}
+                                </span>
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${semBadge}`}>
+                                  {semLabel}
+                                </span>
+                              </div>
                               <div className="text-xs text-muted-foreground mt-0.5 font-mono">{entry.classCode}</div>
                             </td>
                             <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">
