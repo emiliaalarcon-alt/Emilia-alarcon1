@@ -804,15 +804,24 @@ export default function HorarioPage() {
     setNotifsEnabledBySede(prev => ({ ...prev, [activeSede]: newVal }));
   }
 
-  // Reset completo solo cuando el usuario cambia de campus (horarioId).
-  // NO incluir horario.sedes: cuando el contexto recarga datos desde la API
-  // crea un nuevo array aunque el contenido sea igual, disparando este efecto
-  // y vaciando el horario innecesariamente.
+  // Ref para saber si estamos en la carga inicial de un campus.
+  // true = estamos esperando el primer fetch tras cambio de campus (o mount).
+  // fetchData lo pone en false al recibir datos.
+  const isInitialLoad = useRef(true);
+
+  // Reset cuando el usuario cambia de campus (horarioId).
+  // NO llamamos setAllData([]) aquí: si algo cambia horarioId de forma
+  // inesperada, no queremos que el horario se vacíe. El cambio de activeSede
+  // hace que sedeData quede vacío (datos del campus viejo no coinciden con
+  // la sede nueva), y el spinner cubre los datos viejos hasta que fetchData
+  // devuelva los nuevos.
+  // NO incluir horario.sedes: el contexto puede crear un nuevo array con
+  // el mismo contenido al recargar, disparando este efecto innecesariamente.
   useEffect(() => {
     setActiveSede(horario.sedes[0]);
     setActiveTab("PRIMER");
     setSelectedEntry(null);
-    setAllData([]);
+    isInitialLoad.current = true;
     setLoading(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horarioId]);
@@ -941,11 +950,18 @@ export default function HorarioPage() {
       const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`));
       if (!res.ok) throw new Error("API error");
       const data: ClassEntry[] = await res.json();
-      setAllData(data);
+      // Protección anti-vaciado: durante el poll de 30s (isInitialLoad=false),
+      // si la API devuelve un array vacío por algún error transitorio (cold start
+      // de Railway, timeout, etc.), conservamos los datos que ya teníamos.
+      // Solo permitimos datos vacíos durante la carga inicial de un campus.
+      if (data.length > 0 || isInitialLoad.current) {
+        setAllData(data);
+      }
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to fetch schedule:", err);
     } finally {
+      isInitialLoad.current = false;
       setLoading(false);
     }
   }, [horarioId]);
@@ -954,8 +970,15 @@ export default function HorarioPage() {
     fetchData();
     // SSE para actualizaciones en tiempo real entre usuarios/sedes
     const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`));
-    es.onmessage = () => fetchData();
-    // Fallback poll cada 30s solo si SSE falla
+    es.onmessage = () => {
+      // Un mensaje SSE = cambio deliberado (importar, wipe, agregar alumno...).
+      // Permitimos que fetchData actualice aunque la respuesta sea vacía
+      // (p.ej. después de "Vaciar horario").
+      isInitialLoad.current = true;
+      fetchData();
+    };
+    // Poll de 30s como fallback si el SSE falla.
+    // isInitialLoad sigue siendo false aquí → respuestas vacías ignoradas.
     const interval = setInterval(fetchData, 30_000);
     return () => { es.close(); clearInterval(interval); };
   }, [fetchData, horarioId]);
@@ -1174,7 +1197,7 @@ export default function HorarioPage() {
           </div>
         </div>
 
-        {loading && allData.length === 0 ? (
+        {loading ? (
           <div className="flex items-center justify-center py-24 text-muted-foreground">
             <RefreshCw className="w-5 h-5 animate-spin mr-2" />
             Cargando horarios...
