@@ -1549,9 +1549,9 @@ export default function AdminPage() {
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-                {(search || filterHorario || filterSede || filterCourse || filterSemester) && (
+                {(search || filterSede || filterCourse || filterSemester) && (
                   <button
-                    onClick={() => { setSearch(""); setFilterHorario(""); setFilterSede(""); setFilterCourse(""); setFilterSemester(""); }}
+                    onClick={() => { setSearch(""); setFilterSede(""); setFilterCourse(""); setFilterSemester(""); }}
                     className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     title="Limpiar filtros"
                   >

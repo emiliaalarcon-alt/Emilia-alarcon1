@@ -885,15 +885,15 @@ const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as co
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
 // Processes ALL campuses from the same file in a single upload.
-// ALWAYS does a full DB wipe first so each upload is a clean slate.
+// Only wipes PRIMER classes so that manually-created SEGUNDO/ANUAL classes are preserved.
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    // ── WIPE EVERYTHING first ─────────────────────────────────────────────────
-    // Deletes ALL classes across ALL horarios and semesters in one shot.
-    // Students are removed automatically via ON DELETE CASCADE.
-    await db.delete(scheduleClassesTable);
+    // ── WIPE ONLY PRIMER classes ───────────────────────────────────────────────
+    // Preserves SEGUNDO and ANUAL classes that were created manually or via copy-semester.
+    // Students for PRIMER classes are removed automatically via ON DELETE CASCADE.
+    await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.semester, "PRIMER"));
 
     // ── INSERT from Excel per campus ──────────────────────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
