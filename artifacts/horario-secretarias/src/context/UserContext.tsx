@@ -3,7 +3,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 export interface CurrentUser {
   id: number | null;
   name: string;
-  role: "secretaria" | "admin" | "invitado";
+  role: "secretaria" | "admin" | "invitado" | "orientadora";
   horarioId: string;
   color: string;
 }

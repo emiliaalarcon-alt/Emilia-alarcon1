@@ -10,7 +10,7 @@ export interface NavItem {
 const LS_KEY = "nav_config_v1";
 
 // All possible nav links with their defaults (add new pages here)
-export const NAV_DEFAULTS: Omit<NavItem, "visible">[] & { visible: boolean }[] = [
+export const NAV_DEFAULTS: NavItem[] = [
   { href: "/",           label: "Inicio",       visible: true  },
   { href: "/horarios",   label: "Horarios",     visible: true  },
   { href: "/tareas",     label: "Tareas",       visible: true  },
