@@ -804,56 +804,63 @@ router.delete("/schedule/wipe", async (_req, res) => {
 });
 
 // POST /api/schedule/copy-semester?horario=TEMUCO
-// Idempotent: deletes all existing SEGUNDO classes for this horario, then recreates
-// them from PRIMER. INT and M2 courses are copied with empty student lists.
-// Other courses keep their student lists from PRIMER.
+// Idempotent: deletes all SEGUNDO classes for this horario, then recreates only:
+//   - ANUAL classes → copied as SEGUNDO WITH their students
+//   - PRIMER INT and M2 courses → copied as SEGUNDO WITHOUT students (fresh enrollment)
+// All other PRIMER classes are intentionally NOT copied.
 router.post("/schedule/copy-semester", async (req, res) => {
   try {
     const { horario } = req.query;
     const horarioVal = (typeof horario === "string" && horario) ? horario.toUpperCase() : "TEMUCO";
 
-    // Fetch PRIMER and ANUAL classes for this horario (both are copied to SEGUNDO)
-    const sourceClasses = await db.select().from(scheduleClassesTable)
+    // ── 1. ANUAL classes (carry students to SEGUNDO) ───────────────────────
+    const anualClasses = await db.select().from(scheduleClassesTable)
       .where(and(
         eq(scheduleClassesTable.horario, horarioVal),
-        inArray(scheduleClassesTable.semester, ["PRIMER", "ANUAL"])
+        eq(scheduleClassesTable.semester, "ANUAL")
       ));
 
-    if (!sourceClasses.length) {
-      return res.json({ ok: true, created: 0, message: "No hay clases de 1er semestre para copiar" });
+    const anualCodes = anualClasses.map(c => c.classCode);
+    const anualStudents = anualCodes.length > 0
+      ? await db.select().from(scheduleStudentsTable)
+          .where(and(
+            inArray(scheduleStudentsTable.classCode, anualCodes),
+            eq(scheduleStudentsTable.classSemester, "ANUAL")
+          ))
+      : [];
+
+    const anualStudentsByCode: Record<string, string[]> = {};
+    for (const s of anualStudents) {
+      if (!anualStudentsByCode[s.classCode]) anualStudentsByCode[s.classCode] = [];
+      anualStudentsByCode[s.classCode].push(s.studentName);
     }
 
-    // Get ONLY PRIMER students (filter by classSemester='PRIMER' to avoid picking up
-    // stale SEGUNDO rows from a previous copy, which would cause duplication)
-    const sourceCodes = sourceClasses.map(c => c.classCode);
-    const primerStudents = await db.select().from(scheduleStudentsTable)
+    // ── 2. PRIMER INT and M2 classes (copied WITHOUT students) ────────────
+    const allPrimer = await db.select().from(scheduleClassesTable)
       .where(and(
-        inArray(scheduleStudentsTable.classCode, sourceCodes),
-        eq(scheduleStudentsTable.classSemester, "PRIMER")
+        eq(scheduleClassesTable.horario, horarioVal),
+        eq(scheduleClassesTable.semester, "PRIMER")
       ));
+    const intM2Classes = allPrimer.filter(c =>
+      /\bINT\b/i.test(c.course) || /\bM2\b/i.test(c.course)
+    );
 
-    const studentsByCode: Record<string, string[]> = {};
-    for (const s of primerStudents) {
-      if (!studentsByCode[s.classCode]) studentsByCode[s.classCode] = [];
-      studentsByCode[s.classCode].push(s.studentName);
+    if (!anualClasses.length && !intM2Classes.length) {
+      return res.json({ ok: true, created: 0, message: "No hay clases anuales ni intensivos para copiar" });
     }
 
-    // Delete all existing SEGUNDO classes for this horario (students cascade-delete)
+    // ── 3. Wipe existing SEGUNDO classes for this horario ─────────────────
     await db.delete(scheduleClassesTable)
       .where(and(
         eq(scheduleClassesTable.horario, horarioVal),
         eq(scheduleClassesTable.semester, "SEGUNDO")
       ));
 
-    // Create fresh SEGUNDO classes. Copy students only for regular courses.
-    // ANUAL, INT, and M2 courses are copied without students (empty list for enrollment).
+    // ── 4. Create SEGUNDO rows ─────────────────────────────────────────────
     let created = 0;
-    for (const cls of sourceClasses) {
-      const noStudents =
-        cls.semester === "ANUAL" ||
-        /\bINT\b/i.test(cls.course) ||
-        /\bM2\b/i.test(cls.course);
 
+    // ANUAL → SEGUNDO with students
+    for (const cls of anualClasses) {
       await db.insert(scheduleClassesTable).values({
         classCode: cls.classCode,
         horario: cls.horario,
@@ -865,19 +872,31 @@ router.post("/schedule/copy-semester", async (req, res) => {
         course: cls.course,
         semester: "SEGUNDO",
       });
-
-      if (!noStudents) {
-        const students = studentsByCode[cls.classCode] ?? [];
-        if (students.length > 0) {
-          await db.insert(scheduleStudentsTable)
-            .values(students.map(name => ({
-              classCode: cls.classCode,
-              classSemester: "SEGUNDO",
-              studentName: name,
-            })));
-        }
+      const students = anualStudentsByCode[cls.classCode] ?? [];
+      if (students.length > 0) {
+        await db.insert(scheduleStudentsTable)
+          .values(students.map(name => ({
+            classCode: cls.classCode,
+            classSemester: "SEGUNDO" as const,
+            studentName: name,
+          })));
       }
+      created++;
+    }
 
+    // INT / M2 → SEGUNDO without students
+    for (const cls of intM2Classes) {
+      await db.insert(scheduleClassesTable).values({
+        classCode: cls.classCode,
+        horario: cls.horario,
+        day: cls.day,
+        time: cls.time,
+        sede: cls.sede,
+        sala: cls.sala,
+        teacher: cls.teacher,
+        course: cls.course,
+        semester: "SEGUNDO",
+      });
       created++;
     }
 
@@ -892,41 +911,26 @@ router.post("/schedule/copy-semester", async (req, res) => {
 const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as const;
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
-// Processes ALL campuses from the same file in a single upload.
-// Accepts body field "semester" ("PRIMER" | "SEGUNDO", default "PRIMER").
-// ONLY wipes and recreates classes for the target semester — the other semester is untouched.
+// The Excel is the single source of truth. On every import:
+//   1. ALL classes and students (every horario, every semester) are wiped.
+//   2. Fresh data from the Excel is inserted as PRIMER semester.
+// Use "Copiar 1er → 2do" afterwards to build the 2nd-semester view.
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    const rawSem = typeof req.body?.semester === "string" ? req.body.semester.toUpperCase() : "PRIMER";
-    const semester: "PRIMER" | "SEGUNDO" = rawSem === "SEGUNDO" ? "SEGUNDO" : "PRIMER";
+    // ── Full wipe — same as DELETE /api/schedule/wipe ─────────────────────────
+    await db.delete(scheduleStudentsTable);
+    await db.delete(scheduleClassesTable);
 
-    // ── Wipe ONLY the target semester (keep the other intact) ─────────────────
-    // Delete students first (FK may not cascade reliably across all envs)
-    const targetClasses = await db
-      .select({ classCode: scheduleClassesTable.classCode })
-      .from(scheduleClassesTable)
-      .where(eq(scheduleClassesTable.semester, semester));
-    if (targetClasses.length > 0) {
-      const codes = targetClasses.map(c => c.classCode);
-      await db.delete(scheduleStudentsTable)
-        .where(and(
-          inArray(scheduleStudentsTable.classCode, codes),
-          eq(scheduleStudentsTable.classSemester, semester),
-        ));
-    }
-    await db.delete(scheduleClassesTable)
-      .where(eq(scheduleClassesTable.semester, semester));
-
-    // ── Import from Excel per campus ──────────────────────────────────────────
+    // ── Import from Excel per campus as PRIMER ────────────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
     const allParseErrors: string[] = [];
     const perCampus: Record<string, { students: number; created: number; updated: number }> = {};
 
     for (const horarioId of ALL_HORARIO_IDS) {
       const { byCode, totalStudents: ts } = importExcelBuffer(req.file.buffer, horarioId);
-      const result = await upsertFromParsed(byCode, horarioId, semester);
+      const result = await upsertFromParsed(byCode, horarioId, "PRIMER");
       totalCreated  += result.created;
       totalSkipped  += result.skipped;
       totalStudents += ts;
@@ -937,7 +941,7 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
 
     res.json({
       ok: true,
-      semester,
+      semester: "PRIMER",
       created: totalCreated,
       updated: 0,
       skipped: totalSkipped,
