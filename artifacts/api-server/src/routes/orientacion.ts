@@ -318,20 +318,33 @@ router.post("/orientacion/citas", async (req, res) => {
 router.patch("/orientacion/citas/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { estadoConfirma, estadoAsiste, nombreEstudiante, motivo, notaRapida } = req.body as {
+    const { estadoConfirma, estadoAsiste, nombreEstudiante, motivo, notaRapida, dadoDeAlta } = req.body as {
       estadoConfirma?: string; estadoAsiste?: string;
       nombreEstudiante?: string; motivo?: string; notaRapida?: string | null;
+      dadoDeAlta?: boolean;
     };
-    const updates: Partial<typeof citasOrientacionTable.$inferInsert> = {};
-    if (estadoConfirma !== undefined) updates.estadoConfirma = estadoConfirma;
-    if (estadoAsiste !== undefined) updates.estadoAsiste = estadoAsiste;
-    if (nombreEstudiante !== undefined) updates.nombreEstudiante = nombreEstudiante.trim();
-    if (motivo !== undefined) updates.motivo = motivo.trim() || null;
-    if (notaRapida !== undefined) updates.notaRapida = notaRapida?.trim() || null;
-    const [row] = await db.update(citasOrientacionTable).set(updates)
-      .where(eq(citasOrientacionTable.id, id)).returning();
-    if (!row) return res.status(404).json({ error: "Cita no encontrada" });
-    res.json(row);
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (estadoConfirma !== undefined) { params.push(estadoConfirma); sets.push(`estado_confirma=$${params.length}`); }
+    if (estadoAsiste   !== undefined) { params.push(estadoAsiste);   sets.push(`estado_asiste=$${params.length}`); }
+    if (nombreEstudiante !== undefined) { params.push(nombreEstudiante.trim()); sets.push(`nombre_estudiante=$${params.length}`); }
+    if (motivo !== undefined) { params.push(motivo?.trim() || null); sets.push(`motivo=$${params.length}`); }
+    if (notaRapida !== undefined) { params.push(notaRapida?.trim() || null); sets.push(`nota_rapida=$${params.length}`); }
+    if (dadoDeAlta !== undefined) { params.push(dadoDeAlta); sets.push(`dado_de_alta=$${params.length}`); }
+    if (!sets.length) return res.status(400).json({ error: "Nada que actualizar" });
+    params.push(id);
+    const { rows } = await pool.query(
+      `UPDATE citas_orientacion SET ${sets.join(",")} WHERE id=$${params.length} RETURNING *`,
+      params
+    );
+    if (!rows.length) return res.status(404).json({ error: "Cita no encontrada" });
+    const r = rows[0];
+    res.json({
+      id: r.id, orientadoraId: r.orientadora_id, nombreEstudiante: r.nombre_estudiante,
+      agendadoPor: r.agendado_por, fecha: r.fecha, horaInicio: r.hora_inicio,
+      motivo: r.motivo, estadoConfirma: r.estado_confirma, estadoAsiste: r.estado_asiste,
+      notaRapida: r.nota_rapida, dadoDeAlta: r.dado_de_alta, creadaEn: r.creada_en,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al actualizar cita" });
@@ -383,6 +396,7 @@ router.get("/orientacion/citas/all", async (req, res) => {
       estadoConfirma: r.estado_confirma,
       estadoAsiste: r.estado_asiste,
       notaRapida: r.nota_rapida,
+      dadoDeAlta: r.dado_de_alta,
       creadaEn: r.creada_en,
     }));
     res.json(mapped);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Settings,
-  User, CalendarDays, Clock, BarChart2,
+  User, CalendarDays, Clock, BarChart2, UserCheck,
 } from "lucide-react";
 import OrientacionStats from "@/pages/OrientacionStats";
 import { apiUrl } from "@/lib/api";
@@ -24,7 +24,7 @@ interface Cita {
   id: number; orientadoraId: number; nombreEstudiante: string;
   agendadoPor: string; fecha: string; horaInicio: string;
   motivo: string | null; estadoConfirma: string; estadoAsiste: string;
-  notaRapida: string | null;
+  notaRapida: string | null; dadoDeAlta: boolean;
 }
 interface Slot {
   fecha: string; horaInicio: string;
@@ -611,7 +611,7 @@ function AppointmentCell({
   canBook: boolean; canManage: boolean;
   estadosConfirma: EstadoDB[]; estadosAsiste: EstadoDB[];
   onBook: () => void;
-  onUpdateCita: (id: number, patch: Record<string, string | null>) => void;
+  onUpdateCita: (id: number, patch: Record<string, string | null | boolean>) => void;
   onDeleteCita: (id: number) => void;
 }) {
   const EMPTY_H = "h-[72px]";
@@ -702,6 +702,22 @@ function AppointmentCell({
           {cita.notaRapida}
         </span>
       ) : null}
+
+      {/* Dado de alta — solo orientadora/admin */}
+      {canManage && (
+        <button
+          onClick={() => onUpdateCita(cita.id, { dadoDeAlta: !cita.dadoDeAlta } as Record<string, string | null | boolean>)}
+          className={`flex items-center gap-1 text-[10px] font-semibold rounded-full px-1.5 py-0.5 mt-0.5 transition-colors w-full justify-center ${
+            cita.dadoDeAlta
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-muted/40 text-muted-foreground/50 hover:bg-muted hover:text-muted-foreground"
+          }`}
+          title={cita.dadoDeAlta ? "Marcar como activo" : "Dar de alta"}
+        >
+          <UserCheck className="w-2.5 h-2.5 shrink-0" />
+          {cita.dadoDeAlta ? "Alta" : "Dar de alta"}
+        </button>
+      )}
     </div>
   );
 }
@@ -720,7 +736,7 @@ function DaySection({
   canBook: boolean; canManage: boolean;
   estadosConfirma: EstadoDB[]; estadosAsiste: EstadoDB[];
   onBook: (fecha: string, hora: string) => void;
-  onUpdateCita: (id: number, patch: Record<string, string | null>) => void;
+  onUpdateCita: (id: number, patch: Record<string, string | null | boolean>) => void;
   onDeleteCita: (id: number) => void;
 }) {
   if (dates.length === 0) return null;
@@ -949,7 +965,7 @@ export default function OrientacionPage() {
     await loadSlots();
   }
 
-  async function handleUpdateCita(id: number, patch: Record<string, string | null>) {
+  async function handleUpdateCita(id: number, patch: Record<string, string | null | boolean>) {
     setSlots(prev => prev.map(s =>
       s.cita?.id === id ? { ...s, cita: { ...s.cita!, ...patch } } : s
     ));

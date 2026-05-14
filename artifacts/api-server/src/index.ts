@@ -196,6 +196,10 @@ async function ensureTables() {
     await client.query(`
       ALTER TABLE citas_orientacion ADD COLUMN IF NOT EXISTS nota_rapida TEXT
     `);
+    // ── dado_de_alta en citas ─────────────────────────────────────────────
+    await client.query(`
+      ALTER TABLE citas_orientacion ADD COLUMN IF NOT EXISTS dado_de_alta BOOLEAN NOT NULL DEFAULT FALSE
+    `);
     // ── Estados configurables de citas ───────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS orientacion_estados (
