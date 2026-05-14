@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from "react";
 import { type HorarioId, type HorarioConfig, HORARIOS } from "@/data/schedule";
 import { apiUrl } from "@/lib/api";
 
@@ -72,7 +72,12 @@ export function HorarioProvider({ children }: { children: ReactNode }) {
 
   const [horarioId, setHorarioIdState] = useState<HorarioId>(getInitialHorario);
 
-  const horario = horariosMap[horarioId] ?? horariosMap["TEMUCO"] ?? Object.values(horariosMap)[0];
+  // Memoizado para que no cambie de referencia en cada render — evita que
+  // efectos que dependen de horario.sedes se disparen innecesariamente.
+  const horario = useMemo(
+    () => horariosMap[horarioId] ?? horariosMap["TEMUCO"] ?? Object.values(horariosMap)[0],
+    [horariosMap, horarioId]
+  );
 
   async function reloadHorarios() {
     try {

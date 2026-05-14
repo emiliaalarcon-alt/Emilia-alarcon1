@@ -804,13 +804,18 @@ export default function HorarioPage() {
     setNotifsEnabledBySede(prev => ({ ...prev, [activeSede]: newVal }));
   }
 
+  // Reset completo solo cuando el usuario cambia de campus (horarioId).
+  // NO incluir horario.sedes: cuando el contexto recarga datos desde la API
+  // crea un nuevo array aunque el contenido sea igual, disparando este efecto
+  // y vaciando el horario innecesariamente.
   useEffect(() => {
     setActiveSede(horario.sedes[0]);
     setActiveTab("PRIMER");
     setSelectedEntry(null);
     setAllData([]);
     setLoading(true);
-  }, [horarioId, horario.sedes]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [horarioId]);
 
   // ── Suscripción SSE a notificaciones por sede ───────────────────────────────
   useEffect(() => {
