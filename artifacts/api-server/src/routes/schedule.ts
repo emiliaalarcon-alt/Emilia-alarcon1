@@ -890,10 +890,11 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    // ── WIPE ONLY PRIMER classes ───────────────────────────────────────────────
-    // Preserves SEGUNDO and ANUAL classes that were created manually or via copy-semester.
-    // Students for PRIMER classes are removed automatically via ON DELETE CASCADE.
-    await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.semester, "PRIMER"));
+    // ── WIPE PRIMER and ANUAL classes ─────────────────────────────────────────
+    // These come from the Excel so they must be refreshed on every import.
+    // SEGUNDO classes are preserved — they were created manually or via copy-semester.
+    // Students cascade-delete automatically via ON DELETE CASCADE.
+    await db.delete(scheduleClassesTable).where(inArray(scheduleClassesTable.semester, ["PRIMER", "ANUAL"]));
 
     // ── INSERT from Excel per campus ──────────────────────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
