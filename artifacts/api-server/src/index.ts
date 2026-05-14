@@ -109,29 +109,50 @@ async function ensureTables() {
     `);
     await client.query(`
       DO $$ BEGIN
-        IF EXISTS (
+        IF NOT EXISTS (
           SELECT 1 FROM pg_constraint
-          WHERE conname = 'schedule_classes_pkey'
-            AND conrelid = 'schedule_classes'::regclass
-        ) AND NOT EXISTS (
-          SELECT 1 FROM pg_constraint
-          WHERE conname = 'schedule_classes_class_code_semester_pk'
+          WHERE conname = 'schedule_classes_v3_pk'
             AND conrelid = 'schedule_classes'::regclass
         ) THEN
-          ALTER TABLE schedule_classes DROP CONSTRAINT schedule_classes_pkey;
-          ALTER TABLE schedule_classes ADD CONSTRAINT schedule_classes_class_code_semester_pk PRIMARY KEY (class_code, semester);
+          IF EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'schedule_classes_class_code_semester_pk'
+              AND conrelid = 'schedule_classes'::regclass
+          ) THEN
+            ALTER TABLE schedule_classes DROP CONSTRAINT schedule_classes_class_code_semester_pk;
+          END IF;
+          IF EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'schedule_classes_pkey'
+              AND conrelid = 'schedule_classes'::regclass
+          ) THEN
+            ALTER TABLE schedule_classes DROP CONSTRAINT schedule_classes_pkey;
+          END IF;
+          ALTER TABLE schedule_classes ADD CONSTRAINT schedule_classes_v3_pk PRIMARY KEY (class_code, semester, horario);
         END IF;
       END $$;
     `);
     await client.query(`
+      ALTER TABLE schedule_students ADD COLUMN IF NOT EXISTS class_horario TEXT NOT NULL DEFAULT 'TEMUCO'
+    `);
+    await client.query(`
+      UPDATE schedule_students ss
+      SET class_horario = sc.horario
+      FROM schedule_classes sc
+      WHERE ss.class_code = sc.class_code
+        AND ss.class_semester = sc.semester
+        AND ss.class_horario = 'TEMUCO'
+        AND sc.horario != 'TEMUCO'
+    `);
+    await client.query(`
       DO $$ BEGIN
         IF NOT EXISTS (
-          SELECT 1 FROM pg_constraint WHERE conname = 'schedule_students_class_fk'
+          SELECT 1 FROM pg_constraint WHERE conname = 'schedule_students_class_fk_v3'
         ) THEN
           ALTER TABLE schedule_students
-            ADD CONSTRAINT schedule_students_class_fk
-            FOREIGN KEY (class_code, class_semester)
-            REFERENCES schedule_classes(class_code, semester) ON DELETE CASCADE;
+            ADD CONSTRAINT schedule_students_class_fk_v3
+            FOREIGN KEY (class_code, class_semester, class_horario)
+            REFERENCES schedule_classes(class_code, semester, horario) ON DELETE CASCADE;
         END IF;
       END $$;
     `);

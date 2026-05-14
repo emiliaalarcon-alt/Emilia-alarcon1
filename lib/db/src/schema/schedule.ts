@@ -12,19 +12,20 @@ export const scheduleClassesTable = pgTable("schedule_classes", {
   semester: text("semester").notNull().default("PRIMER"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
-  pk: primaryKey({ columns: [table.classCode, table.semester] }),
+  pk: primaryKey({ columns: [table.classCode, table.semester, table.horario] }),
 }));
 
 export const scheduleStudentsTable = pgTable("schedule_students", {
   id: serial("id").primaryKey(),
   classCode: text("class_code").notNull(),
   classSemester: text("class_semester").notNull().default("PRIMER"),
+  classHorario: text("class_horario").notNull().default("TEMUCO"),
   studentName: text("student_name").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   classFk: foreignKey({
-    columns: [table.classCode, table.classSemester],
-    foreignColumns: [scheduleClassesTable.classCode, scheduleClassesTable.semester],
+    columns: [table.classCode, table.classSemester, table.classHorario],
+    foreignColumns: [scheduleClassesTable.classCode, scheduleClassesTable.semester, scheduleClassesTable.horario],
   }).onDelete("cascade"),
 }));
 

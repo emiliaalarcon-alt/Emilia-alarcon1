@@ -84,10 +84,10 @@ async function apiCreateClass(data: {
   return res.json();
 }
 
-async function apiUpdateClass(classCode: string, semester: string, data: {
+async function apiUpdateClass(classCode: string, semester: string, horario: string, data: {
   course?: string; day?: string; time?: string; teacher?: string; sede?: string; sala?: number;
 }) {
-  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}?semester=${encodeURIComponent(semester)}`), {
+  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}?semester=${encodeURIComponent(semester)}&horario=${encodeURIComponent(horario)}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -95,8 +95,8 @@ async function apiUpdateClass(classCode: string, semester: string, data: {
   return res.json();
 }
 
-async function apiDeleteClass(classCode: string, semester: string) {
-  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}?semester=${encodeURIComponent(semester)}`), {
+async function apiDeleteClass(classCode: string, semester: string, horario: string) {
+  const res = await fetch(apiUrl(`/api/schedule/classes/${encodeURIComponent(classCode)}?semester=${encodeURIComponent(semester)}&horario=${encodeURIComponent(horario)}`), {
     method: "DELETE",
   });
   return res.json();
@@ -274,6 +274,7 @@ export default function AdminPage() {
 
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [editingSemester, setEditingSemester] = useState<string>("PRIMER");
+  const [editingHorario, setEditingHorario] = useState<string>("TEMUCO");
   const [editForm, setEditForm] = useState({ ...emptyForm, sede: "" });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState("");
@@ -566,12 +567,12 @@ export default function AdminPage() {
     }
   }
 
-  async function handleDelete(classCode: string, semester: string) {
+  async function handleDelete(classCode: string, semester: string, horario: string) {
     setDeletingCode(classCode);
     try {
-      await apiDeleteClass(classCode, semester);
+      await apiDeleteClass(classCode, semester, horario);
       // Optimistic update — remove locally without full refetch
-      setAllData(prev => prev.filter(e => !(e.classCode === classCode && e.semester === semester)));
+      setAllData(prev => prev.filter(e => !(e.classCode === classCode && e.semester === semester && e.horario === horario)));
       setConfirmDeleteCode(null);
     } finally {
       setDeletingCode(null);
@@ -595,6 +596,7 @@ export default function AdminPage() {
     setEditError("");
     setEditingCode(entry.classCode);
     setEditingSemester(entry.semester ?? "PRIMER");
+    setEditingHorario(entry.horario ?? "TEMUCO");
   }
 
   async function handleSaveEdit() {
@@ -606,7 +608,7 @@ export default function AdminPage() {
     setSavingEdit(true);
     setEditError("");
     try {
-      const result = await apiUpdateClass(editingCode, editingSemester, {
+      const result = await apiUpdateClass(editingCode, editingSemester, editingHorario, {
         course: editForm.course,
         day: editForm.day,
         time: editForm.time,
@@ -1669,7 +1671,7 @@ export default function AdminPage() {
                                   <div className="flex items-center gap-1.5 bg-destructive/5 border border-destructive/20 rounded-xl px-2.5 py-1.5">
                                     <span className="text-[11px] font-semibold text-destructive whitespace-nowrap">¿Eliminar?</span>
                                     <button
-                                      onClick={() => { handleDelete(entry.classCode, entry.semester ?? "PRIMER"); setConfirmDeleteCode(null); }}
+                                      onClick={() => { handleDelete(entry.classCode, entry.semester ?? "PRIMER", entry.horario ?? "TEMUCO"); setConfirmDeleteCode(null); }}
                                       disabled={isDeleting}
                                       className="px-2 py-0.5 text-[11px] font-bold bg-destructive text-white rounded-lg hover:bg-destructive/80 transition-colors disabled:opacity-60"
                                     >
