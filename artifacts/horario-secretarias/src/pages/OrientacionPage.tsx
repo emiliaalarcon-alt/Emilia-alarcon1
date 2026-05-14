@@ -452,12 +452,26 @@ function AdminModal({
   }, [horario]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-5 my-4">
-        <div className="flex items-center justify-between">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-xl my-4 overflow-hidden flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Encabezado fijo */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card sticky top-0 z-10">
           <h3 className="font-bold text-lg text-foreground">Configurar — {orientadora.nombre}</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Cerrar"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
+        <div className="p-6 space-y-5">
 
         {/* Tabs */}
         <div className="flex gap-1 bg-muted/60 rounded-xl p-1">
@@ -605,6 +619,7 @@ function AdminModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
