@@ -804,63 +804,56 @@ router.delete("/schedule/wipe", async (_req, res) => {
 });
 
 // POST /api/schedule/copy-semester?horario=TEMUCO
-// Idempotent: deletes all SEGUNDO classes for this horario, then recreates only:
-//   - ANUAL classes → copied as SEGUNDO WITH their students
-//   - PRIMER INT and M2 courses → copied as SEGUNDO WITHOUT students (fresh enrollment)
-// All other PRIMER classes are intentionally NOT copied.
+// Idempotent: deletes all SEGUNDO classes for this horario, then recreates them
+// from ALL PRIMER + ANUAL classes.
+//   - INT and M2 courses → copied WITHOUT students (fresh enrollment for 2nd semester)
+//   - All other courses  → copied WITH their students
 router.post("/schedule/copy-semester", async (req, res) => {
   try {
     const { horario } = req.query;
     const horarioVal = (typeof horario === "string" && horario) ? horario.toUpperCase() : "TEMUCO";
 
-    // ── 1. ANUAL classes (carry students to SEGUNDO) ───────────────────────
-    const anualClasses = await db.select().from(scheduleClassesTable)
+    // Fetch ALL PRIMER + ANUAL classes for this horario
+    const sourceClasses = await db.select().from(scheduleClassesTable)
       .where(and(
         eq(scheduleClassesTable.horario, horarioVal),
-        eq(scheduleClassesTable.semester, "ANUAL")
+        inArray(scheduleClassesTable.semester, ["PRIMER", "ANUAL"])
       ));
 
-    const anualCodes = anualClasses.map(c => c.classCode);
-    const anualStudents = anualCodes.length > 0
-      ? await db.select().from(scheduleStudentsTable)
-          .where(and(
-            inArray(scheduleStudentsTable.classCode, anualCodes),
-            eq(scheduleStudentsTable.classSemester, "ANUAL")
-          ))
-      : [];
-
-    const anualStudentsByCode: Record<string, string[]> = {};
-    for (const s of anualStudents) {
-      if (!anualStudentsByCode[s.classCode]) anualStudentsByCode[s.classCode] = [];
-      anualStudentsByCode[s.classCode].push(s.studentName);
+    if (!sourceClasses.length) {
+      return res.json({ ok: true, created: 0, message: "No hay clases de 1er semestre para copiar" });
     }
 
-    // ── 2. PRIMER INT and M2 classes (copied WITHOUT students) ────────────
-    const allPrimer = await db.select().from(scheduleClassesTable)
+    // Get students for PRIMER classes (ANUAL students have classSemester='ANUAL')
+    const sourceCodes = sourceClasses.map(c => c.classCode);
+    const allSourceStudents = await db.select().from(scheduleStudentsTable)
       .where(and(
-        eq(scheduleClassesTable.horario, horarioVal),
-        eq(scheduleClassesTable.semester, "PRIMER")
+        inArray(scheduleStudentsTable.classCode, sourceCodes),
+        inArray(scheduleStudentsTable.classSemester, ["PRIMER", "ANUAL"])
       ));
-    const intM2Classes = allPrimer.filter(c =>
-      /\bINT\b/i.test(c.course) || /\bM2\b/i.test(c.course)
-    );
 
-    if (!anualClasses.length && !intM2Classes.length) {
-      return res.json({ ok: true, created: 0, message: "No hay clases anuales ni intensivos para copiar" });
+    const studentsByCode: Record<string, string[]> = {};
+    for (const s of allSourceStudents) {
+      if (!studentsByCode[s.classCode]) studentsByCode[s.classCode] = [];
+      studentsByCode[s.classCode].push(s.studentName);
     }
 
-    // ── 3. Wipe existing SEGUNDO classes for this horario ─────────────────
+    // Wipe all existing SEGUNDO classes for this horario (students cascade-delete)
     await db.delete(scheduleClassesTable)
       .where(and(
         eq(scheduleClassesTable.horario, horarioVal),
         eq(scheduleClassesTable.semester, "SEGUNDO")
       ));
 
-    // ── 4. Create SEGUNDO rows ─────────────────────────────────────────────
+    // Create fresh SEGUNDO classes.
+    // INT and M2 courses → no students (enrollment opens fresh in 2nd semester).
+    // All other courses  → carry their students over.
     let created = 0;
+    for (const cls of sourceClasses) {
+      const noStudents =
+        /\bINT\b/i.test(cls.course) ||
+        /\bM2\b/i.test(cls.course);
 
-    // ANUAL → SEGUNDO with students
-    for (const cls of anualClasses) {
       await db.insert(scheduleClassesTable).values({
         classCode: cls.classCode,
         horario: cls.horario,
@@ -872,31 +865,19 @@ router.post("/schedule/copy-semester", async (req, res) => {
         course: cls.course,
         semester: "SEGUNDO",
       });
-      const students = anualStudentsByCode[cls.classCode] ?? [];
-      if (students.length > 0) {
-        await db.insert(scheduleStudentsTable)
-          .values(students.map(name => ({
-            classCode: cls.classCode,
-            classSemester: "SEGUNDO" as const,
-            studentName: name,
-          })));
+
+      if (!noStudents) {
+        const students = studentsByCode[cls.classCode] ?? [];
+        if (students.length > 0) {
+          await db.insert(scheduleStudentsTable)
+            .values(students.map(name => ({
+              classCode: cls.classCode,
+              classSemester: "SEGUNDO" as const,
+              studentName: name,
+            })));
+        }
       }
-      created++;
-    }
 
-    // INT / M2 → SEGUNDO without students
-    for (const cls of intM2Classes) {
-      await db.insert(scheduleClassesTable).values({
-        classCode: cls.classCode,
-        horario: cls.horario,
-        day: cls.day,
-        time: cls.time,
-        sede: cls.sede,
-        sala: cls.sala,
-        teacher: cls.teacher,
-        course: cls.course,
-        semester: "SEGUNDO",
-      });
       created++;
     }
 

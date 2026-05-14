@@ -1264,7 +1264,7 @@ export default function AdminPage() {
             <div className="flex-1">
               <h2 className="font-display font-bold text-foreground text-sm">Copiar 1er Semestre → 2do Semestre</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Copia al 2do semestre solo los cursos <strong>anuales</strong> (con sus alumnos) y los cursos <strong>INT</strong> y <strong>M2</strong> (sin alumnos, para inscripción nueva).
+                Copia todos los cursos del 1er semestre al 2do. Los cursos <strong>INT</strong> y <strong>M2</strong> se copian sin alumnos (inscripción nueva); el resto conserva su lista.
                 {filterHorario ? ` Solo aplica al campus seleccionado (${horarioList.find(h => h.id === filterHorario)?.label ?? filterHorario}).` : " Aplica al campus activo."}
               </p>
             </div>
