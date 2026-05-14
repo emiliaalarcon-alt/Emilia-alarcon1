@@ -1011,6 +1011,7 @@ export default function AdminPage() {
                   >
                     <option value="secretaria">Secretaria</option>
                     <option value="admin">Administrador</option>
+                    <option value="orientadora">Orientadora</option>
                     <option value="invitado">Invitado</option>
                   </select>
                 </div>

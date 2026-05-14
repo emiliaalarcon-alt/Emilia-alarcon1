@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, UserCircle2, ShieldCheck, LogIn, Settings } from "lucide-react";
+import { Users, UserCircle2, ShieldCheck, LogIn, Settings, HeartHandshake } from "lucide-react";
 import { useCurrentUser, UserAvatar, USER_COLORS, type CurrentUser } from "@/context/UserContext";
 import { useHorario } from "@/context/HorarioContext";
 import { apiUrl } from "@/lib/api";
@@ -16,12 +16,14 @@ interface TeamMember {
 const ROLE_LABELS: Record<string, string> = {
   secretaria: "Secretaria",
   admin: "Administrador",
+  orientadora: "Orientadora",
   invitado: "Invitado",
 };
 
 const ROLE_ICONS: Record<string, React.ElementType> = {
   secretaria: UserCircle2,
   admin: ShieldCheck,
+  orientadora: HeartHandshake,
   invitado: LogIn,
 };
 
