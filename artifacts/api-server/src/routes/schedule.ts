@@ -243,9 +243,13 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
   return { byCode, totalStudents: matching.length };
 }
 
-async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: number | null; sede: string }>, horario = "TEMUCO") {
-  // The caller (import route) already wiped the entire schedule_classes table.
-  // This function only inserts fresh data from the Excel for the given horario.
+async function upsertFromParsed(
+  byCode: Map<string, { students: string[]; sala: number | null; sede: string }>,
+  horario = "TEMUCO",
+  semester: "PRIMER" | "SEGUNDO" = "PRIMER",
+) {
+  // The caller (import route) already wiped classes for this horario+semester.
+  // Insert fresh data from the Excel for the given horario and semester.
   let created = 0, skipped = 0;
   const parseErrors: string[] = [];
 
@@ -266,7 +270,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
         teacher: parsed.teacher,
         sede,
         sala: sala ?? 1,
-        semester: "PRIMER",
+        semester,
       });
     } catch {
       parseErrors.push(classCode);
@@ -275,7 +279,7 @@ async function upsertFromParsed(byCode: Map<string, { students: string[]; sala: 
     }
     if (students.length > 0) {
       await db.insert(scheduleStudentsTable)
-        .values(students.map(studentName => ({ classCode, classSemester: "PRIMER", studentName })));
+        .values(students.map(studentName => ({ classCode, classSemester: semester, studentName })));
     }
     created++;
   }
@@ -889,15 +893,31 @@ const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as co
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
 // Processes ALL campuses from the same file in a single upload.
-// Full wipe first so the Excel is always the authoritative source of truth.
+// Accepts body field "semester" ("PRIMER" | "SEGUNDO", default "PRIMER").
+// ONLY wipes and recreates classes for the target semester — the other semester is untouched.
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    // ── Full wipe: students first, then classes ───────────────────────────────
-    // Explicit student delete avoids issues if FK cascade is not fully active.
-    await db.delete(scheduleStudentsTable);
-    await db.delete(scheduleClassesTable);
+    const rawSem = typeof req.body?.semester === "string" ? req.body.semester.toUpperCase() : "PRIMER";
+    const semester: "PRIMER" | "SEGUNDO" = rawSem === "SEGUNDO" ? "SEGUNDO" : "PRIMER";
+
+    // ── Wipe ONLY the target semester (keep the other intact) ─────────────────
+    // Delete students first (FK may not cascade reliably across all envs)
+    const targetClasses = await db
+      .select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable)
+      .where(eq(scheduleClassesTable.semester, semester));
+    if (targetClasses.length > 0) {
+      const codes = targetClasses.map(c => c.classCode);
+      await db.delete(scheduleStudentsTable)
+        .where(and(
+          inArray(scheduleStudentsTable.classCode, codes),
+          eq(scheduleStudentsTable.classSemester, semester),
+        ));
+    }
+    await db.delete(scheduleClassesTable)
+      .where(eq(scheduleClassesTable.semester, semester));
 
     // ── Import from Excel per campus ──────────────────────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
@@ -906,7 +926,7 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
 
     for (const horarioId of ALL_HORARIO_IDS) {
       const { byCode, totalStudents: ts } = importExcelBuffer(req.file.buffer, horarioId);
-      const result = await upsertFromParsed(byCode, horarioId);
+      const result = await upsertFromParsed(byCode, horarioId, semester);
       totalCreated  += result.created;
       totalSkipped  += result.skipped;
       totalStudents += ts;
@@ -917,6 +937,7 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
 
     res.json({
       ok: true,
+      semester,
       created: totalCreated,
       updated: 0,
       skipped: totalSkipped,
@@ -927,6 +948,90 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error al procesar el archivo" });
+  }
+});
+
+// POST /api/schedule/copy-primer — copies SEGUNDO students → PRIMER
+// Use this when students were accidentally imported into SEGUNDO but should be in PRIMER.
+router.post("/schedule/copy-primer", async (req, res) => {
+  try {
+    const { horario } = req.query;
+    const horarioVal = (typeof horario === "string" && horario) ? horario.toUpperCase() : "TEMUCO";
+
+    // Fetch SEGUNDO classes for this horario as source
+    const sourceClasses = await db.select().from(scheduleClassesTable)
+      .where(and(
+        eq(scheduleClassesTable.horario, horarioVal),
+        eq(scheduleClassesTable.semester, "SEGUNDO"),
+      ));
+
+    if (!sourceClasses.length) {
+      return res.json({ ok: true, created: 0, message: "No hay clases de 2do semestre para copiar" });
+    }
+
+    // Get SEGUNDO students
+    const sourceCodes = sourceClasses.map(c => c.classCode);
+    const segundoStudents = await db.select().from(scheduleStudentsTable)
+      .where(and(
+        inArray(scheduleStudentsTable.classCode, sourceCodes),
+        eq(scheduleStudentsTable.classSemester, "SEGUNDO"),
+      ));
+
+    const studentsByCode: Record<string, string[]> = {};
+    for (const s of segundoStudents) {
+      if (!studentsByCode[s.classCode]) studentsByCode[s.classCode] = [];
+      studentsByCode[s.classCode].push(s.studentName);
+    }
+
+    // Ensure PRIMER classes exist for each SEGUNDO class (create if missing)
+    const existingPrimer = await db.select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable)
+      .where(and(
+        eq(scheduleClassesTable.horario, horarioVal),
+        eq(scheduleClassesTable.semester, "PRIMER"),
+      ));
+    const existingPrimerCodes = new Set(existingPrimer.map(c => c.classCode));
+
+    for (const cls of sourceClasses) {
+      if (!existingPrimerCodes.has(cls.classCode)) {
+        try {
+          await db.insert(scheduleClassesTable).values({
+            classCode: cls.classCode,
+            horario: cls.horario,
+            day: cls.day,
+            time: cls.time,
+            sede: cls.sede,
+            sala: cls.sala,
+            teacher: cls.teacher,
+            course: cls.course,
+            semester: "PRIMER",
+          });
+        } catch { /* class already exists, skip */ }
+      }
+    }
+
+    // Delete existing PRIMER students for these class codes, then replace
+    await db.delete(scheduleStudentsTable)
+      .where(and(
+        inArray(scheduleStudentsTable.classCode, sourceCodes),
+        eq(scheduleStudentsTable.classSemester, "PRIMER"),
+      ));
+
+    // Insert SEGUNDO students as PRIMER students
+    let copied = 0;
+    for (const [classCode, students] of Object.entries(studentsByCode)) {
+      if (students.length > 0) {
+        await db.insert(scheduleStudentsTable)
+          .values(students.map(name => ({ classCode, classSemester: "PRIMER" as const, studentName: name })));
+        copied += students.length;
+      }
+    }
+
+    broadcastScheduleChange(horarioVal);
+    res.json({ ok: true, copied });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

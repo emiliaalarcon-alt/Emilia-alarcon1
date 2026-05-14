@@ -307,6 +307,26 @@ export default function AdminPage() {
   const [copyResult, setCopyResult] = useState<{ created: number } | null>(null);
   const [copyError, setCopyError] = useState("");
   const [confirmCopy, setConfirmCopy] = useState(false);
+  const [importSemester, setImportSemester] = useState<"PRIMER" | "SEGUNDO">("PRIMER");
+  const [syncingPrimer, setSyncingPrimer] = useState(false);
+  const [syncPrimerResult, setSyncPrimerResult] = useState<{ copied: number } | null>(null);
+  const [syncPrimerError, setSyncPrimerError] = useState("");
+  const [confirmSyncPrimer, setConfirmSyncPrimer] = useState(false);
+
+  async function handleSyncPrimer() {
+    setConfirmSyncPrimer(false);
+    setSyncingPrimer(true);
+    setSyncPrimerResult(null);
+    setSyncPrimerError("");
+    try {
+      const target = filterHorario || horarioId;
+      const res = await fetch(apiUrl(`/api/schedule/copy-primer?horario=${target}`), { method: "POST" });
+      const json = await res.json();
+      if (json.error) { setSyncPrimerError(json.error || "Error desconocido"); }
+      else { setSyncPrimerResult({ copied: json.copied }); fetchData(); }
+    } catch { setSyncPrimerError("Error de conexión."); }
+    finally { setSyncingPrimer(false); }
+  }
 
   async function handleCopySemester() {
     setConfirmCopy(false);
@@ -680,6 +700,7 @@ export default function AdminPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("semester", importSemester);
       const res = await fetch(apiUrl("/api/schedule/import"), { method: "POST", body: formData });
       const json = await res.json();
       if (json.error) {
@@ -1117,7 +1138,23 @@ export default function AdminPage() {
                   Sube el exportado del sistema y se cargan automáticamente Temuco, D. Almagro, Villarrica y Av. Alemania.
                 </p>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                {/* Semester selector */}
+                <div className="flex items-center gap-1 border border-border rounded-xl overflow-hidden bg-background">
+                  {([["PRIMER", "1er Sem."], ["SEGUNDO", "2do Sem."]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setImportSemester(val)}
+                      className={`px-3 py-2 text-xs font-semibold transition-colors border-r border-border last:border-r-0 ${
+                        importSemester === val
+                          ? "bg-emerald-600 text-white"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1314,6 +1351,69 @@ export default function AdminPage() {
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                 <span className="text-sm text-red-700">{copyError}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Copiar 2do → 1er Semestre (sync inverso) ─────────────────── */}
+        <div className="mb-6 bg-card border border-border/50 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <RefreshCw className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-display font-bold text-foreground text-sm">Copiar 2do Semestre → 1er Semestre</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Copia los alumnos del 2do semestre al 1er semestre para el campus seleccionado.
+                Úsalo si el Excel fue importado en 2do pero necesitas ver los datos en 1er semestre.
+                {filterHorario ? ` Aplica al campus: ${horarioList.find(h => h.id === filterHorario)?.label ?? filterHorario}.` : " Aplica al campus activo."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {confirmSyncPrimer ? (
+                <>
+                  <button
+                    onClick={handleSyncPrimer}
+                    disabled={syncingPrimer}
+                    className="px-3 py-2 text-xs font-bold bg-amber-600 text-white rounded-xl hover:bg-amber-700 disabled:opacity-60 transition-colors"
+                  >
+                    {syncingPrimer ? "Copiando..." : "Sí, copiar"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmSyncPrimer(false)}
+                    className="px-3 py-2 text-xs font-semibold bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => { setSyncPrimerResult(null); setSyncPrimerError(""); setConfirmSyncPrimer(true); }}
+                  disabled={syncingPrimer}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-amber-600 text-white rounded-xl hover:bg-amber-700 disabled:opacity-60 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Copiar a 1er Sem.
+                </button>
+              )}
+            </div>
+          </div>
+          {syncPrimerResult && (
+            <div className="px-5 pb-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span className="text-sm text-amber-800 font-medium">
+                  {syncPrimerResult.copied} alumnos copiados al 1er semestre
+                </span>
+              </div>
+            </div>
+          )}
+          {syncPrimerError && (
+            <div className="px-5 pb-4">
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                <span className="text-sm text-red-700">{syncPrimerError}</span>
               </div>
             </div>
           )}
