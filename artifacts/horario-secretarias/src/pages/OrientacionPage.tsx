@@ -169,15 +169,19 @@ function EstadosPanel({
   const confirmaList = estados.filter(e => e.tipo === "confirma");
   const asisteList   = estados.filter(e => e.tipo === "asiste");
   const [saving, setSaving] = useState(false);
+  // Estado de la fila "nueva" por tipo
+  const [newRow, setNewRow] = useState<{ tipo: string; label: string; color: string } | null>(null);
 
-  async function addEstado(tipo: string) {
+  async function addEstado(tipo: string, label: string, color: string) {
+    if (!label.trim()) return;
     setSaving(true);
     await fetch(apiUrl("/api/orientacion/estados"), {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tipo, label: "nuevo estado", color: "#94a3b8", orden: 99 }),
+      body: JSON.stringify({ tipo, label: label.trim(), color, orden: 99 }),
     });
     await onRefresh();
     setSaving(false);
+    setNewRow(null);
   }
 
   async function updateEstado(id: number, patch: { label?: string; color?: string }) {
@@ -251,14 +255,75 @@ function EstadosPanel({
     );
   }
 
+  // Fila de nueva entrada (visible al pulsar "+ Agregar")
+  function NewRow({ tipo }: { tipo: string }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const color = newRow?.color ?? "#94a3b8";
+
+    useEffect(() => { inputRef.current?.focus(); }, []);
+
+    if (!newRow || newRow.tipo !== tipo) return null;
+
+    return (
+      <tr className="border-b border-border/40 bg-primary/5">
+        {/* Color picker inline */}
+        <td className="py-1.5 pl-2 pr-1 w-8 relative">
+          <div className="relative">
+            <div className="w-6 h-6 rounded-full border-2 border-white shadow" style={{ backgroundColor: color }} />
+            <input type="color" value={color}
+              onChange={ev => setNewRow(r => r ? { ...r, color: ev.target.value } : r)}
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer rounded-full"
+              title="Elegir color"
+            />
+          </div>
+        </td>
+        {/* Nombre */}
+        <td className="py-1.5 px-1" colSpan={2}>
+          <input
+            ref={inputRef}
+            value={newRow.label}
+            onChange={ev => setNewRow(r => r ? { ...r, label: ev.target.value } : r)}
+            onKeyDown={ev => {
+              if (ev.key === "Enter") addEstado(tipo, newRow.label, color);
+              if (ev.key === "Escape") setNewRow(null);
+            }}
+            placeholder="Nombre del estado…"
+            className="w-full bg-transparent text-sm text-foreground outline-none focus:bg-muted/40 rounded px-1 py-0.5 placeholder:text-muted-foreground/50"
+          />
+        </td>
+        {/* Botones confirmar / cancelar */}
+        <td className="py-1.5 pr-2">
+          <div className="flex items-center gap-1">
+            <button onClick={() => addEstado(tipo, newRow.label, color)} disabled={saving || !newRow.label.trim()}
+              className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-2 py-0.5 disabled:opacity-40 hover:bg-primary/90 transition-colors">
+              ✓
+            </button>
+            <button onClick={() => setNewRow(null)}
+              className="text-[10px] font-bold bg-muted text-muted-foreground rounded-full px-2 py-0.5 hover:bg-muted/80 transition-colors">
+              ✕
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   function Section({ tipo, label, list }: { tipo: string; label: string; list: EstadoDB[] }) {
+    const isAdding = newRow?.tipo === tipo;
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{label}</span>
-          <button onClick={() => addEstado(tipo)} disabled={saving}
-            className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-40 transition-colors">
-            <Plus className="w-3 h-3" /> Agregar
+          <button
+            onClick={() => setNewRow(isAdding ? null : { tipo, label: "", color: "#94a3b8" })}
+            disabled={saving}
+            className={`flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40 ${
+              isAdding
+                ? "text-muted-foreground hover:text-foreground"
+                : "text-primary hover:text-primary/80"
+            }`}>
+            {isAdding ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+            {isAdding ? "Cancelar" : "Agregar estado"}
           </button>
         </div>
         <div className="border border-border rounded-xl overflow-hidden">
@@ -272,10 +337,11 @@ function EstadosPanel({
               </tr>
             </thead>
             <tbody>
-              {list.length === 0 && (
+              {list.length === 0 && !isAdding && (
                 <tr><td colSpan={4} className="py-3 text-center text-xs text-muted-foreground italic">Sin estados</td></tr>
               )}
               {list.map(e => <EstadoRow key={e.id} e={e} />)}
+              <NewRow tipo={tipo} />
             </tbody>
           </table>
         </div>
