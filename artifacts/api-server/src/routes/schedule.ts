@@ -771,18 +771,26 @@ router.delete("/schedule/classes", async (req, res) => {
   }
 });
 
-// DELETE /api/schedule/wipe — wipes ALL classes + students across every horario and semester.
+// DELETE /api/schedule/wipe — wipes PRIMER + ANUAL classes across every horario.
+// SEGUNDO classes (created manually or via copy-semester) are preserved.
+// Use "Limpiar todo — Nuevo año" for a full wipe including SEGUNDO.
 // Talleres (workshops) are in a separate table and are never affected.
-// Students are removed automatically via ON DELETE CASCADE.
 router.delete("/schedule/wipe", async (_req, res) => {
   try {
-    // Count before deleting so we can report how many were removed
+    // Count PRIMER+ANUAL classes before deleting
     const rows = await db
       .select({ classCode: scheduleClassesTable.classCode })
-      .from(scheduleClassesTable);
+      .from(scheduleClassesTable)
+      .where(inArray(scheduleClassesTable.semester, ["PRIMER", "ANUAL"]));
 
-    // Delete all classes — students cascade automatically
-    await db.delete(scheduleClassesTable);
+    // Delete PRIMER/ANUAL students first (explicit, in case FK cascade is not active)
+    await db.delete(scheduleStudentsTable).where(
+      inArray(scheduleStudentsTable.classSemester, ["PRIMER", "ANUAL"])
+    );
+    // Delete PRIMER + ANUAL classes — SEGUNDO classes are preserved
+    await db.delete(scheduleClassesTable).where(
+      inArray(scheduleClassesTable.semester, ["PRIMER", "ANUAL"])
+    );
 
     // Notify all horarios
     const horarios = await db.select({ id: scheduleHorariosTable.id }).from(scheduleHorariosTable);
@@ -885,18 +893,26 @@ const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as co
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
 // Processes ALL campuses from the same file in a single upload.
-// Only wipes PRIMER classes so that manually-created SEGUNDO/ANUAL classes are preserved.
+// Strategy: save SEGUNDO classes+students → full wipe → reimport PRIMER/ANUAL → restore SEGUNDO.
+// This guarantees SEGUNDO data survives every Excel update without multiplication.
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    // ── WIPE PRIMER and ANUAL classes ─────────────────────────────────────────
-    // These come from the Excel so they must be refreshed on every import.
-    // SEGUNDO classes are preserved — they were created manually or via copy-semester.
-    // Students cascade-delete automatically via ON DELETE CASCADE.
-    await db.delete(scheduleClassesTable).where(inArray(scheduleClassesTable.semester, ["PRIMER", "ANUAL"]));
+    // ── 1. Save all SEGUNDO classes and their students ────────────────────────
+    const segundoClasses = await db.select().from(scheduleClassesTable)
+      .where(eq(scheduleClassesTable.semester, "SEGUNDO"));
+    const segundoStudents = segundoClasses.length > 0
+      ? await db.select().from(scheduleStudentsTable)
+          .where(eq(scheduleStudentsTable.classSemester, "SEGUNDO"))
+      : [];
 
-    // ── INSERT from Excel per campus ──────────────────────────────────────────
+    // ── 2. Full wipe: students first, then classes ────────────────────────────
+    // Deleting students first avoids FK issues if cascade is not fully active.
+    await db.delete(scheduleStudentsTable);
+    await db.delete(scheduleClassesTable);
+
+    // ── 3. Import PRIMER/ANUAL from Excel per campus ──────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
     const allParseErrors: string[] = [];
     const perCampus: Record<string, { students: number; created: number; updated: number }> = {};
@@ -910,6 +926,34 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
       allParseErrors.push(...result.parseErrors);
       perCampus[horarioId] = { students: ts, created: result.created, updated: 0 };
       broadcastScheduleChange(horarioId);
+    }
+
+    // ── 4. Restore saved SEGUNDO classes ─────────────────────────────────────
+    for (const cls of segundoClasses) {
+      try {
+        await db.insert(scheduleClassesTable).values({
+          classCode: cls.classCode,
+          horario: cls.horario,
+          day: cls.day,
+          time: cls.time,
+          sede: cls.sede,
+          sala: cls.sala,
+          teacher: cls.teacher,
+          course: cls.course,
+          semester: "SEGUNDO",
+        });
+      } catch { /* skip if already exists */ }
+    }
+
+    // ── 5. Restore saved SEGUNDO students ────────────────────────────────────
+    for (const s of segundoStudents) {
+      try {
+        await db.insert(scheduleStudentsTable).values({
+          classCode: s.classCode,
+          classSemester: "SEGUNDO",
+          studentName: s.studentName,
+        });
+      } catch { /* skip if already exists */ }
     }
 
     res.json({
