@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from "react";
+import { Component, lazy, Suspense, type ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,19 +7,28 @@ import { HorarioProvider } from "@/context/HorarioContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import ToastContainer from "@/components/ToastContainer";
 import Navbar from "@/components/Navbar";
-import HomePage from "@/pages/HomePage";
-import HorarioPage from "@/pages/HorarioPage";
-import AdminPage from "@/pages/AdminPage";
-import GuiasPage from "@/pages/GuiasPage";
-import FotoPage from "@/pages/FotoPage";
-import NotificationsPage from "@/pages/NotificationsPage";
-import CambiosPage from "@/pages/CambiosPage";
-import TareasPage from "@/pages/TareasPage";
-import OrientacionPage from "@/pages/OrientacionPage";
-import NotasPage from "@/pages/NotasPage";
-import NotFound from "@/pages/not-found";
 import { UserProvider } from "@/context/UserContext";
 import UserSelectionModal from "@/components/UserSelectionModal";
+
+const HomePage         = lazy(() => import("@/pages/HomePage"));
+const HorarioPage      = lazy(() => import("@/pages/HorarioPage"));
+const AdminPage        = lazy(() => import("@/pages/AdminPage"));
+const GuiasPage        = lazy(() => import("@/pages/GuiasPage"));
+const FotoPage         = lazy(() => import("@/pages/FotoPage"));
+const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
+const CambiosPage      = lazy(() => import("@/pages/CambiosPage"));
+const TareasPage       = lazy(() => import("@/pages/TareasPage"));
+const OrientacionPage  = lazy(() => import("@/pages/OrientacionPage"));
+const NotasPage        = lazy(() => import("@/pages/NotasPage"));
+const NotFound         = lazy(() => import("@/pages/not-found"));
+
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center min-h-[40vh]">
+      <div className="w-7 h-7 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -66,19 +75,21 @@ function Router() {
             <Navbar />
             <ToastContainer />
             <main className="flex-1">
-              <Switch>
-                <Route path="/" component={HomePage} />
-                <Route path="/horarios" component={HorarioPage} />
-                <Route path="/admin" component={AdminPage} />
-                <Route path="/guias" component={GuiasPage} />
-                <Route path="/foto" component={FotoPage} />
-                <Route path="/notificaciones" component={NotificationsPage} />
-                <Route path="/cambios" component={CambiosPage} />
-                <Route path="/tareas" component={TareasPage} />
-                <Route path="/orientacion" component={OrientacionPage} />
-                <Route path="/notas" component={NotasPage} />
-                <Route component={NotFound} />
-              </Switch>
+              <Suspense fallback={<PageLoader />}>
+                <Switch>
+                  <Route path="/" component={HomePage} />
+                  <Route path="/horarios" component={HorarioPage} />
+                  <Route path="/admin" component={AdminPage} />
+                  <Route path="/guias" component={GuiasPage} />
+                  <Route path="/foto" component={FotoPage} />
+                  <Route path="/notificaciones" component={NotificationsPage} />
+                  <Route path="/cambios" component={CambiosPage} />
+                  <Route path="/tareas" component={TareasPage} />
+                  <Route path="/orientacion" component={OrientacionPage} />
+                  <Route path="/notas" component={NotasPage} />
+                  <Route component={NotFound} />
+                </Switch>
+              </Suspense>
             </main>
           </div>
         </NotificationProvider>

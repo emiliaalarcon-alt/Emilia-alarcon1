@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, memo } from "react";
 import { Search, X, MapPin, Clock, Users, AlertTriangle, Plus, Minus, Trash2, RefreshCw, Pencil, Check, Bell, BellOff, GraduationCap } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import {
@@ -176,7 +176,7 @@ async function apiPublishNotification(payload: {
   } catch {}
 }
 
-function ClassCell({
+function ClassCellBase({
   entry,
   onSelect,
   selected,
@@ -264,6 +264,7 @@ function ClassCell({
     </button>
   );
 }
+const ClassCell = memo(ClassCellBase);
 
 function DetailPanel({
   entry,
@@ -891,7 +892,7 @@ export default function HorarioPage() {
 
   useEffect(() => {
     fetchPresence();
-    const interval = setInterval(fetchPresence, 5_000);
+    const interval = setInterval(fetchPresence, 15_000);
     return () => clearInterval(interval);
   }, [fetchPresence]);
 
@@ -912,7 +913,7 @@ export default function HorarioPage() {
   }, [myName]);
 
   useEffect(() => {
-    const interval = setInterval(fetchTyping, 5_000);
+    const interval = setInterval(fetchTyping, 4_000);
     return () => clearInterval(interval);
   }, [fetchTyping]);
 
@@ -949,8 +950,8 @@ export default function HorarioPage() {
     // SSE para actualizaciones en tiempo real entre usuarios/sedes
     const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`));
     es.onmessage = () => fetchData();
-    // Fallback poll cada 5s por si la conexión SSE falla
-    const interval = setInterval(fetchData, 5_000);
+    // Fallback poll cada 30s solo si SSE falla
+    const interval = setInterval(fetchData, 30_000);
     return () => { es.close(); clearInterval(interval); };
   }, [fetchData, horarioId]);
 

@@ -402,7 +402,8 @@ export default function AdminPage() {
       es.onmessage = () => fetchData();
       return es;
     });
-    const interval = setInterval(fetchData, 5_000);
+    // Fallback poll cada 30s solo si SSE falla
+    const interval = setInterval(fetchData, 30_000);
     return () => { streams.forEach(es => es.close()); clearInterval(interval); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData]);
