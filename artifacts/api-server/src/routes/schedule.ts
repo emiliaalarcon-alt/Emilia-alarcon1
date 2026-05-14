@@ -464,7 +464,13 @@ router.get("/schedule", async (req, res) => {
       ? await db.select().from(scheduleClassesTable)
       : await db.select().from(scheduleClassesTable)
           .where(eq(scheduleClassesTable.horario, horarioParam));
-    const students = await db.select().from(scheduleStudentsTable);
+
+    // Only fetch students for the classes we retrieved — avoids a full table scan
+    const classCodes = classes.map(c => c.classCode);
+    const students = classCodes.length > 0
+      ? await db.select().from(scheduleStudentsTable)
+          .where(inArray(scheduleStudentsTable.classCode, classCodes))
+      : [];
 
     // Key by "classCode|classSemester" so PRIMER and SEGUNDO students
     // for the same class code are never mixed together.

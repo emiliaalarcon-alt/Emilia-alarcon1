@@ -13,6 +13,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Keep-alive ping — prevents Railway from sleeping
+app.get("/api/ping", (_req, res) => res.json({ ok: true, ts: Date.now() }));
+
 app.use("/api", router);
 
 export default app;

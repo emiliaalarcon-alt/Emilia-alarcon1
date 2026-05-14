@@ -94,6 +94,12 @@ export function HorarioProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     updateUrlCampus(horarioId);
     reloadHorarios();
+
+    // Keep Railway server awake — ping every 8 minutes to prevent cold starts
+    const ping = setInterval(() => {
+      fetch(apiUrl("/api/ping")).catch(() => {});
+    }, 8 * 60 * 1000);
+    return () => clearInterval(ping);
   }, []);
 
   function setHorarioId(id: HorarioId) {

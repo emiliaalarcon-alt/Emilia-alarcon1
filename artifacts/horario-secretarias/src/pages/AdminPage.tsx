@@ -542,7 +542,19 @@ export default function AdminPage() {
       } else {
         setFormSuccess(`Clase "${result.classCode}" creada correctamente.`);
         setForm(f => ({ ...f, course: "", teacher: "", sala: "" }));
-        fetchData();
+        // Optimistic update — add the new class locally without a full refetch
+        setAllData(prev => [...prev, {
+          classCode: result.classCode,
+          day: form.day,
+          time: form.time,
+          sede: form.sede,
+          sala: Number(form.sala),
+          teacher: form.teacher.toUpperCase(),
+          course: form.course.toUpperCase(),
+          horario: formHorario,
+          semester: form.semester || "PRIMER",
+          students: [],
+        }]);
       }
     } catch {
       setFormError("Error de conexión.");
@@ -555,7 +567,9 @@ export default function AdminPage() {
     setDeletingCode(classCode);
     try {
       await apiDeleteClass(classCode, semester);
-      fetchData();
+      // Optimistic update — remove locally without full refetch
+      setAllData(prev => prev.filter(e => !(e.classCode === classCode && e.semester === semester)));
+      setConfirmDeleteCode(null);
     } finally {
       setDeletingCode(null);
     }
@@ -601,7 +615,22 @@ export default function AdminPage() {
         setEditError(result.error);
       } else {
         setEditingCode(null);
-        fetchData();
+        // Optimistic update — patch the entry locally without full refetch
+        const newCode = result.classCode as string;
+        setAllData(prev => prev.map(e => {
+          if (e.classCode !== editingCode || e.semester !== editingSemester) return e;
+          return {
+            ...e,
+            classCode: newCode,
+            course: editForm.course.toUpperCase(),
+            day: editForm.day,
+            time: editForm.time,
+            teacher: editForm.teacher.toUpperCase(),
+            sede: editForm.sede,
+            sala: Number(editForm.sala),
+            semester: editForm.semester || editingSemester,
+          };
+        }));
       }
     } catch {
       setEditError("Error de conexión.");
