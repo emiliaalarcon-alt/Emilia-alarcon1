@@ -1031,7 +1031,8 @@ export default function OrientacionPage() {
 
   const isAdmin     = currentUser?.role === "admin";
   const isCounselor = currentUser?.role === "orientadora";
-  const canManage   = isAdmin || isCounselor;
+  const isSecretary = currentUser?.role === "secretaria";
+  const canManage   = isAdmin || isCounselor || isSecretary;
   const canBook     = !!currentUser;
 
   const selectedOrientadora = useMemo(
