@@ -1031,18 +1031,8 @@ export default function OrientacionPage() {
 
   const isAdmin     = currentUser?.role === "admin";
   const isCounselor = currentUser?.role === "orientadora";
-  const canBook     = !!currentUser && !isCounselor;
-
-  const selectedOrientadora = useMemo(
-    () => orientadoras.find(o => o.id === selectedId) ?? null,
-    [orientadoras, selectedId],
-  );
-  const myOrientadora = useMemo(() => {
-    if (!isCounselor || !currentUser) return null;
-    return orientadoras.find(o => o.nombre.toLowerCase().trim() === currentUser.name.toLowerCase().trim()) ?? null;
-  }, [isCounselor, currentUser, orientadoras]);
-
-  const canManage = isAdmin || (isCounselor && !!myOrientadora && myOrientadora.id === selectedId);
+  const canManage   = isAdmin || isCounselor;
+  const canBook     = !!currentUser;
 
   // ── Load orientadoras ────────────────────────────────────────────────────
   const loadOrientadoras = useCallback(async () => {
@@ -1233,13 +1223,13 @@ export default function OrientacionPage() {
                 Estadísticas
               </button>
             </div>
-            {isAdmin && (
+            {canManage && (
               <button onClick={() => setEstadosModal(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors">
                 🎨 Editar estados
               </button>
             )}
-            {isAdmin && !showStats && (
+            {canManage && !showStats && (
               <button onClick={() => setNuevaModal(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
                 <Plus className="w-4 h-4" />Nueva orientadora
@@ -1252,7 +1242,7 @@ export default function OrientacionPage() {
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
             <User className="w-12 h-12 text-muted-foreground/40" />
             <p className="text-muted-foreground font-medium">No hay orientadoras configuradas</p>
-            {isAdmin && (
+            {canManage && (
               <button onClick={() => setNuevaModal(true)}
                 className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
                 Agregar primera orientadora
@@ -1273,7 +1263,7 @@ export default function OrientacionPage() {
                 <div key={o.id} className="relative group/tab flex-shrink-0">
                   <button onClick={() => setSelectedId(o.id)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                      isAdmin ? "pr-8" : ""
+                      canManage ? "pr-8" : ""
                     } ${
                       selectedId===o.id
                         ? "bg-primary/10 text-primary border border-primary/30"
@@ -1284,7 +1274,7 @@ export default function OrientacionPage() {
                     </div>
                     {o.nombre}
                   </button>
-                  {isAdmin && (
+                  {canManage && (
                     <button
                       onClick={() => handleDeleteOrientadora(o.id, o.nombre)}
                       title={`Eliminar ${o.nombre}`}
