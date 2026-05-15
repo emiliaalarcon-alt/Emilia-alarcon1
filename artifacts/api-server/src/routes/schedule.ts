@@ -206,10 +206,9 @@ function normalizeSede(raw: string, fallback: string): string {
 
 type ClassMap = Map<string, { students: string[]; sala: number | null; sede: string }>;
 
-function parseSemesterCol(raw: unknown): "PRIMER" | "SEGUNDO" {
-  const s = String(raw ?? "").trim().toUpperCase();
-  if (s.includes("2") || s.startsWith("SEG") || s.includes("SEGUNDO")) return "SEGUNDO";
-  return "PRIMER";
+// Col 1 (Grado) encodes semester: "INTENSIVO 2026/2" → SEGUNDO, everything else → PRIMER.
+function parseSemesterFromGrado(raw: unknown): "PRIMER" | "SEGUNDO" {
+  return String(raw ?? "").includes("/2") ? "SEGUNDO" : "PRIMER";
 }
 
 function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
@@ -224,18 +223,13 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
   // Filter by column 0 (Nivel) — the most reliable campus identifier
   const matching = dataRows.filter(r => String(r[0]).trim().toUpperCase() === nivelFilter);
 
-  // Check if the file has semester info in column 1.
-  // Header row (row 0) will say "Semestre" or similar if it exists.
-  // Column layout: [Nivel, Semestre?, Clase, Nombre, Apellido]
-  const headerRow = rows[0] ?? [];
-  const hasSemesterCol = String(headerRow[1] ?? "").trim().toUpperCase().includes("SEM");
-
+  // Column layout: [Nivel, Grado, Clase, Nombre, Apellido, ...]
+  // Semester comes from col 1 (Grado): "INTENSIVO 2026/2" → SEGUNDO, else → PRIMER.
   const byCodePrimer: ClassMap = new Map();
   const byCodeSegundo: ClassMap = new Map();
 
   for (const r of matching) {
-    // Determine semester from col 1 if present; else default PRIMER
-    const semester = hasSemesterCol ? parseSemesterCol(r[1]) : "PRIMER";
+    const semester = parseSemesterFromGrado(r[1]);
     const byCode = semester === "SEGUNDO" ? byCodeSegundo : byCodePrimer;
 
     const clase = String(r[2]).trim();
