@@ -811,7 +811,17 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
       }
     }
 
-    // If classCode or semester changes, update students table
+    // Update the class row FIRST (FK parent), then update students (FK children)
+    await db.update(scheduleClassesTable)
+      .set({ classCode: newCode, course: newCourse, day: newDay, time: newTime,
+             teacher: newTeacher, sede: newSede, sala: newSala, semester: newSemester })
+      .where(and(
+        eq(scheduleClassesTable.classCode, oldCode),
+        eq(scheduleClassesTable.semester, oldSemester),
+        eq(scheduleClassesTable.horario, oldHorario)
+      ));
+
+    // Now update students to point at the new classCode/semester if they changed
     if (newCode !== oldCode || newSemester !== oldSemester) {
       await db.update(scheduleStudentsTable)
         .set({ classCode: newCode, classSemester: newSemester })
@@ -821,15 +831,6 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
           eq(scheduleStudentsTable.classHorario, oldHorario)
         ));
     }
-
-    await db.update(scheduleClassesTable)
-      .set({ classCode: newCode, course: newCourse, day: newDay, time: newTime,
-             teacher: newTeacher, sede: newSede, sala: newSala, semester: newSemester })
-      .where(and(
-        eq(scheduleClassesTable.classCode, oldCode),
-        eq(scheduleClassesTable.semester, oldSemester),
-        eq(scheduleClassesTable.horario, oldHorario)
-      ));
 
     broadcastScheduleChange(cls.horario);
     res.json({ ok: true, classCode: newCode });
