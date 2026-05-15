@@ -260,7 +260,21 @@ async function ensureTables() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientación, notas, semester column, composite PK/FK)");
+    // ── Horas disponibles para Orientación ────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS orientacion_horas_disponibles (
+        hora TEXT PRIMARY KEY
+      )
+    `);
+    const { rows: horasRows } = await client.query(`SELECT COUNT(*) FROM orientacion_horas_disponibles`);
+    if (parseInt(horasRows[0].count) === 0) {
+      await client.query(`
+        INSERT INTO orientacion_horas_disponibles (hora) VALUES
+          ('08:00'),('09:00'),('10:00'),('11:00'),('12:00'),('13:00'),('14:00'),
+          ('15:00'),('16:00'),('17:00'),('18:00'),('19:00'),('20:00')
+      `);
+    }
+    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientación, notas, horas_disponibles, semester column, composite PK/FK)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {
