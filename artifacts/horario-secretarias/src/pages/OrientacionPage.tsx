@@ -375,7 +375,7 @@ function AdminModal({
   const [saving, setSaving] = useState(false);
   const [newHora, setNewHora] = useState("");
   const [savingHora, setSavingHora] = useState(false);
-  const [showHoraManager, setShowHoraManager] = useState(false);
+  const [showHoraManager, setShowHoraManager] = useState(true);
   // Feriado form
   const [feriadoDesde, setFeriadoDesde] = useState("");
   const [feriadoHasta, setFeriadoHasta] = useState("");
@@ -471,21 +471,21 @@ function AdminModal({
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-xl my-4 overflow-hidden flex flex-col"
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg my-4 overflow-hidden flex flex-col max-h-[88vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Encabezado fijo */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card sticky top-0 z-10">
-          <h3 className="font-bold text-lg text-foreground">Configurar — {orientadora.nombre}</h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0">
+          <h3 className="font-semibold text-base text-foreground">Configurar — {orientadora.nombre}</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Cerrar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-6 space-y-5">
+        <div className="p-4 space-y-3 overflow-y-auto flex-1">
 
         {/* Tabs */}
         <div className="flex gap-1 bg-muted/60 rounded-xl p-1">
@@ -562,16 +562,16 @@ function AdminModal({
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr>
-                    <th className="text-left py-2 pr-3 text-xs font-semibold text-muted-foreground w-14">Hora</th>
+                    <th className="text-left py-1 pr-2 text-[10px] font-semibold text-muted-foreground w-12">Hora</th>
                     {DOW_ORDER.map(d => {
                       const allChecked = horasDisponibles.every(h => slotMap[`${d}|${h}`] !== undefined);
                       const someChecked = horasDisponibles.some(h => slotMap[`${d}|${h}`] !== undefined);
                       return (
-                        <th key={d} className="text-center py-1 px-1">
+                        <th key={d} className="text-center py-1 px-0.5">
                           <button
                             disabled={saving}
                             onClick={() => toggleDay(d)}
-                            className={`w-full px-2 py-1.5 rounded-lg text-xs font-bold transition-all border-2 ${
+                            className={`w-full px-1 py-1 rounded-md text-[10px] font-bold transition-all border-2 ${
                               allChecked
                                 ? "bg-primary border-primary text-primary-foreground"
                                 : someChecked
@@ -588,17 +588,17 @@ function AdminModal({
                 </thead>
                 <tbody>
                   {horasDisponibles.map(hora => (
-                    <tr key={hora} className="border-t border-border/50">
-                      <td className="py-1.5 pr-3 text-xs font-mono text-muted-foreground">{hora}</td>
+                    <tr key={hora} className="border-t border-border/40">
+                      <td className="py-0.5 pr-2 text-[10px] font-mono text-muted-foreground">{hora}</td>
                       {DOW_ORDER.map(dia => {
                         const key = `${dia}|${hora}`;
                         const checked = slotMap[key] !== undefined;
                         return (
-                          <td key={dia} className="py-1.5 px-1 text-center">
+                          <td key={dia} className="py-0.5 px-0.5 text-center">
                             <button
                               disabled={saving}
                               onClick={() => toggleSlot(dia, hora)}
-                              className={`w-9 h-8 rounded-lg border-2 transition-all font-bold text-sm ${
+                              className={`w-8 h-6 rounded-md border-2 transition-all font-bold text-xs ${
                                 checked
                                   ? "bg-primary border-primary text-primary-foreground"
                                   : "border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
