@@ -921,17 +921,19 @@ router.post("/schedule/copy-semester", async (req, res) => {
 const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as const;
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
-// The Excel is the single source of truth. On every import:
-//   1. ALL classes and students (every horario, every semester) are wiped.
-//   2. Fresh data from the Excel is inserted as PRIMER semester.
-// Use "Copiar 1er → 2do" afterwards to build the 2nd-semester view.
+// Only PRIMER semester data is replaced on each import.
+// SEGUNDO and ANUAL classes/students are preserved so they are not
+// lost when the admin uploads a new Excel mid-year.
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    // ── Full wipe — same as DELETE /api/schedule/wipe ─────────────────────────
-    await db.delete(scheduleStudentsTable);
-    await db.delete(scheduleClassesTable);
+    // ── Wipe PRIMER only — preserve SEGUNDO and ANUAL ─────────────────────────
+    // Students first (avoids FK issues), then classes.
+    await db.delete(scheduleStudentsTable)
+      .where(eq(scheduleStudentsTable.classSemester, "PRIMER"));
+    await db.delete(scheduleClassesTable)
+      .where(eq(scheduleClassesTable.semester, "PRIMER"));
 
     // ── Import from Excel per campus as PRIMER ────────────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
