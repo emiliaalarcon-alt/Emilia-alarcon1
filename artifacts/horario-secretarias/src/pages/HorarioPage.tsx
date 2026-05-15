@@ -804,24 +804,15 @@ export default function HorarioPage() {
     setNotifsEnabledBySede(prev => ({ ...prev, [activeSede]: newVal }));
   }
 
-  // Ref para saber si estamos en la carga inicial de un campus.
-  // true = estamos esperando el primer fetch tras cambio de campus (o mount).
-  // fetchData lo pone en false al recibir datos.
-  const isInitialLoad = useRef(true);
-
   // Reset cuando el usuario cambia de campus (horarioId).
-  // NO llamamos setAllData([]) aquí: si algo cambia horarioId de forma
-  // inesperada, no queremos que el horario se vacíe. El cambio de activeSede
-  // hace que sedeData quede vacío (datos del campus viejo no coinciden con
-  // la sede nueva), y el spinner cubre los datos viejos hasta que fetchData
-  // devuelva los nuevos.
+  // NO llamamos setAllData([]) aquí: fetchData reemplazará los datos cuando
+  // lleguen del nuevo campus. El spinner cubre la transición.
   // NO incluir horario.sedes: el contexto puede crear un nuevo array con
   // el mismo contenido al recargar, disparando este efecto innecesariamente.
   useEffect(() => {
     setActiveSede(horario.sedes[0]);
     setActiveTab("PRIMER");
     setSelectedEntry(null);
-    isInitialLoad.current = true;
     setLoading(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horarioId]);
@@ -950,18 +941,18 @@ export default function HorarioPage() {
       const res = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`));
       if (!res.ok) throw new Error("API error");
       const data: ClassEntry[] = await res.json();
-      // Protección anti-vaciado: durante el poll de 30s (isInitialLoad=false),
-      // si la API devuelve un array vacío por algún error transitorio (cold start
-      // de Railway, timeout, etc.), conservamos los datos que ya teníamos.
-      // Solo permitimos datos vacíos durante la carga inicial de un campus.
-      if (data.length > 0 || isInitialLoad.current) {
+      // NUNCA reemplazamos datos con un array vacío desde el servidor.
+      // Si la API devuelve [] por error transitorio (cold-start de Railway,
+      // timeout, etc.) simplemente conservamos los datos que ya teníamos.
+      // El único caso donde se permite vaciar es "schedule_wiped" (ver SSE),
+      // que llama setAllData([]) directamente antes de llamar fetchData.
+      if (data.length > 0) {
         setAllData(data);
       }
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to fetch schedule:", err);
     } finally {
-      isInitialLoad.current = false;
       setLoading(false);
     }
   }, [horarioId]);
@@ -971,20 +962,18 @@ export default function HorarioPage() {
     // SSE para actualizaciones en tiempo real entre usuarios/sedes
     const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`));
     es.onmessage = (event) => {
-      // "schedule_wiped" = vaciado explícito del horario → permitir respuesta vacía.
-      // "schedule_changed" = cualquier otro cambio (agregar alumno, importar, etc.)
-      //   → NO permitir respuesta vacía; datos existentes se conservan si la API
-      //   responde con [] por error transitorio (cold-start de Railway, etc.).
       try {
         const msg = JSON.parse(event.data ?? "{}");
         if (msg.type === "schedule_wiped") {
-          isInitialLoad.current = true;
+          // Vaciado explícito: limpiamos inmediatamente y luego confirmamos
+          // con un fetch (que también devolverá [] y será ignorado, ok).
+          setAllData([]);
         }
-      } catch { /* sin cambio en isInitialLoad */ }
+      } catch { /* ignorar eventos malformados */ }
       fetchData();
     };
     // Poll de 30s como fallback si el SSE falla.
-    // isInitialLoad sigue siendo false aquí → respuestas vacías ignoradas.
+    // Si la API devuelve [] (error transitorio), los datos se conservan.
     const interval = setInterval(fetchData, 30_000);
     return () => { es.close(); clearInterval(interval); };
   }, [fetchData, horarioId]);
