@@ -44,10 +44,6 @@ const DOW_ES: Record<string, string> = {
   jueves:"Jueves", viernes:"Viernes",
 };
 const DOW_ORDER = ["lunes","martes","miercoles","jueves","viernes"];
-const HORAS_DISPONIBLES = [
-  "08:00","09:00","10:00","11:00","12:00","13:00","14:00",
-  "15:00","16:00","17:00","18:00","19:00","20:00",
-];
 // ─── Estado DB type ───────────────────────────────────────────────────────────
 interface EstadoDB {
   id: number; tipo: string; label: string; color: string; orden: number;
@@ -363,18 +359,23 @@ function EstadosPanel({
 // ─── Admin Modal (checkbox grid + feriados + estados) ─────────────────────────
 
 function AdminModal({
-  orientadora, horario, bloqueos, estados, onClose, onRefresh, onRefreshEstados,
+  orientadora, horario, bloqueos, estados, horasDisponibles, onClose, onRefresh, onRefreshEstados, onRefreshHoras,
 }: {
   orientadora: Orientadora;
   horario: HorarioSlot[];
   bloqueos: Bloqueo[];
   estados: EstadoDB[];
+  horasDisponibles: string[];
   onClose: () => void;
   onRefresh: () => void;
   onRefreshEstados: () => void;
+  onRefreshHoras: () => void;
 }) {
   const [tab, setTab] = useState<"horario"|"feriados"|"estados">("horario");
   const [saving, setSaving] = useState(false);
+  const [newHora, setNewHora] = useState("");
+  const [savingHora, setSavingHora] = useState(false);
+  const [showHoraManager, setShowHoraManager] = useState(false);
   // Feriado form
   const [feriadoDesde, setFeriadoDesde] = useState("");
   const [feriadoHasta, setFeriadoHasta] = useState("");
@@ -405,7 +406,7 @@ function AdminModal({
   // Toggle ALL hours for a given day
   async function toggleDay(dia: string) {
     setSaving(true);
-    const diaSlots = HORAS_DISPONIBLES.map(h => ({ h, key: `${dia}|${h}` }));
+    const diaSlots = horasDisponibles.map(h => ({ h, key: `${dia}|${h}` }));
     const allOn = diaSlots.every(({ key }) => slotMap[key] !== undefined);
     if (allOn) {
       // Remove all
@@ -445,11 +446,24 @@ function AdminModal({
     onRefresh();
   }
 
-  // Which hours are active for at least one day?
-  const activeHours = useMemo(() => {
-    const used = new Set(horario.map(s => s.horaInicio));
-    return HORAS_DISPONIBLES.filter(h => used.has(h) || true); // show all, checked = active
-  }, [horario]);
+  async function addHoraDisponible() {
+    if (!newHora || savingHora) return;
+    setSavingHora(true);
+    await fetch(apiUrl("/api/orientacion/horas"), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hora: newHora }),
+    });
+    setNewHora("");
+    await onRefreshHoras();
+    setSavingHora(false);
+  }
+
+  async function removeHoraDisponible(hora: string) {
+    setSavingHora(true);
+    await fetch(apiUrl(`/api/orientacion/horas/${encodeURIComponent(hora)}`), { method: "DELETE" });
+    await onRefreshHoras();
+    setSavingHora(false);
+  }
 
   return (
     <div
@@ -492,14 +506,66 @@ function AdminModal({
             <p className="text-xs text-muted-foreground">
               Haz clic en un casillero para activar/desactivar ese horario. Haz clic en el <strong>nombre del día</strong> para marcar o desmarcar todo el día de un golpe.
             </p>
+
+            {/* ── Gestionar horas disponibles ── */}
+            <div className="border border-border rounded-xl overflow-hidden">
+              <button
+                onClick={() => setShowHoraManager(v => !v)}
+                className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-medium text-foreground"
+              >
+                <span className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  Horas disponibles ({horasDisponibles.length})
+                </span>
+                <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${showHoraManager ? "rotate-90" : ""}`} />
+              </button>
+              {showHoraManager && (
+                <div className="p-3 space-y-3 border-t border-border bg-background">
+                  <div className="flex flex-wrap gap-1.5">
+                    {horasDisponibles.map(h => (
+                      <span key={h} className="inline-flex items-center gap-1 px-2 py-1 bg-muted rounded-lg text-xs font-mono font-semibold text-foreground">
+                        {h}
+                        <button
+                          disabled={savingHora}
+                          onClick={() => removeHoraDisponible(h)}
+                          className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                          title={`Eliminar ${h}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="time"
+                      value={newHora}
+                      onChange={e => setNewHora(e.target.value)}
+                      className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <button
+                      disabled={!newHora || savingHora}
+                      onClick={addHoraDisponible}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" />Agregar
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Los horarios aquí definidos aparecen en la grilla de todas las orientadoras.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr>
                     <th className="text-left py-2 pr-3 text-xs font-semibold text-muted-foreground w-14">Hora</th>
                     {DOW_ORDER.map(d => {
-                      const allChecked = HORAS_DISPONIBLES.every(h => slotMap[`${d}|${h}`] !== undefined);
-                      const someChecked = HORAS_DISPONIBLES.some(h => slotMap[`${d}|${h}`] !== undefined);
+                      const allChecked = horasDisponibles.every(h => slotMap[`${d}|${h}`] !== undefined);
+                      const someChecked = horasDisponibles.some(h => slotMap[`${d}|${h}`] !== undefined);
                       return (
                         <th key={d} className="text-center py-1 px-1">
                           <button
@@ -521,7 +587,7 @@ function AdminModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {HORAS_DISPONIBLES.map(hora => (
+                  {horasDisponibles.map(hora => (
                     <tr key={hora} className="border-t border-border/50">
                       <td className="py-1.5 pr-3 text-xs font-mono text-muted-foreground">{hora}</td>
                       {DOW_ORDER.map(dia => {
@@ -944,6 +1010,10 @@ export default function OrientacionPage() {
   const [slots, setSlots]               = useState<Slot[]>([]);
   const [horario, setHorario]           = useState<HorarioSlot[]>([]);
   const [bloqueos, setBloqueos]         = useState<Bloqueo[]>([]);
+  const [horasDisponibles, setHorasDisponibles] = useState<string[]>([
+    "08:00","09:00","10:00","11:00","12:00","13:00","14:00",
+    "15:00","16:00","17:00","18:00","19:00","20:00",
+  ]);
   const [estados, setEstados]           = useState<EstadoDB[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [bookingModal, setBookingModal] = useState<{fecha:string; hora:string}|null>(null);
@@ -989,7 +1059,15 @@ export default function OrientacionPage() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadOrientadoras(); loadEstados(); }, []);
+  const loadHorasDisponibles = useCallback(async () => {
+    try {
+      const r = await fetch(apiUrl("/api/orientacion/horas"));
+      if (!r.ok) return;
+      setHorasDisponibles(await r.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadOrientadoras(); loadEstados(); loadHorasDisponibles(); }, []);
 
   // ── Load slots ────────────────────────────────────────────────────────────
   const loadSlots = useCallback(async () => {
@@ -1016,7 +1094,8 @@ export default function OrientacionPage() {
       if (hr.ok) setHorario(await hr.json());
       if (br.ok) setBloqueos(await br.json());
     } catch {}
-  }, [selectedId]);
+    await loadHorasDisponibles();
+  }, [selectedId, loadHorasDisponibles]);
 
   // ── Month navigation ─────────────────────────────────────────────────────
   function prevMonth() {
@@ -1106,8 +1185,9 @@ export default function OrientacionPage() {
   // Get all unique hours across all working days (sorted)
   const allHours = useMemo(() => {
     const h = new Set(slots.map(s => s.horaInicio));
-    return HORAS_DISPONIBLES.filter(hora => h.has(hora));
-  }, [slots]);
+    const fromSlots = [...h].filter(hora => !horasDisponibles.includes(hora));
+    return [...horasDisponibles.filter(hora => h.has(hora)), ...fromSlots].sort();
+  }, [slots, horasDisponibles]);
 
   const bookedCount   = slots.filter(s => s.status === "booked").length;
   const availableCount = slots.filter(s => s.status === "available").length;
@@ -1321,9 +1401,11 @@ export default function OrientacionPage() {
           orientadora={selectedOrientadora}
           horario={horario} bloqueos={bloqueos}
           estados={estados}
+          horasDisponibles={horasDisponibles}
           onClose={() => { setAdminModal(false); loadSlots(); }}
           onRefresh={loadAdminData}
           onRefreshEstados={loadEstados}
+          onRefreshHoras={loadHorasDisponibles}
         />
       )}
 
