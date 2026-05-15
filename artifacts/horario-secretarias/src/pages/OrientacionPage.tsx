@@ -1034,6 +1034,11 @@ export default function OrientacionPage() {
   const canManage   = isAdmin || isCounselor;
   const canBook     = !!currentUser;
 
+  const selectedOrientadora = useMemo(
+    () => orientadoras.find(o => o.id === selectedId) ?? null,
+    [orientadoras, selectedId],
+  );
+
   // ── Load orientadoras ────────────────────────────────────────────────────
   const loadOrientadoras = useCallback(async () => {
     try {
