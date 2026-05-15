@@ -477,34 +477,4 @@ router.delete("/orientacion/estados/:id", async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });
 
-// ── GET /api/orientacion/horas ────────────────────────────────────────────
-router.get("/orientacion/horas", async (_req, res) => {
-  try {
-    const { rows } = await pool.query(`SELECT hora FROM orientacion_horas_disponibles ORDER BY hora`);
-    res.json(rows.map((r: { hora: string }) => r.hora));
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
-// ── POST /api/orientacion/horas ───────────────────────────────────────────
-router.post("/orientacion/horas", async (req, res) => {
-  try {
-    const { hora } = req.body as { hora: string };
-    if (!hora) return res.status(400).json({ error: "hora requerida" });
-    await pool.query(
-      `INSERT INTO orientacion_horas_disponibles (hora) VALUES ($1) ON CONFLICT DO NOTHING`,
-      [hora]
-    );
-    res.status(201).json({ hora });
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
-// ── DELETE /api/orientacion/horas/:hora ───────────────────────────────────
-router.delete("/orientacion/horas/:hora", async (req, res) => {
-  try {
-    const hora = decodeURIComponent(req.params.hora);
-    await pool.query(`DELETE FROM orientacion_horas_disponibles WHERE hora=$1`, [hora]);
-    res.json({ ok: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
 export default router;
