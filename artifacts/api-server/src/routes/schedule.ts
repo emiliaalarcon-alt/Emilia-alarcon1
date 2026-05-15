@@ -258,13 +258,12 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
   return { byCodePrimer, byCodeSegundo, totalStudents: matching.length };
 }
 
+// Used for PRIMER: caller already wiped all PRIMER classes, so we just insert fresh.
 async function upsertFromParsed(
-  byCode: Map<string, { students: string[]; sala: number | null; sede: string }>,
+  byCode: ClassMap,
   horario = "TEMUCO",
   semester: "PRIMER" | "SEGUNDO" = "PRIMER",
 ) {
-  // The caller (import route) already wiped classes for this horario+semester.
-  // Insert fresh data from the Excel for the given horario and semester.
   let created = 0, skipped = 0;
   const parseErrors: string[] = [];
 
@@ -300,6 +299,70 @@ async function upsertFromParsed(
   }
 
   return { created, updated: 0, skipped, removed: 0, parseErrors };
+}
+
+// Used for SEGUNDO: preserves all existing SEGUNDO classes (created via copy-semester).
+// Only updates the student lists for the specific classes that appear in the Excel.
+// Classes NOT in the Excel are left completely untouched.
+async function updateSegundoStudentsFromParsed(
+  byCode: ClassMap,
+  horario: string,
+) {
+  let updated = 0, created = 0, skipped = 0;
+  const parseErrors: string[] = [];
+
+  for (const [classCode, { students, sala, sede }] of byCode.entries()) {
+    const parsed = parseClassCode(classCode);
+    if (!parsed || !parsed.course || !parsed.day || !parsed.time) {
+      parseErrors.push(classCode);
+      skipped++;
+      continue;
+    }
+
+    // Ensure the SEGUNDO class exists; create it if missing (e.g. new class not yet copied)
+    const existing = await db.select({ classCode: scheduleClassesTable.classCode })
+      .from(scheduleClassesTable)
+      .where(and(
+        eq(scheduleClassesTable.classCode, classCode),
+        eq(scheduleClassesTable.semester, "SEGUNDO"),
+        eq(scheduleClassesTable.horario, horario),
+      ));
+
+    if (existing.length === 0) {
+      try {
+        await db.insert(scheduleClassesTable).values({
+          classCode,
+          horario,
+          course: parsed.course,
+          day: parsed.day,
+          time: parsed.time,
+          teacher: parsed.teacher,
+          sede,
+          sala: sala ?? 1,
+          semester: "SEGUNDO",
+        });
+        created++;
+      } catch {
+        parseErrors.push(classCode);
+        skipped++;
+        continue;
+      }
+    }
+
+    // Replace students for this SEGUNDO class only
+    await db.delete(scheduleStudentsTable).where(and(
+      eq(scheduleStudentsTable.classCode, classCode),
+      eq(scheduleStudentsTable.classSemester, "SEGUNDO"),
+      eq(scheduleStudentsTable.classHorario, horario),
+    ));
+    if (students.length > 0) {
+      await db.insert(scheduleStudentsTable)
+        .values(students.map(studentName => ({ classCode, classSemester: "SEGUNDO" as const, classHorario: horario, studentName })));
+    }
+    updated++;
+  }
+
+  return { created, updated, skipped, parseErrors };
 }
 
 async function seedFromExcel(): Promise<boolean> {
@@ -944,13 +1007,16 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    // ── Wipe PRIMER and SEGUNDO — preserve ANUAL ───────────────────────────────
+    // ── Wipe PRIMER only — SEGUNDO classes/students are preserved ─────────────
+    // SEGUNDO class structure was built via "Copiar 1er → 2do". We never wipe it
+    // on import; instead we update only the specific SEGUNDO student lists that
+    // appear in the Excel (see updateSegundoStudentsFromParsed below).
     await db.delete(scheduleStudentsTable)
-      .where(inArray(scheduleStudentsTable.classSemester, ["PRIMER", "SEGUNDO"]));
+      .where(eq(scheduleStudentsTable.classSemester, "PRIMER"));
     await db.delete(scheduleClassesTable)
-      .where(inArray(scheduleClassesTable.semester, ["PRIMER", "SEGUNDO"]));
+      .where(eq(scheduleClassesTable.semester, "PRIMER"));
 
-    // ── Import per campus, both semesters ────────────────────────────────────
+    // ── Import per campus ─────────────────────────────────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
     const allParseErrors: string[] = [];
     const perCampus: Record<string, { students: number; createdPrimer: number; createdSegundo: number }> = {};
@@ -958,8 +1024,10 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
     for (const horarioId of ALL_HORARIO_IDS) {
       const { byCodePrimer, byCodeSegundo, totalStudents: ts } = importExcelBuffer(req.file.buffer, horarioId);
 
-      const rPrimer  = await upsertFromParsed(byCodePrimer,  horarioId, "PRIMER");
-      const rSegundo = await upsertFromParsed(byCodeSegundo, horarioId, "SEGUNDO");
+      // PRIMER: full wipe already done above, insert fresh
+      const rPrimer  = await upsertFromParsed(byCodePrimer, horarioId, "PRIMER");
+      // SEGUNDO: only update students for classes that appear in the Excel
+      const rSegundo = await updateSegundoStudentsFromParsed(byCodeSegundo, horarioId);
 
       totalCreated  += rPrimer.created  + rSegundo.created;
       totalSkipped  += rPrimer.skipped  + rSegundo.skipped;
@@ -968,7 +1036,7 @@ router.post("/schedule/import", upload.single("file"), async (req, res) => {
       perCampus[horarioId] = {
         students: ts,
         createdPrimer:  rPrimer.created,
-        createdSegundo: rSegundo.created,
+        createdSegundo: rSegundo.updated + rSegundo.created,
       };
       broadcastScheduleChange(horarioId);
     }
