@@ -204,6 +204,14 @@ function normalizeSede(raw: string, fallback: string): string {
   return fallback;
 }
 
+type ClassMap = Map<string, { students: string[]; sala: number | null; sede: string }>;
+
+function parseSemesterCol(raw: unknown): "PRIMER" | "SEGUNDO" {
+  const s = String(raw ?? "").trim().toUpperCase();
+  if (s.includes("2") || s.startsWith("SEG") || s.includes("SEGUNDO")) return "SEGUNDO";
+  return "PRIMER";
+}
+
 function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
   const nivelFilter = (HORARIO_NIVEL[horarioId] ?? HORARIO_NIVEL["TEMUCO"]).toUpperCase();
   const defaultSede = HORARIO_SEDES[horarioId]?.[0] ?? "LAS ENCINAS";
@@ -216,8 +224,20 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
   // Filter by column 0 (Nivel) — the most reliable campus identifier
   const matching = dataRows.filter(r => String(r[0]).trim().toUpperCase() === nivelFilter);
 
-  const byCode: Map<string, { students: string[]; sala: number | null; sede: string }> = new Map();
+  // Check if the file has semester info in column 1.
+  // Header row (row 0) will say "Semestre" or similar if it exists.
+  // Column layout: [Nivel, Semestre?, Clase, Nombre, Apellido]
+  const headerRow = rows[0] ?? [];
+  const hasSemesterCol = String(headerRow[1] ?? "").trim().toUpperCase().includes("SEM");
+
+  const byCodePrimer: ClassMap = new Map();
+  const byCodeSegundo: ClassMap = new Map();
+
   for (const r of matching) {
+    // Determine semester from col 1 if present; else default PRIMER
+    const semester = hasSemesterCol ? parseSemesterCol(r[1]) : "PRIMER";
+    const byCode = semester === "SEGUNDO" ? byCodeSegundo : byCodePrimer;
+
     const clase = String(r[2]).trim();
 
     // Extract sala number
@@ -225,7 +245,7 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
     const salaMatch = clase.match(/SALA\s+(\d+)/i);
     if (salaMatch) sala = parseInt(salaMatch[1], 10);
 
-    // Remove SALA part, then split on " - " (with flexible spacing) to isolate class code and sede
+    // Remove SALA part, then split on " - " to isolate class code and sede
     const withoutSala = clase.replace(/\s*-?\s*SALA\s+\d+/i, "").trim();
     const dashParts = withoutSala.split(/\s*-\s+|\s+-\s*/);
     const classCode = dashParts[0].trim().replace(/(\d{2}):(\d{2})/g, "$1.$2");
@@ -240,7 +260,8 @@ function importExcelBuffer(buffer: Buffer, horarioId = "TEMUCO") {
     if (!byCode.has(classCode)) byCode.set(classCode, { students: [], sala, sede });
     byCode.get(classCode)!.students.push(fullName);
   }
-  return { byCode, totalStudents: matching.length };
+
+  return { byCodePrimer, byCodeSegundo, totalStudents: matching.length };
 }
 
 async function upsertFromParsed(
@@ -301,8 +322,8 @@ async function seedFromExcel(): Promise<boolean> {
   const filePath = path.join(excelDir, sorted[0]);
   console.log(`[schedule] Seeding from ${filePath}...`);
   const buffer = fs.readFileSync(filePath);
-  const { byCode } = importExcelBuffer(buffer);
-  const result = await upsertFromParsed(byCode);
+  const { byCodePrimer } = importExcelBuffer(buffer);
+  const result = await upsertFromParsed(byCodePrimer);
   console.log(`[schedule] Seed complete: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`);
   if (result.parseErrors.length > 0) console.log(`[schedule] Parse errors:`, result.parseErrors.slice(0, 10));
   return true;
@@ -921,39 +942,45 @@ router.post("/schedule/copy-semester", async (req, res) => {
 const ALL_HORARIO_IDS = ["TEMUCO", "ALMAGRO", "VILLARRICA", "AV_ALEMANIA"] as const;
 
 // POST /api/schedule/import — import students from Excel (.xlsx)
-// Only PRIMER semester data is replaced on each import.
-// SEGUNDO and ANUAL classes/students are preserved so they are not
-// lost when the admin uploads a new Excel mid-year.
+// Replaces PRIMER and SEGUNDO data from the Excel.
+// ANUAL classes/students are preserved (managed manually).
+// If the Excel has a "Semestre" column (col 1), students are routed to the
+// correct semester automatically. Files without that column default to PRIMER.
 router.post("/schedule/import", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No se recibió ningún archivo" });
 
-    // ── Wipe PRIMER only — preserve SEGUNDO and ANUAL ─────────────────────────
-    // Students first (avoids FK issues), then classes.
+    // ── Wipe PRIMER and SEGUNDO — preserve ANUAL ───────────────────────────────
     await db.delete(scheduleStudentsTable)
-      .where(eq(scheduleStudentsTable.classSemester, "PRIMER"));
+      .where(inArray(scheduleStudentsTable.classSemester, ["PRIMER", "SEGUNDO"]));
     await db.delete(scheduleClassesTable)
-      .where(eq(scheduleClassesTable.semester, "PRIMER"));
+      .where(inArray(scheduleClassesTable.semester, ["PRIMER", "SEGUNDO"]));
 
-    // ── Import from Excel per campus as PRIMER ────────────────────────────────
+    // ── Import per campus, both semesters ────────────────────────────────────
     let totalCreated = 0, totalSkipped = 0, totalStudents = 0;
     const allParseErrors: string[] = [];
-    const perCampus: Record<string, { students: number; created: number; updated: number }> = {};
+    const perCampus: Record<string, { students: number; createdPrimer: number; createdSegundo: number }> = {};
 
     for (const horarioId of ALL_HORARIO_IDS) {
-      const { byCode, totalStudents: ts } = importExcelBuffer(req.file.buffer, horarioId);
-      const result = await upsertFromParsed(byCode, horarioId, "PRIMER");
-      totalCreated  += result.created;
-      totalSkipped  += result.skipped;
+      const { byCodePrimer, byCodeSegundo, totalStudents: ts } = importExcelBuffer(req.file.buffer, horarioId);
+
+      const rPrimer  = await upsertFromParsed(byCodePrimer,  horarioId, "PRIMER");
+      const rSegundo = await upsertFromParsed(byCodeSegundo, horarioId, "SEGUNDO");
+
+      totalCreated  += rPrimer.created  + rSegundo.created;
+      totalSkipped  += rPrimer.skipped  + rSegundo.skipped;
       totalStudents += ts;
-      allParseErrors.push(...result.parseErrors);
-      perCampus[horarioId] = { students: ts, created: result.created, updated: 0 };
+      allParseErrors.push(...rPrimer.parseErrors, ...rSegundo.parseErrors);
+      perCampus[horarioId] = {
+        students: ts,
+        createdPrimer:  rPrimer.created,
+        createdSegundo: rSegundo.created,
+      };
       broadcastScheduleChange(horarioId);
     }
 
     res.json({
       ok: true,
-      semester: "PRIMER",
       created: totalCreated,
       updated: 0,
       skipped: totalSkipped,

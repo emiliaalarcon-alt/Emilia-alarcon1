@@ -266,7 +266,7 @@ export default function AdminPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     created: number; updated: number; skipped: number; totalStudents: number; parseErrors: string[];
-    perCampus?: Record<string, { students: number; created: number; updated: number }>;
+    perCampus?: Record<string, { students: number; createdPrimer: number; createdSegundo: number }>;
   } | null>(null);
   const [importError, setImportError] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -1170,6 +1170,9 @@ export default function AdminPage() {
                             <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">{labels[id] ?? id}</p>
                             <p className="text-lg font-display font-bold text-foreground">{data.students}</p>
                             <p className="text-[10px] text-muted-foreground">alumnos</p>
+                            {(data.createdSegundo > 0) && (
+                              <p className="text-[10px] text-purple-600 mt-0.5">{data.createdPrimer} 1er · {data.createdSegundo} 2do</p>
+                            )}
                           </div>
                         );
                       })}
