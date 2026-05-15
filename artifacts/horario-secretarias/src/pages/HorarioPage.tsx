@@ -970,11 +970,17 @@ export default function HorarioPage() {
     fetchData();
     // SSE para actualizaciones en tiempo real entre usuarios/sedes
     const es = new EventSource(apiUrl(`/api/schedule/stream?horarioId=${encodeURIComponent(horarioId)}`));
-    es.onmessage = () => {
-      // Un mensaje SSE = cambio deliberado (importar, wipe, agregar alumno...).
-      // Permitimos que fetchData actualice aunque la respuesta sea vacía
-      // (p.ej. después de "Vaciar horario").
-      isInitialLoad.current = true;
+    es.onmessage = (event) => {
+      // "schedule_wiped" = vaciado explícito del horario → permitir respuesta vacía.
+      // "schedule_changed" = cualquier otro cambio (agregar alumno, importar, etc.)
+      //   → NO permitir respuesta vacía; datos existentes se conservan si la API
+      //   responde con [] por error transitorio (cold-start de Railway, etc.).
+      try {
+        const msg = JSON.parse(event.data ?? "{}");
+        if (msg.type === "schedule_wiped") {
+          isInitialLoad.current = true;
+        }
+      } catch { /* sin cambio en isInitialLoad */ }
       fetchData();
     };
     // Poll de 30s como fallback si el SSE falla.

@@ -513,8 +513,8 @@ router.get("/schedule", async (req, res) => {
 // ─── Schedule SSE — actualizaciones en tiempo real ───────────────────────────
 const scheduleClients = new Map<string, Set<Response>>();
 
-function broadcastScheduleChange(horarioId: string) {
-  const payload = `data: ${JSON.stringify({ type: "schedule_changed" })}\n\n`;
+function broadcastScheduleChange(horarioId: string, eventType: "schedule_changed" | "schedule_wiped" = "schedule_changed") {
+  const payload = `data: ${JSON.stringify({ type: eventType })}\n\n`;
   scheduleClients.get(horarioId)?.forEach(client => client.write(payload));
 }
 
@@ -801,7 +801,7 @@ router.delete("/schedule/classes", async (req, res) => {
       // Students cascade-delete via FK
       await db.delete(scheduleClassesTable).where(eq(scheduleClassesTable.horario, horarioFilter));
     }
-    broadcastScheduleChange(horarioFilter);
+    broadcastScheduleChange(horarioFilter, "schedule_wiped");
     res.json({ ok: true, deleted: count });
   } catch (err) {
     console.error(err);
@@ -822,7 +822,7 @@ router.delete("/schedule/wipe", async (_req, res) => {
     await db.delete(scheduleClassesTable);
 
     const horarios = await db.select({ id: scheduleHorariosTable.id }).from(scheduleHorariosTable);
-    for (const h of horarios) broadcastScheduleChange(h.id);
+    for (const h of horarios) broadcastScheduleChange(h.id, "schedule_wiped");
 
     res.json({ ok: true, deletedClasses: rows.length });
   } catch (err) {
