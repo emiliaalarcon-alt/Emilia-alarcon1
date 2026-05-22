@@ -972,9 +972,9 @@ export default function HorarioPage() {
       } catch { /* ignorar eventos malformados */ }
       fetchData();
     };
-    // Poll de 30s como fallback si el SSE falla.
+    // Poll de 5min como fallback si el SSE falla.
     // Si la API devuelve [] (error transitorio), los datos se conservan.
-    const interval = setInterval(fetchData, 30_000);
+    const interval = setInterval(fetchData, 300_000);
     return () => { es.close(); clearInterval(interval); };
   }, [fetchData, horarioId]);
 

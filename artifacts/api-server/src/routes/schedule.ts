@@ -812,46 +812,45 @@ router.patch("/schedule/classes/:classCode", async (req, res) => {
     }
 
     // The students FK has ON DELETE CASCADE but not ON UPDATE CASCADE.
-    // To safely change the classCode/semester we must:
-    //   1. Save the existing students
-    //   2. Delete them (removes the FK reference)
-    //   3. Update the class row (now unblocked)
-    //   4. Re-insert students with the new classCode/semester
-    const existingStudents = await db.select()
-      .from(scheduleStudentsTable)
-      .where(and(
-        eq(scheduleStudentsTable.classCode, oldCode),
-        eq(scheduleStudentsTable.classSemester, oldSemester),
-        eq(scheduleStudentsTable.classHorario, oldHorario)
-      ));
+    // Wrap everything in a transaction so that if any step fails,
+    // all changes are rolled back — no data is ever lost.
+    await db.transaction(async (tx) => {
+      const existingStudents = await tx.select()
+        .from(scheduleStudentsTable)
+        .where(and(
+          eq(scheduleStudentsTable.classCode, oldCode),
+          eq(scheduleStudentsTable.classSemester, oldSemester),
+          eq(scheduleStudentsTable.classHorario, oldHorario)
+        ));
 
-    if (existingStudents.length > 0) {
-      await db.delete(scheduleStudentsTable).where(and(
-        eq(scheduleStudentsTable.classCode, oldCode),
-        eq(scheduleStudentsTable.classSemester, oldSemester),
-        eq(scheduleStudentsTable.classHorario, oldHorario)
-      ));
-    }
+      if (existingStudents.length > 0) {
+        await tx.delete(scheduleStudentsTable).where(and(
+          eq(scheduleStudentsTable.classCode, oldCode),
+          eq(scheduleStudentsTable.classSemester, oldSemester),
+          eq(scheduleStudentsTable.classHorario, oldHorario)
+        ));
+      }
 
-    await db.update(scheduleClassesTable)
-      .set({ classCode: newCode, course: newCourse, day: newDay, time: newTime,
-             teacher: newTeacher, sede: newSede, sala: newSala, semester: newSemester })
-      .where(and(
-        eq(scheduleClassesTable.classCode, oldCode),
-        eq(scheduleClassesTable.semester, oldSemester),
-        eq(scheduleClassesTable.horario, oldHorario)
-      ));
+      await tx.update(scheduleClassesTable)
+        .set({ classCode: newCode, course: newCourse, day: newDay, time: newTime,
+               teacher: newTeacher, sede: newSede, sala: newSala, semester: newSemester })
+        .where(and(
+          eq(scheduleClassesTable.classCode, oldCode),
+          eq(scheduleClassesTable.semester, oldSemester),
+          eq(scheduleClassesTable.horario, oldHorario)
+        ));
 
-    if (existingStudents.length > 0) {
-      await db.insert(scheduleStudentsTable).values(
-        existingStudents.map(s => ({
-          classCode: newCode,
-          classSemester: newSemester as "PRIMER" | "SEGUNDO" | "ANUAL",
-          classHorario: oldHorario,
-          studentName: s.studentName,
-        }))
-      );
-    }
+      if (existingStudents.length > 0) {
+        await tx.insert(scheduleStudentsTable).values(
+          existingStudents.map(s => ({
+            classCode: newCode,
+            classSemester: newSemester as "PRIMER" | "SEGUNDO" | "ANUAL",
+            classHorario: oldHorario,
+            studentName: s.studentName,
+          }))
+        );
+      }
+    });
 
     broadcastScheduleChange(cls.horario);
     res.json({ ok: true, classCode: newCode });
