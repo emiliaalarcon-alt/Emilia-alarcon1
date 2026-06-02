@@ -252,7 +252,7 @@ export default function AdminPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
-  const [deletingCode, setDeletingCode] = useState<string | null>(null);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [confirmWipe, setConfirmWipe] = useState(false);
@@ -568,14 +568,15 @@ export default function AdminPage() {
   }
 
   async function handleDelete(classCode: string, semester: string, horario: string) {
-    setDeletingCode(classCode);
+    const key = `${classCode}|${semester}|${horario}`;
+    setDeletingKey(key);
     try {
       await apiDeleteClass(classCode, semester, horario);
       // Optimistic update — remove locally without full refetch
       setAllData(prev => prev.filter(e => !(e.classCode === classCode && e.semester === semester && e.horario === horario)));
       setConfirmDeleteCode(null);
     } finally {
-      setDeletingCode(null);
+      setDeletingKey(null);
     }
   }
 
@@ -1627,7 +1628,8 @@ export default function AdminPage() {
                       {filteredList.map(entry => {
                         const rowKey = `${entry.classCode}|${entry.semester ?? "PRIMER"}`;
                         const badge = COURSE_COLORS[entry.course] ?? "bg-slate-100 text-slate-800 border-slate-200";
-                        const isDeleting = deletingCode === entry.classCode && confirmDeleteCode === entry.classCode;
+                        const confirmKey = `${entry.classCode}|${entry.semester ?? "PRIMER"}|${entry.horario ?? "TEMUCO"}`;
+                        const isDeleting = deletingKey === confirmKey;
                         const isEditing = editingCode === entry.classCode && editingSemester === (entry.semester ?? "PRIMER");
                         const semBadge = entry.semester === "SEGUNDO"
                           ? "bg-purple-100 text-purple-700 border-purple-200"
@@ -1670,7 +1672,7 @@ export default function AdminPage() {
                             </td>
                             <td className="px-3 py-3 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                {confirmDeleteCode === entry.classCode ? (
+                                {confirmDeleteCode === confirmKey ? (
                                   <div className="flex items-center gap-1.5 bg-destructive/5 border border-destructive/20 rounded-xl px-2.5 py-1.5">
                                     <span className="text-[11px] font-semibold text-destructive whitespace-nowrap">¿Eliminar?</span>
                                     <button
@@ -1698,7 +1700,7 @@ export default function AdminPage() {
                                       <Pencil className="w-3.5 h-3.5" />
                                     </button>
                                     <button
-                                      onClick={() => { setConfirmDeleteCode(entry.classCode); setEditingCode(null); }}
+                                      onClick={() => { setConfirmDeleteCode(confirmKey); setEditingCode(null); }}
                                       disabled={isDeleting}
                                       className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
                                       title="Eliminar clase"
