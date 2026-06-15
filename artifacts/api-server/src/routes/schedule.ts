@@ -527,8 +527,15 @@ async function seedIfEmpty() {
 }
 
 (async () => {
+  // IMPORTANTE: el seed automático solo corre si la base de datos está
+  // completamente vacía (0 clases). Si ya existen clases — aunque sean pocas —
+  // significa que las secretarias ya hicieron cambios manuales y NO debemos
+  // pisar esos datos con el Excel de attached_assets.
   const count = await db.$count(scheduleClassesTable);
-  if (count >= 80) return;
+  if (count > 0) {
+    console.log(`[schedule] DB ya tiene ${count} clases — omitiendo seed automático`);
+    return;
+  }
   const excelSeeded = await seedFromExcel();
   if (!excelSeeded) {
     console.log("[schedule] No Excel seed file found, using fallback SEED_DATA");
