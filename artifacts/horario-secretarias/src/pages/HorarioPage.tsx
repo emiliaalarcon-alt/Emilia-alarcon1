@@ -416,7 +416,11 @@ function DetailPanel({
   async function handleRemove(studentName: string) {
     setRemovingStudent(studentName);
     try {
-      await apiRemoveStudent(entry.classCode, entry.semester ?? "PRIMER", entry.horario ?? "TEMUCO", studentName);
+      const result = await apiRemoveStudent(entry.classCode, entry.semester ?? "PRIMER", entry.horario ?? "TEMUCO", studentName);
+      if (result.error) {
+        setAddError(result.error ?? "Error al eliminar alumno.");
+        return;
+      }
       onStudentChange();
 
       // Auto-registrar el cambio en la tabla de Cambios
@@ -457,7 +461,7 @@ function DetailPanel({
         });
       }
     } catch {
-      // silent
+      setAddError("Error de conexión al eliminar alumno. Intente de nuevo.");
     } finally {
       setRemovingStudent(null);
     }
