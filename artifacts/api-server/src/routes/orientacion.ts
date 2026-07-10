@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { pool } from "@workspace/db";
 import { db } from "@workspace/db";
 import {
@@ -26,7 +26,7 @@ function dayOfWeek(year: number, month: number, day: number): string {
   return DAY_NAMES[new Date(year, month - 1, day).getDay()];
 }
 
-// ── GET /api/orientacion/orientadoras ────────────────────────────────────────
+// â”€â”€ GET /api/orientacion/orientadoras â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/orientacion/orientadoras", async (_req, res) => {
   try {
     const rows = await db
@@ -40,7 +40,7 @@ router.get("/orientacion/orientadoras", async (_req, res) => {
   }
 });
 
-// ── POST /api/orientacion/orientadoras ──────────────────────────────────────
+// â”€â”€ POST /api/orientacion/orientadoras â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/orientacion/orientadoras", async (req, res) => {
   try {
     const { nombre, titulo, fotoUrl, orden } = req.body as {
@@ -60,7 +60,7 @@ router.post("/orientacion/orientadoras", async (req, res) => {
   }
 });
 
-// ── PATCH /api/orientacion/orientadoras/:id ──────────────────────────────────
+// â”€â”€ PATCH /api/orientacion/orientadoras/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.patch("/orientacion/orientadoras/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -82,7 +82,7 @@ router.patch("/orientacion/orientadoras/:id", async (req, res) => {
   }
 });
 
-// ── DELETE /api/orientacion/orientadoras/:id ─────────────────────────────────
+// â”€â”€ DELETE /api/orientacion/orientadoras/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.delete("/orientacion/orientadoras/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -94,7 +94,7 @@ router.delete("/orientacion/orientadoras/:id", async (req, res) => {
   }
 });
 
-// ── GET /api/orientacion/orientadoras/:id/horario ────────────────────────────
+// â”€â”€ GET /api/orientacion/orientadoras/:id/horario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/orientacion/orientadoras/:id/horario", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -110,7 +110,7 @@ router.get("/orientacion/orientadoras/:id/horario", async (req, res) => {
   }
 });
 
-// ── POST /api/orientacion/orientadoras/:id/horario ───────────────────────────
+// â”€â”€ POST /api/orientacion/orientadoras/:id/horario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/orientacion/orientadoras/:id/horario", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -126,7 +126,7 @@ router.post("/orientacion/orientadoras/:id/horario", async (req, res) => {
   }
 });
 
-// ── DELETE /api/orientacion/horario/:slotId ──────────────────────────────────
+// â”€â”€ DELETE /api/orientacion/horario/:slotId â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.delete("/orientacion/horario/:slotId", async (req, res) => {
   try {
     const id = parseInt(req.params.slotId);
@@ -138,7 +138,7 @@ router.delete("/orientacion/horario/:slotId", async (req, res) => {
   }
 });
 
-// ── POST /api/orientacion/orientadoras/:id/bloqueo ───────────────────────────
+// â”€â”€ POST /api/orientacion/orientadoras/:id/bloqueo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/orientacion/orientadoras/:id/bloqueo", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -158,7 +158,7 @@ router.post("/orientacion/orientadoras/:id/bloqueo", async (req, res) => {
   }
 });
 
-// ── DELETE /api/orientacion/bloqueo/:id ─────────────────────────────────────
+// â”€â”€ DELETE /api/orientacion/bloqueo/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.delete("/orientacion/bloqueo/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -170,7 +170,7 @@ router.delete("/orientacion/bloqueo/:id", async (req, res) => {
   }
 });
 
-// ── POST /api/orientacion/orientadoras/:id/desbloqueo ────────────────────────
+// â”€â”€ POST /api/orientacion/orientadoras/:id/desbloqueo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/orientacion/orientadoras/:id/desbloqueo", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -186,12 +186,12 @@ router.post("/orientacion/orientadoras/:id/desbloqueo", async (req, res) => {
   }
 });
 
-// ── GET /api/orientacion/disponibilidad/:id?año=&mes= ────────────────────────
+// â”€â”€ GET /api/orientacion/disponibilidad/:id?aÃ±o=&mes= â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Returns all slots for the month with status: available | booked | blocked
 router.get("/orientacion/disponibilidad/:id", async (req, res) => {
   try {
     const orientadoraId = parseInt(req.params.id);
-    const year = parseInt(req.query["año"] as string) || new Date().getFullYear();
+    const year = parseInt(req.query["aÃ±o"] as string) || new Date().getFullYear();
     const month = parseInt(req.query["mes"] as string) || (new Date().getMonth() + 1);
 
     const first = dateStr(year, month, 1);
@@ -265,11 +265,11 @@ router.get("/orientacion/disponibilidad/:id", async (req, res) => {
   }
 });
 
-// ── GET /api/orientacion/citas (all for month, admin view) ───────────────────
+// â”€â”€ GET /api/orientacion/citas (all for month, admin view) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/orientacion/citas", async (req, res) => {
   try {
-    const { año, mes } = req.query as { año?: string; mes?: string };
-    const year = parseInt(año || "") || new Date().getFullYear();
+    const { aÃ±o, mes } = req.query as { aÃ±o?: string; mes?: string };
+    const year = parseInt(aÃ±o || "") || new Date().getFullYear();
     const month = parseInt(mes || "") || (new Date().getMonth() + 1);
     const first = dateStr(year, month, 1);
     const last = dateStr(year, month, daysInMonth(year, month));
@@ -283,7 +283,7 @@ router.get("/orientacion/citas", async (req, res) => {
   }
 });
 
-// ── POST /api/orientacion/citas ──────────────────────────────────────────────
+// â”€â”€ POST /api/orientacion/citas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/orientacion/citas", async (req, res) => {
   try {
     const { orientadoraId, nombreEstudiante, agendadoPor, fecha, horaInicio, motivo } = req.body as {
@@ -299,7 +299,7 @@ router.post("/orientacion/citas", async (req, res) => {
         eq(citasOrientacionTable.fecha, fecha),
         eq(citasOrientacionTable.horaInicio, horaInicio),
       )).limit(1);
-    if (existing.length > 0) return res.status(409).json({ error: "Ese horario ya está ocupado" });
+    if (existing.length > 0) return res.status(409).json({ error: "Ese horario ya estÃ¡ ocupado" });
 
     const [row] = await db.insert(citasOrientacionTable).values({
       orientadoraId, nombreEstudiante: nombreEstudiante.trim(),
@@ -314,7 +314,7 @@ router.post("/orientacion/citas", async (req, res) => {
   }
 });
 
-// ── PATCH /api/orientacion/citas/:id ─────────────────────────────────────────
+// â”€â”€ PATCH /api/orientacion/citas/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.patch("/orientacion/citas/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -351,7 +351,7 @@ router.patch("/orientacion/citas/:id", async (req, res) => {
   }
 });
 
-// ── DELETE /api/orientacion/citas/:id ────────────────────────────────────────
+// â”€â”€ DELETE /api/orientacion/citas/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.delete("/orientacion/citas/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -363,11 +363,11 @@ router.delete("/orientacion/citas/:id", async (req, res) => {
   }
 });
 
-// ── GET /api/orientacion/citas/all ───────────────────────────────────────────
-// Returns all citas for stats (no month filter). Optional: orientadoraId, año
+// â”€â”€ GET /api/orientacion/citas/all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Returns all citas for stats (no month filter). Optional: orientadoraId, aÃ±o
 router.get("/orientacion/citas/all", async (req, res) => {
   try {
-    const { orientadoraId, año } = req.query as { orientadoraId?: string; año?: string };
+    const { orientadoraId, aÃ±o } = req.query as { orientadoraId?: string; aÃ±o?: string };
     let query = `SELECT * FROM citas_orientacion`;
     const params: (string | number)[] = [];
     const conds: string[] = [];
@@ -376,8 +376,8 @@ router.get("/orientacion/citas/all", async (req, res) => {
       params.push(parseInt(orientadoraId));
       conds.push(`orientadora_id = $${params.length}`);
     }
-    if (año) {
-      params.push(`${año}-%`);
+    if (aÃ±o) {
+      params.push(`${aÃ±o}-%`);
       conds.push(`fecha LIKE $${params.length}`);
     }
     if (conds.length) query += ` WHERE ${conds.join(" AND ")}`;
@@ -406,7 +406,7 @@ router.get("/orientacion/citas/all", async (req, res) => {
   }
 });
 
-// ── GET /api/orientacion/orientadoras/:id/bloqueos ───────────────────────────
+// â”€â”€ GET /api/orientacion/orientadoras/:id/bloqueos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/orientacion/orientadoras/:id/bloqueos", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -420,7 +420,7 @@ router.get("/orientacion/orientadoras/:id/bloqueos", async (req, res) => {
   }
 });
 
-// ── GET /api/orientacion/estados ─────────────────────────────────────────────
+// â”€â”€ GET /api/orientacion/estados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/orientacion/estados", async (_req, res) => {
   try {
     const { rows } = await pool.query(
@@ -430,7 +430,7 @@ router.get("/orientacion/estados", async (_req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });
 
-// ── POST /api/orientacion/estados ────────────────────────────────────────────
+// â”€â”€ POST /api/orientacion/estados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/orientacion/estados", async (req, res) => {
   try {
     const { tipo, label, color, orden } = req.body as {
@@ -445,7 +445,7 @@ router.post("/orientacion/estados", async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });
 
-// ── PATCH /api/orientacion/estados/:id ───────────────────────────────────────
+// â”€â”€ PATCH /api/orientacion/estados/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.patch("/orientacion/estados/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -468,7 +468,7 @@ router.patch("/orientacion/estados/:id", async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });
 
-// ── DELETE /api/orientacion/estados/:id ──────────────────────────────────────
+// â”€â”€ DELETE /api/orientacion/estados/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.delete("/orientacion/estados/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -477,7 +477,7 @@ router.delete("/orientacion/estados/:id", async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });
 
-// ── GET /api/orientacion/horas ────────────────────────────────────────────────
+// â”€â”€ GET /api/orientacion/horas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get("/orientacion/horas", async (_req, res) => {
   try {
     const { rows } = await pool.query(`SELECT hora FROM orientacion_horas_disponibles ORDER BY hora`);
@@ -485,24 +485,93 @@ router.get("/orientacion/horas", async (_req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });
 
-// ── POST /api/orientacion/horas ───────────────────────────────────────────────
+// â”€â”€ POST /api/orientacion/horas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post("/orientacion/horas", async (req, res) => {
   try {
     const { hora } = req.body as { hora?: string };
     if (!hora?.trim()) return res.status(400).json({ error: "hora requerida" });
     const h = hora.trim();
-    if (!/^\d{2}:\d{2}$/.test(h)) return res.status(400).json({ error: "Formato inválido (HH:MM)" });
+    if (!/^\d{2}:\d{2}$/.test(h)) return res.status(400).json({ error: "Formato invÃ¡lido (HH:MM)" });
     await pool.query(`INSERT INTO orientacion_horas_disponibles (hora) VALUES ($1) ON CONFLICT DO NOTHING`, [h]);
     res.status(201).json({ ok: true, hora: h });
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });
 
-// ── DELETE /api/orientacion/horas/:hora ──────────────────────────────────────
+// â”€â”€ DELETE /api/orientacion/horas/:hora â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.delete("/orientacion/horas/:hora", async (req, res) => {
   try {
     await pool.query(`DELETE FROM orientacion_horas_disponibles WHERE hora=$1`, [req.params.hora]);
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
+});
+
+// ── GET /api/orientacion/export?año=YYYY — descarga todo en un Excel ─────────
+router.get("/orientacion/export", async (req, res) => {
+  try {
+    const { año } = req.query as { año?: string };
+
+    const orientadoras = await db
+      .select()
+      .from(orientadorasTable)
+      .orderBy(orientadorasTable.orden, orientadorasTable.nombre);
+
+    const nombreById = new Map(orientadoras.map(o => [o.id, o.nombre]));
+
+    let citasQuery = `SELECT * FROM citas_orientacion`;
+    const citasParams: string[] = [];
+    if (año) {
+      citasParams.push(`${año}-%`);
+      citasQuery += ` WHERE fecha LIKE $1`;
+    }
+    citasQuery += ` ORDER BY fecha, hora_inicio`;
+    const { rows: citasRows } = await pool.query(citasQuery, citasParams);
+
+    const citasSheet = citasRows.map((r: Record<string, unknown>) => ({
+      "Fecha": r.fecha,
+      "Hora": r.hora_inicio,
+      "Orientadora": nombreById.get(r.orientadora_id as number) ?? `#${r.orientadora_id}`,
+      "Estudiante": r.nombre_estudiante,
+      "Agendado por": r.agendado_por,
+      "Motivo": r.motivo ?? "",
+      "Estado confirmación": r.estado_confirma,
+      "Estado asistencia": r.estado_asiste,
+      "Nota rápida": r.nota_rapida ?? "",
+      "Dado de alta": r.dado_de_alta ? "Sí" : "No",
+      "Creada en": r.creada_en,
+    }));
+
+    const orientadorasSheet = orientadoras.map(o => ({
+      "Nombre": o.nombre,
+      "Título": o.titulo,
+      "Activa": o.activa === 1 ? "Sí" : "No",
+      "Orden": o.orden,
+    }));
+
+    const bloqueosRows = await db.select().from(orientacionBloqueoFechaTable);
+    const bloqueosSheet = bloqueosRows.map(b => ({
+      "Orientadora": nombreById.get(b.orientadoraId) ?? `#${b.orientadoraId}`,
+      "Desde": b.fechaInicio,
+      "Hasta": b.fechaFin,
+      "Hora (si aplica)": b.horaInicio ?? "Todo el día",
+      "Motivo": b.motivo ?? "",
+    }));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(citasSheet), "Citas");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orientadorasSheet), "Orientadoras");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bloqueosSheet), "Bloqueos");
+
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const today = new Date().toISOString().slice(0, 10);
+    const filename = `orientacion_${año ?? "todo"}_${today}.xlsx`;
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al generar el Excel" });
+  }
 });
 
 export default router;

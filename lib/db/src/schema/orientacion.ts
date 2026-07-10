@@ -1,4 +1,4 @@
-﻿import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, serial, integer, boolean, timestamp, primaryKey } from "drizzle-orm/pg-core";
 
 export const orientadorasTable = pgTable("orientadoras", {
   id: serial("id").primaryKey(),
@@ -58,8 +58,11 @@ export const orientacionEstadosTable = pgTable("orientacion_estados", {
 });
 
 export const orientacionHorasDisponiblesTable = pgTable("orientacion_horas_disponibles", {
-  hora: text("hora").primaryKey(),
-});
+  orientadoraId: integer("orientadora_id").notNull(),
+  hora: text("hora").notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.orientadoraId, table.hora] }),
+}));
 
 export type Orientadora = typeof orientadorasTable.$inferSelect;
 export type OrientacionHorarioHabitual = typeof orientacionHorarioHabitualTable.$inferSelect;
