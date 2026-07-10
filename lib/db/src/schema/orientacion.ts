@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 
 export const orientadorasTable = pgTable("orientadoras", {
   id: serial("id").primaryKey(),
@@ -45,5 +45,26 @@ export const citasOrientacionTable = pgTable("citas_orientacion", {
   estadoConfirma: text("estado_confirma").notNull().default("pendiente"),
   estadoAsiste: text("estado_asiste").notNull().default("pendiente"),
   notaRapida: text("nota_rapida"),
+  dadoDeAlta: boolean("dado_de_alta").notNull().default(false),
   creadaEn: timestamp("creada_en").defaultNow(),
 });
+
+export const orientacionEstadosTable = pgTable("orientacion_estados", {
+  id: serial("id").primaryKey(),
+  tipo: text("tipo").notNull().default("confirma"),
+  label: text("label").notNull(),
+  color: text("color").notNull().default("#94a3b8"),
+  orden: integer("orden").notNull().default(99),
+});
+
+export const orientacionHorasDisponiblesTable = pgTable("orientacion_horas_disponibles", {
+  hora: text("hora").primaryKey(),
+});
+
+export type Orientadora = typeof orientadorasTable.$inferSelect;
+export type OrientacionHorarioHabitual = typeof orientacionHorarioHabitualTable.$inferSelect;
+export type OrientacionBloqueoFecha = typeof orientacionBloqueoFechaTable.$inferSelect;
+export type OrientacionDesbloqueoFecha = typeof orientacionDesbloqueoFechaTable.$inferSelect;
+export type CitaOrientacion = typeof citasOrientacionTable.$inferSelect;
+export type OrientacionEstado = typeof orientacionEstadosTable.$inferSelect;
+export type OrientacionHoraDisponible = typeof orientacionHorasDisponiblesTable.$inferSelect;

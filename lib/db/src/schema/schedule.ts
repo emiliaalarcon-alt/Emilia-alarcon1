@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, primaryKey, foreignKey } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, serial, integer, timestamp, primaryKey, foreignKey } from "drizzle-orm/pg-core";
 
 export const scheduleClassesTable = pgTable("schedule_classes", {
   classCode: text("class_code").notNull(),
@@ -10,6 +10,7 @@ export const scheduleClassesTable = pgTable("schedule_classes", {
   teacher: text("teacher").notNull(),
   course: text("course").notNull(),
   semester: text("semester").notNull().default("PRIMER"),
+  schoolYear: integer("school_year").notNull().default(2026),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   pk: primaryKey({ columns: [table.classCode, table.semester, table.horario] }),
@@ -92,6 +93,40 @@ export const taskItemsTable = pgTable("task_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const workshopsTable = pgTable("workshops", {
+  id: serial("id").primaryKey(),
+  horarioId: text("horario_id").notNull(),
+  sede: text("sede").notNull(),
+  teacher: text("teacher").notNull(),
+  name: text("name").notNull().default(""),
+  workshopDate: text("workshop_date").notNull().default(""),
+  workshopTime: text("workshop_time").notNull().default(""),
+  maxStudents: integer("max_students").notNull().default(8),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const workshopStudentsTable = pgTable("workshop_students", {
+  id: serial("id").primaryKey(),
+  workshopId: integer("workshop_id").notNull().references(() => workshopsTable.id, { onDelete: "cascade" }),
+  studentName: text("student_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const notasTable = pgTable("notas", {
+  id: serial("id").primaryKey(),
+  horarioId: text("horario_id").notNull(),
+  autor: text("autor").notNull().default(""),
+  titulo: text("titulo").notNull().default(""),
+  contenido: text("contenido").notNull().default(""),
+  color: text("color").notNull().default("amarillo"),
+  pinned: integer("pinned").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type Workshop = typeof workshopsTable.$inferSelect;
+export type WorkshopStudent = typeof workshopStudentsTable.$inferSelect;
+export type Nota = typeof notasTable.$inferSelect;
 export type ScheduleClass = typeof scheduleClassesTable.$inferSelect;
 export type ScheduleStudent = typeof scheduleStudentsTable.$inferSelect;
 export type ScheduleHorario = typeof scheduleHorariosTable.$inferSelect;
@@ -99,3 +134,4 @@ export type ScheduleTransfer = typeof scheduleTransfersTable.$inferSelect;
 export type Task = typeof tasksTable.$inferSelect;
 export type TaskItem = typeof taskItemsTable.$inferSelect;
 export type TeamMember = typeof teamMembersTable.$inferSelect;
+
