@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+?import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Settings,
   User, CalendarDays, Clock, BarChart2, UserCheck,
@@ -7,7 +7,7 @@ import OrientacionStats from "@/pages/OrientacionStats";
 import { apiUrl } from "@/lib/api";
 import { useCurrentUser } from "@/context/UserContext";
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Orientadora {
   id: number; nombre: string; titulo: string; fotoUrl: string;
@@ -32,7 +32,7 @@ interface Slot {
   cita?: Cita;
 }
 
-// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const MONTH_NAMES = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -40,7 +40,7 @@ const MONTH_NAMES = [
 ];
 const DOW_NAMES = ["domingo","lunes","martes","miercoles","jueves","viernes","sabado"];
 const DOW_ES: Record<string, string> = {
-  lunes:"Lunes", martes:"Martes", miercoles:"MiÃ©rcoles",
+  lunes:"Lunes", martes:"Martes", miercoles:"Miércoles",
   jueves:"Jueves", viernes:"Viernes",
 };
 const DOW_ORDER = ["lunes","martes","miercoles","jueves","viernes"];
@@ -48,12 +48,12 @@ const HORAS_DEFAULT = [
   "08:00","09:00","10:00","11:00","12:00","13:00","14:00",
   "15:00","16:00","17:00","18:00","19:00","20:00",
 ];
-// â”€â”€â”€ Estado DB type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Estado DB type ───────────────────────────────────────────────────────────
 interface EstadoDB {
   id: number; tipo: string; label: string; color: string; orden: number;
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function padZ(n: number) { return String(n).padStart(2, "0"); }
 function dateStr(y: number, m: number, d: number) {
@@ -69,7 +69,7 @@ function getDOW(fecha: string) {
 }
 function daysInMonth(y: number, m: number) { return new Date(y, m, 0).getDate(); }
 
-// â”€â”€â”€ Status Select (usa colores hex dinÃ¡micos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Status Select (usa colores hex dinámicos) ────────────────────────────────
 
 function hexToRgb(hex: string) {
   const r = parseInt(hex.slice(1,3),16);
@@ -101,7 +101,7 @@ function StatusSelect({
   );
 }
 
-// â”€â”€â”€ Booking Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Booking Modal ────────────────────────────────────────────────────────────
 
 function BookingModal({
   fecha, hora, orientadoraNombre, agendadoPor, onConfirm, onClose,
@@ -137,7 +137,7 @@ function BookingModal({
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Motivo (opcional)</label>
             <input value={motivo} onChange={e => setMotivo(e.target.value)}
-              placeholder="Ej: orientaciÃ³n vocacional"
+              placeholder="Ej: orientación vocacional"
               className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
           </div>
         </div>
@@ -156,7 +156,7 @@ function BookingModal({
   );
 }
 
-// â”€â”€â”€ Panel de ediciÃ³n de estados (tipo Excel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Panel de edición de estados (tipo Excel) ─────────────────────────────────
 
 const PRESET_COLORS = [
   "#f59e0b","#10b981","#3b82f6","#ef4444","#8b5cf6",
@@ -205,7 +205,7 @@ function EstadosPanel({
 
     return (
       <tr className="border-b border-border/40 last:border-0 group/row hover:bg-muted/30 transition-colors">
-        {/* Color dot â€” clic abre picker */}
+        {/* Color dot — clic abre picker */}
         <td className="py-1.5 pl-2 pr-1 w-8 relative">
           <button
             onClick={() => setShowColors(v => !v)}
@@ -287,7 +287,7 @@ function EstadosPanel({
               if (ev.key === "Enter") addEstado(tipo, newRow.label, color);
               if (ev.key === "Escape") setNewRow(null);
             }}
-            placeholder="Nombre del estadoâ€¦"
+            placeholder="Nombre del estado…"
             className="w-full bg-transparent text-sm text-foreground outline-none focus:bg-muted/40 rounded px-1 py-0.5 placeholder:text-muted-foreground/50"
           />
         </td>
@@ -296,11 +296,11 @@ function EstadosPanel({
           <div className="flex items-center gap-1">
             <button onClick={() => addEstado(tipo, newRow.label, color)} disabled={saving || !newRow.label.trim()}
               className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-2 py-0.5 disabled:opacity-40 hover:bg-primary/90 transition-colors">
-              âœ“
+              ✓
             </button>
             <button onClick={() => setNewRow(null)}
               className="text-[10px] font-bold bg-muted text-muted-foreground rounded-full px-2 py-0.5 hover:bg-muted/80 transition-colors">
-              âœ•
+              ✕
             </button>
           </div>
         </td>
@@ -346,7 +346,7 @@ function EstadosPanel({
           </table>
         </div>
         <p className="text-[10px] text-muted-foreground">
-          Clic en el punto de color para cambiarlo Â· Clic en el nombre para editarlo Â· Enter o clic fuera para guardar
+          Clic en el punto de color para cambiarlo · Clic en el nombre para editarlo · Enter o clic fuera para guardar
         </p>
       </div>
     );
@@ -354,13 +354,13 @@ function EstadosPanel({
 
   return (
     <div className="space-y-5">
-      <Section tipo="confirma" label="Estados de confirmaciÃ³n" list={confirmaList} />
+      <Section tipo="confirma" label="Estados de confirmación" list={confirmaList} />
       <Section tipo="asiste" label="Estados de asistencia" list={asisteList} />
     </div>
   );
 }
 
-// â”€â”€â”€ Admin Modal (checkbox grid + feriados + estados) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Admin Modal (checkbox grid + feriados + estados) ─────────────────────────
 
 function AdminModal({
   orientadora, horario, bloqueos, estados, horasDisponibles, onClose, onRefresh, onRefreshEstados, onRefreshHoras,
@@ -385,7 +385,7 @@ function AdminModal({
   const [feriadoHasta, setFeriadoHasta] = useState("");
   const [feriadoMotivo, setFeriadoMotivo] = useState("Feriado");
 
-  // Build set of active slots: "diaSemana|horaInicio" â†’ slotId
+  // Build set of active slots: "diaSemana|horaInicio" → slotId
   const slotMap = useMemo(() => {
     const m: Record<string, number> = {};
     for (const s of horario) m[`${s.diaSemana}|${s.horaInicio}`] = s.id;
@@ -419,7 +419,7 @@ function AdminModal({
       const data = await r.json();
       if (data.error) setHoraError(data.error);
       else { setNewHora(""); onRefreshHoras(); }
-    } catch { setHoraError("Error de conexiÃ³n"); }
+    } catch { setHoraError("Error de conexión"); }
     finally { setSavingHora(false); }
   }
 
@@ -488,7 +488,7 @@ function AdminModal({
       >
         {/* Encabezado fijo */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card sticky top-0 z-10">
-          <h3 className="font-bold text-lg text-foreground">Configurar â€” {orientadora.nombre}</h3>
+          <h3 className="font-bold text-lg text-foreground">Configurar — {orientadora.nombre}</h3>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -502,10 +502,10 @@ function AdminModal({
         {/* Tabs */}
         <div className="flex gap-1 bg-muted/60 rounded-xl p-1 flex-wrap">
           {([
-            ["horario",  "ðŸ“… Horario"],
-            ["feriados", "ðŸš« Sin atenciÃ³n"],
-            ["estados",  "ðŸŽ¨ Estados"],
-            ["horas",    "ðŸ• MÃ³dulos"],
+            ["horario",  "📅 Horario"],
+            ["feriados", "🚫 Sin atención"],
+            ["estados",  "🎨 Estados"],
+            ["horas",    "🕐 Módulos"],
           ] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${tab===t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
@@ -517,7 +517,7 @@ function AdminModal({
         {tab === "horario" && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Haz clic en un casillero para activar/desactivar ese horario. Haz clic en el <strong>nombre del dÃ­a</strong> para marcar o desmarcar todo el dÃ­a de un golpe.
+              Haz clic en un casillero para activar/desactivar ese horario. Haz clic en el <strong>nombre del día</strong> para marcar o desmarcar todo el día de un golpe.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
@@ -540,7 +540,7 @@ function AdminModal({
                                 : "border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
                             } disabled:opacity-50`}
                           >
-                            {d === "miercoles" ? "MiÃ©" : DOW_ES[d]?.slice(0,3)}
+                            {d === "miercoles" ? "Mié" : DOW_ES[d]?.slice(0,3)}
                           </button>
                         </th>
                       );
@@ -565,7 +565,7 @@ function AdminModal({
                                   : "border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
                               } disabled:opacity-50`}
                             >
-                              {checked ? "âœ“" : ""}
+                              {checked ? "✓" : ""}
                             </button>
                           </td>
                         );
@@ -576,7 +576,7 @@ function AdminModal({
               </table>
             </div>
             <p className="text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
-              ðŸ’¡ Los cambios se guardan automÃ¡ticamente. Si la orientadora trabaja todos los dÃ­as, haz clic en cada nombre de dÃ­a. Si solo trabaja Martes, Jueves y Viernes, haz clic solo en esos tres.
+              💡 Los cambios se guardan automáticamente. Si la orientadora trabaja todos los días, haz clic en cada nombre de día. Si solo trabaja Martes, Jueves y Viernes, haz clic solo en esos tres.
             </p>
           </div>
         )}
@@ -588,7 +588,7 @@ function AdminModal({
         {tab === "horas" && (
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Estos son los mÃ³dulos de tiempo disponibles para asignar al horario de la orientadora. Agrega o elimina horas segÃºn necesites (ej. 16:30, 17:30).
+              Estos son los módulos de tiempo disponibles para asignar al horario de la orientadora. Agrega o elimina horas según necesites (ej. 16:30, 17:30).
             </p>
             <div className="grid grid-cols-4 gap-2">
               {horasDisponibles.map(h => (
@@ -597,18 +597,18 @@ function AdminModal({
                   <button
                     onClick={() => deleteHora(h)}
                     className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
-                    title="Eliminar mÃ³dulo"
+                    title="Eliminar módulo"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
               {horasDisponibles.length === 0 && (
-                <p className="col-span-4 text-xs text-muted-foreground italic">Sin mÃ³dulos definidos</p>
+                <p className="col-span-4 text-xs text-muted-foreground italic">Sin módulos definidos</p>
               )}
             </div>
             <div className="border-t border-border pt-4 space-y-2">
-              <h4 className="text-sm font-semibold text-foreground">Agregar mÃ³dulo</h4>
+              <h4 className="text-sm font-semibold text-foreground">Agregar módulo</h4>
               <div className="flex gap-2 items-start">
                 <div className="flex-1">
                   <input
@@ -624,11 +624,11 @@ function AdminModal({
                   disabled={savingHora || !newHora}
                   className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {savingHora ? "â€¦" : "Agregar"}
+                  {savingHora ? "…" : "Agregar"}
                 </button>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Puedes agregar horas como 16:30 o 17:45 â€” no es necesario que sean en punto.
+                Puedes agregar horas como 16:30 o 17:45 — no es necesario que sean en punto.
               </p>
             </div>
           </div>
@@ -637,24 +637,24 @@ function AdminModal({
         {tab === "feriados" && (
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Marca dÃ­as especÃ­ficos donde la orientadora NO atenderÃ¡ (feriados, reuniones, vacaciones, etc.).
+              Marca días específicos donde la orientadora NO atenderá (feriados, reuniones, vacaciones, etc.).
             </p>
 
             {/* Existing blocks */}
             <div className="space-y-2">
               {bloqueos.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">Sin dÃ­as bloqueados</p>
+                <p className="text-xs text-muted-foreground italic">Sin días bloqueados</p>
               )}
               {bloqueos.map(b => {
                 const dt = parseDateSafe(b.fechaInicio);
                 const label = b.fechaInicio === b.fechaFin
                   ? `${dt.getDate()} de ${MONTH_NAMES[dt.getMonth()]} ${dt.getFullYear()}`
-                  : `${b.fechaInicio} â†’ ${b.fechaFin}`;
+                  : `${b.fechaInicio} → ${b.fechaFin}`;
                 return (
                   <div key={b.id} className="flex items-center justify-between gap-2 bg-red-50 dark:bg-red-950/20 rounded-lg px-3 py-2">
                     <div>
                       <span className="text-sm font-medium text-foreground">{label}</span>
-                      {b.motivo && <span className="text-xs text-muted-foreground ml-2">â€” {b.motivo}</span>}
+                      {b.motivo && <span className="text-xs text-muted-foreground ml-2">— {b.motivo}</span>}
                     </div>
                     <button onClick={() => removeBloqueo(b.id)} className="text-muted-foreground hover:text-red-500 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
@@ -666,7 +666,7 @@ function AdminModal({
 
             {/* Add block */}
             <div className="border-t border-border pt-4 space-y-3">
-              <h4 className="text-sm font-semibold text-foreground">Agregar perÃ­odo sin atenciÃ³n</h4>
+              <h4 className="text-sm font-semibold text-foreground">Agregar período sin atención</h4>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
@@ -677,7 +677,7 @@ function AdminModal({
                     className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta <span className="text-muted-foreground/60">(mismo dÃ­a si es 1 dÃ­a)</span></label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta <span className="text-muted-foreground/60">(mismo día si es 1 día)</span></label>
                   <input type="date" value={feriadoHasta} min={feriadoDesde} onChange={e => setFeriadoHasta(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
                 </div>
@@ -685,12 +685,12 @@ function AdminModal({
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Motivo</label>
                 <input value={feriadoMotivo} onChange={e => setFeriadoMotivo(e.target.value)}
-                  placeholder="Feriado, ReuniÃ³n, Vacacionesâ€¦"
+                  placeholder="Feriado, Reunión, Vacaciones…"
                   className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
               </div>
               <button onClick={addFeriado} disabled={!feriadoDesde}
                 className="w-full px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-40 transition-colors">
-                Marcar como sin atenciÃ³n
+                Marcar como sin atención
               </button>
             </div>
           </div>
@@ -701,7 +701,7 @@ function AdminModal({
   );
 }
 
-// â”€â”€â”€ Nueva Orientadora Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Nueva Orientadora Modal ───────────────────────────────────────────────────
 
 function NuevaOrientadoraModal({ onConfirm, onClose }: {
   onConfirm:(nombre:string, titulo:string)=>void; onClose:()=>void;
@@ -725,7 +725,7 @@ function NuevaOrientadoraModal({ onConfirm, onClose }: {
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Cargo</label>
             <input value={titulo} onChange={e => setTitulo(e.target.value)}
-              placeholder="Orientadora / PsicÃ³logaâ€¦"
+              placeholder="Orientadora / Psicóloga…"
               className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
           </div>
         </div>
@@ -744,7 +744,7 @@ function NuevaOrientadoraModal({ onConfirm, onClose }: {
   );
 }
 
-// Border color se resuelve dinÃ¡micamente desde estados
+// Border color se resuelve dinámicamente desde estados
 function getBorderColor(estadoLabel: string, estados: EstadoDB[]) {
   return estados.find(e => e.label === estadoLabel)?.color ?? "#94a3b8";
 }
@@ -758,7 +758,7 @@ const DOW_ACCENT: Record<string, { header: string; text: string }> = {
   viernes:   { header: "bg-rose-50 dark:bg-rose-950/30",  text: "text-rose-700 dark:text-rose-400" },
 };
 
-// â”€â”€â”€ Appointment Cell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Appointment Cell ──────────────────────────────────────────────────────────
 
 function AppointmentCell({
   slot, canBook, canManage, estadosConfirma, estadosAsiste,
@@ -778,7 +778,7 @@ function AppointmentCell({
   if (slot.status === "blocked") {
     return (
       <div className={`${EMPTY_H} flex items-center justify-center rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40`}>
-        <span className="text-[10px] font-medium text-red-400">ðŸš« Sin atenciÃ³n</span>
+        <span className="text-[10px] font-medium text-red-400">🚫 Sin atención</span>
       </div>
     );
   }
@@ -801,7 +801,7 @@ function AppointmentCell({
     );
   }
 
-  // â”€â”€ Booked â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Booked ──────────────────────────────────────────────────────────────────
   const cita = slot.cita!;
   const accentColor = getBorderColor(cita.estadoConfirma, estadosConfirma);
   const canEdit = canBook || canManage;
@@ -824,7 +824,7 @@ function AppointmentCell({
         )}
       </div>
 
-      {/* Estado confirma â€” editable para todos */}
+      {/* Estado confirma — editable para todos */}
       {canEdit ? (
         <StatusSelect value={cita.estadoConfirma} estados={estadosConfirma}
           onChange={v => onUpdateCita(cita.id, { estadoConfirma: v })} />
@@ -835,13 +835,13 @@ function AppointmentCell({
         </span>
       )}
 
-      {/* Estado asiste â€” solo admin/orientadora */}
+      {/* Estado asiste — solo admin/orientadora */}
       {canManage && estadosAsiste.length > 0 && (
         <StatusSelect value={cita.estadoAsiste} estados={estadosAsiste}
           onChange={v => onUpdateCita(cita.id, { estadoAsiste: v })} />
       )}
 
-      {/* Nota rÃ¡pida */}
+      {/* Nota rápida */}
       {canEdit ? (
         <input
           key={`nota-${cita.id}`}
@@ -851,7 +851,7 @@ function AppointmentCell({
             const prev = cita.notaRapida ?? "";
             if (val !== prev) onUpdateCita(cita.id, { notaRapida: val || null });
           }}
-          placeholder="Nota rÃ¡pidaâ€¦"
+          placeholder="Nota rápida…"
           className="w-full text-[10px] bg-transparent border-none outline-none text-muted-foreground placeholder:text-muted-foreground/30 leading-tight"
         />
       ) : cita.notaRapida ? (
@@ -860,7 +860,7 @@ function AppointmentCell({
         </span>
       ) : null}
 
-      {/* Dado de alta â€” solo orientadora/admin */}
+      {/* Dado de alta — solo orientadora/admin */}
       {canManage && (
         <button
           onClick={() => onUpdateCita(cita.id, { dadoDeAlta: !cita.dadoDeAlta } as Record<string, string | null | boolean>)}
@@ -879,7 +879,7 @@ function AppointmentCell({
   );
 }
 
-// â”€â”€â”€ Day Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Day Section ──────────────────────────────────────────────────────────────
 
 function DaySection({
   dow, dates, slotsByDateHora, allHours,
@@ -954,7 +954,7 @@ function DaySection({
                     {/* Mini status bar */}
                     {allBlocked ? (
                       <div className="mt-1 text-[9px] font-bold text-red-500 bg-red-100 dark:bg-red-900/30 rounded-full px-2 py-0.5 inline-block">
-                        Sin atenciÃ³n
+                        Sin atención
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-1.5 mt-1">
@@ -978,7 +978,7 @@ function DaySection({
           <tbody>
             {allHours.map((hora, idx) => (
               <tr key={hora} className={`border-b border-border/40 last:border-0 ${idx % 2 === 1 ? "bg-muted/[0.06]" : ""}`}>
-                {/* Hour cell â€” sticky */}
+                {/* Hour cell — sticky */}
                 <td className="px-3 py-1 text-xs font-mono font-bold text-muted-foreground bg-muted/30 sticky left-0 z-10 border-r border-border/30">
                   {hora}
                 </td>
@@ -1008,7 +1008,7 @@ function DaySection({
   );
 }
 
-// â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function OrientacionPage() {
   const { currentUser } = useCurrentUser();
@@ -1041,7 +1041,7 @@ export default function OrientacionPage() {
     [orientadoras, selectedId],
   );
 
-  // â”€â”€ Load orientadoras â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Load orientadoras ────────────────────────────────────────────────────
   const loadOrientadoras = useCallback(async () => {
     try {
       const r = await fetch(apiUrl("/api/orientacion/orientadoras"));
@@ -1053,7 +1053,7 @@ export default function OrientacionPage() {
     } catch {}
   }, []);
 
-  // â”€â”€ Load estados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Load estados ──────────────────────────────────────────────────────────
   const loadEstados = useCallback(async () => {
     try {
       const r = await fetch(apiUrl("/api/orientacion/estados"));
@@ -1063,7 +1063,7 @@ export default function OrientacionPage() {
     } catch {}
   }, []);
 
-  // â”€â”€ Load horas disponibles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Load horas disponibles ─────────────────────────────────────────────────
   const loadHoras = useCallback(async () => {
     try {
       const r = await fetch(apiUrl("/api/orientacion/horas"));
@@ -1075,12 +1075,12 @@ export default function OrientacionPage() {
 
   useEffect(() => { loadOrientadoras(); loadEstados(); loadHoras(); }, []);
 
-  // â”€â”€ Load slots â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Load slots ────────────────────────────────────────────────────────────
   const loadSlots = useCallback(async () => {
     if (!selectedId) return;
     setLoadingSlots(true);
     try {
-      const r = await fetch(apiUrl(`/api/orientacion/disponibilidad/${selectedId}?aÃ±o=${year}&mes=${month}`));
+      const r = await fetch(apiUrl(`/api/orientacion/disponibilidad/${selectedId}?año=${year}&mes=${month}`));
       if (!r.ok) { setSlots([]); return; }
       setSlots(await r.json());
     } catch { setSlots([]); }
@@ -1089,7 +1089,7 @@ export default function OrientacionPage() {
 
   useEffect(() => { loadSlots(); }, [loadSlots]);
 
-  // â”€â”€ Load admin data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Load admin data ───────────────────────────────────────────────────────
   const loadAdminData = useCallback(async () => {
     if (!selectedId) return;
     try {
@@ -1102,7 +1102,7 @@ export default function OrientacionPage() {
     } catch {}
   }, [selectedId]);
 
-  // â”€â”€ Month navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Month navigation ─────────────────────────────────────────────────────
   function prevMonth() {
     if (month===1) { setMonth(12); setYear(y => y-1); }
     else setMonth(m => m-1);
@@ -1112,7 +1112,7 @@ export default function OrientacionPage() {
     else setMonth(m => m+1);
   }
 
-  // â”€â”€ Booking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Booking ───────────────────────────────────────────────────────────────
   async function handleBook(nombre: string, motivo: string) {
     if (!bookingModal || !selectedId || !currentUser) return;
     await fetch(apiUrl("/api/orientacion/citas"), {
@@ -1155,14 +1155,14 @@ export default function OrientacionPage() {
   }
 
   async function handleDeleteOrientadora(id: number, nombre: string) {
-    if (!window.confirm(`Â¿Eliminar a ${nombre}?\n\nSe eliminarÃ¡n tambiÃ©n su horario y todas las citas agendadas.`)) return;
+    if (!window.confirm(`¿Eliminar a ${nombre}?\n\nSe eliminarán también su horario y todas las citas agendadas.`)) return;
     await fetch(apiUrl(`/api/orientacion/orientadoras/${id}`), { method: "DELETE" });
     setSelectedId(prev => (prev === id ? null : prev));
     await loadOrientadoras();
   }
 
-  // â”€â”€ Build calendar data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Group slots by: dowName â†’ fecha â†’ hora
+  // ── Build calendar data ───────────────────────────────────────────────────
+  // Group slots by: dowName → fecha → hora
   const { workingDows, slotsByDow } = useMemo(() => {
     const dowDates: Record<string, Set<string>> = {};
     const byDowFechaHora: Record<string, Record<string, Record<string, Slot>>> = {};
@@ -1205,7 +1205,7 @@ export default function OrientacionPage() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">OrientaciÃ³n</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground">Orientación</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Agenda de citas con orientadoras</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1227,13 +1227,13 @@ export default function OrientacionPage() {
                 }`}
               >
                 <BarChart2 className="w-3.5 h-3.5" />
-                EstadÃ­sticas
+                Estadísticas
               </button>
             </div>
             {canManage && (
               <button onClick={() => setEstadosModal(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors">
-                ðŸŽ¨ Editar estados
+                🎨 Editar estados
               </button>
             )}
             {canManage && !showStats && (
@@ -1299,13 +1299,13 @@ export default function OrientacionPage() {
               <div className="flex items-center gap-3 flex-wrap text-[11px] font-semibold text-muted-foreground">
                 <span className="uppercase tracking-wide text-[10px] font-bold">Referencias:</span>
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <Plus className="w-3 h-3" /> Hora libre â€” clic para agendar
+                  <Plus className="w-3 h-3" /> Hora libre — clic para agendar
                 </span>
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-card text-foreground border-l-[3px] border border-border shadow-sm" style={{borderLeftColor:"#10b981"}}>
                   Estudiante agendado/a
                 </span>
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-400 border border-red-100">
-                  ðŸš« Sin atenciÃ³n
+                  🚫 Sin atención
                 </span>
               </div>
             )}
@@ -1358,7 +1358,7 @@ export default function OrientacionPage() {
                   <div className="flex flex-col items-center justify-center py-16 text-center space-y-2">
                     <CalendarDays className="w-10 h-10 text-muted-foreground/40" />
                     <p className="text-muted-foreground text-sm font-medium">Sin horario configurado para este mes</p>
-                    <p className="text-xs text-muted-foreground">Haz clic en "Configurar horario" para definir los dÃ­as y horas de atenciÃ³n.</p>
+                    <p className="text-xs text-muted-foreground">Haz clic en "Configurar horario" para definir los días y horas de atención.</p>
                     {canManage && (
                       <button onClick={() => { setAdminModal(true); loadAdminData(); }}
                         className="mt-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
@@ -1420,7 +1420,7 @@ export default function OrientacionPage() {
           <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-lg text-foreground">ðŸŽ¨ Editar estados</h3>
+                <h3 className="font-bold text-lg text-foreground">🎨 Editar estados</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">Personaliza los nombres y colores de los estados de citas</p>
               </div>
               <button onClick={() => setEstadosModal(false)} className="text-muted-foreground hover:text-foreground">

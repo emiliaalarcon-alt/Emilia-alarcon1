@@ -1,4 +1,4 @@
-﻿import app from "./app";
+?import app from "./app";
 import { pool } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
@@ -156,7 +156,7 @@ async function ensureTables() {
         END IF;
       END $$;
     `);
-    // â”€â”€ OrientaciÃ³n tables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Orientación tables ────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS orientadoras (
         id SERIAL PRIMARY KEY,
@@ -209,19 +209,19 @@ async function ensureTables() {
         creada_en TIMESTAMP DEFAULT NOW()
       )
     `);
-    // â”€â”€ Schedule year column â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Schedule year column ──────────────────────────────────────────────
     await client.query(`
       ALTER TABLE schedule_classes ADD COLUMN IF NOT EXISTS school_year INTEGER NOT NULL DEFAULT ${new Date().getFullYear()}
     `);
-    // â”€â”€ nota_rapida en citas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── nota_rapida en citas ──────────────────────────────────────────────
     await client.query(`
       ALTER TABLE citas_orientacion ADD COLUMN IF NOT EXISTS nota_rapida TEXT
     `);
-    // â”€â”€ dado_de_alta en citas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── dado_de_alta en citas ─────────────────────────────────────────────
     await client.query(`
       ALTER TABLE citas_orientacion ADD COLUMN IF NOT EXISTS dado_de_alta BOOLEAN NOT NULL DEFAULT FALSE
     `);
-    // â”€â”€ Estados configurables de citas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Estados configurables de citas ───────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS orientacion_estados (
         id SERIAL PRIMARY KEY,
@@ -246,7 +246,7 @@ async function ensureTables() {
           ('asiste','no asiste','#f43f5e',2)
       `);
     }
-    // â”€â”€ Notas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Notas ─────────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS notas (
         id SERIAL PRIMARY KEY,
@@ -260,7 +260,7 @@ async function ensureTables() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    // â”€â”€ Horas disponibles para OrientaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Horas disponibles para Orientación ────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS orientacion_horas_disponibles (
         hora TEXT PRIMARY KEY
@@ -274,7 +274,7 @@ async function ensureTables() {
           ('15:00'),('16:00'),('17:00'),('18:00'),('19:00'),('20:00')
       `);
     }
-    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientaciÃ³n, notas, horas_disponibles, semester column, composite PK/FK)");
+    console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientación, notas, horas_disponibles, semester column, composite PK/FK)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
   } finally {
