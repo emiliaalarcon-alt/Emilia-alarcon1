@@ -1,4 +1,4 @@
-?import app from "./app";
+import app from "./app";
 import { pool } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
@@ -260,20 +260,86 @@ async function ensureTables() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    // ── Horas disponibles para Orientación ────────────────────────────────
+    // ── Horas disponibles para Orientación (ahora por orientadora) ─────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS orientacion_horas_disponibles (
-        hora TEXT PRIMARY KEY
+        hora TEXT NOT NULL
       )
     `);
-    const { rows: horasRows } = await client.query(`SELECT COUNT(*) FROM orientacion_horas_disponibles`);
-    if (parseInt(horasRows[0].count) === 0) {
-      await client.query(`
-        INSERT INTO orientacion_horas_disponibles (hora) VALUES
-          ('08:00'),('09:00'),('10:00'),('11:00'),('12:00'),('13:00'),('14:00'),
-          ('15:00'),('16:00'),('17:00'),('18:00'),('19:00'),('20:00')
-      `);
+    await client.query(`
+      ALTER TABLE orientacion_horas_disponibles ADD COLUMN IF NOT EXISTS orientadora_id INTEGER
+    `);
+    // Si quedan filas del esquema global antiguo (sin orientadora_id), se copian
+    // a cada orientadora existente para no perder las horas ya configuradas.
+    const { rows: horasGlobales } = await client.query(
+      `SELECT DISTINCT hora FROM orientacion_horas_disponibles WHERE orientadora_id IS NULL`
+    );
+    if (horasGlobales.length > 0) {
+      const { rows: todasOrientadoras } = await client.query(`SELECT id FROM orientadoras`);
+      for (const o of todasOrientadoras) {
+        for (const h of horasGlobales) {
+          await client.query(
+            `INSERT INTO orientacion_horas_disponibles (orientadora_id, hora)
+             SELECT $1, $2 WHERE NOT EXISTS (
+               SELECT 1 FROM orientacion_horas_disponibles WHERE orientadora_id = $1 AND hora = $2
+             )`,
+            [o.id, h.hora]
+          );
+        }
+      }
+      await client.query(`DELETE FROM orientacion_horas_disponibles WHERE orientadora_id IS NULL`);
     }
+    await client.query(`
+      ALTER TABLE orientacion_horas_disponibles ALTER COLUMN orientadora_id SET NOT NULL
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'orientacion_horas_disponibles_pkey'
+            AND conrelid = 'orientacion_horas_disponibles'::regclass
+        ) THEN
+          ALTER TABLE orientacion_horas_disponibles DROP CONSTRAINT orientacion_horas_disponibles_pkey;
+        END IF;
+      END $$;
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'orientacion_horas_disponibles_v2_pk'
+            AND conrelid = 'orientacion_horas_disponibles'::regclass
+        ) THEN
+          ALTER TABLE orientacion_horas_disponibles
+            ADD CONSTRAINT orientacion_horas_disponibles_v2_pk PRIMARY KEY (orientadora_id, hora);
+        END IF;
+      END $$;
+    `);
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'orientacion_horas_disponibles_fk_v2'
+        ) THEN
+          ALTER TABLE orientacion_horas_disponibles
+            ADD CONSTRAINT orientacion_horas_disponibles_fk_v2
+            FOREIGN KEY (orientadora_id) REFERENCES orientadoras(id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+    // Si alguna orientadora quedó sin ninguna hora configurada (p.ej. recién creada
+    // antes de este cambio), se le dan las horas por defecto para no dejarla en blanco.
+    await client.query(`
+      INSERT INTO orientacion_horas_disponibles (orientadora_id, hora)
+      SELECT o.id, h.hora
+      FROM orientadoras o
+      CROSS JOIN (VALUES
+        ('08:00'),('09:00'),('10:00'),('11:00'),('12:00'),('13:00'),('14:00'),
+        ('15:00'),('16:00'),('17:00'),('18:00'),('19:00'),('20:00')
+      ) AS h(hora)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM orientacion_horas_disponibles x WHERE x.orientadora_id = o.id
+      )
+    `);
     console.log("Tables ensured (tasks, task_items, team_members, workshops, workshop_students, orientación, notas, horas_disponibles, semester column, composite PK/FK)");
   } catch (err) {
     console.error("Error ensuring tables:", err);
