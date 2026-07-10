@@ -27,7 +27,7 @@ function dayOfWeek(year: number, month: number, day: number): string {
   return DAY_NAMES[new Date(year, month - 1, day).getDay()];
 }
 
-// ── GET /api/orientacion/orientadoras ──────────────────────────────────────
+// ── GET /api/orientacion/orientadoras ────────────────────────────────────────
 router.get("/orientacion/orientadoras", async (_req, res) => {
   try {
     const rows = await db
@@ -41,7 +41,7 @@ router.get("/orientacion/orientadoras", async (_req, res) => {
   }
 });
 
-// ── POST /api/orientacion/orientadoras ─────────────────────────────────────
+// ── POST /api/orientacion/orientadoras ──────────────────────────────────────
 router.post("/orientacion/orientadoras", async (req, res) => {
   try {
     const { nombre, titulo, fotoUrl, orden } = req.body as {
@@ -135,7 +135,7 @@ router.post("/orientacion/orientadoras/:id/horario", async (req, res) => {
   }
 });
 
-// ── DELETE /api/orientacion/horario/:slotId ─────────────────────────────────
+// ── DELETE /api/orientacion/horario/:slotId ──────────────────────────────────
 router.delete("/orientacion/horario/:slotId", async (req, res) => {
   try {
     const id = parseInt(req.params.slotId);
@@ -473,126 +473,6 @@ router.patch("/orientacion/estados/:id", async (req, res) => {
       params
     );
     if (!rows.length) return res.status(404).json({ error: "No encontrado" });
-    res.json(rows[0]);
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
-// ── DELETE /api/orientacion/estados/:id ──────────────────────────────────────
-router.delete("/orientacion/estados/:id", async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    await pool.query(`DELETE FROM orientacion_estados WHERE id=$1`, [id]);
-    res.json({ ok: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
-// ── GET /api/orientacion/orientadoras/:id/horas ──────────────────────────────
-router.get("/orientacion/orientadoras/:id/horas", async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const { rows } = await pool.query(
-      `SELECT hora FROM orientacion_horas_disponibles WHERE orientadora_id = $1 ORDER BY hora`,
-      [id]
-    );
-    res.json(rows.map((r: { hora: string }) => r.hora));
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
-// ── POST /api/orientacion/orientadoras/:id/horas ─────────────────────────────
-router.post("/orientacion/orientadoras/:id/horas", async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const { hora } = req.body as { hora?: string };
-    if (!hora?.trim()) return res.status(400).json({ error: "hora requerida" });
-    const h = hora.trim();
-    if (!/^\d{2}:\d{2}$/.test(h)) return res.status(400).json({ error: "Formato inválido (HH:MM)" });
-    await pool.query(
-      `INSERT INTO orientacion_horas_disponibles (orientadora_id, hora) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-      [id, h]
-    );
-    res.status(201).json({ ok: true, hora: h });
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
-// ── DELETE /api/orientacion/orientadoras/:id/horas/:hora ─────────────────────
-router.delete("/orientacion/orientadoras/:id/horas/:hora", async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    await pool.query(
-      `DELETE FROM orientacion_horas_disponibles WHERE orientadora_id = $1 AND hora = $2`,
-      [id, req.params.hora]
-    );
-    res.json({ ok: true });
-  } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
-});
-
-// ── GET /api/orientacion/export?año=YYYY — descarga todo en un Excel ─────────
-// Sirve como respaldo manual: al no haber backups automáticos de la BD,
-// esto permite guardar una copia local de citas/orientadoras cuando se quiera.
-router.get("/orientacion/export", async (req, res) => {
-  try {
-    const { año } = req.query as { año?: string };
-
-    const orientadoras = await db
-      .select()
-      .from(orientadorasTable)
-      .orderBy(orientadorasTable.orden, orientadorasTable.nombre);
-
-    const nombreById = new Map(orientadoras.map(o => [o.id, o.nombre]));
-
-    let citasQuery = `SELECT * FROM citas_orientacion`;
-    const citasParams: string[] = [];
-    if (año) {
-      citasParams.push(`${año}-%`);
-      citasQuery += ` WHERE fecha LIKE $1`;
-    }
-    citasQuery += ` ORDER BY fecha, hora_inicio`;
-    const { rows: citasRows } = await pool.query(citasQuery, citasParams);
-
-    const citasSheet = citasRows.map((r: Record<string, unknown>) => ({
-      "Fecha": r.fecha,
-      "Hora": r.hora_inicio,
-      "Orientadora": nombreById.get(r.orientadora_id as number) ?? `#${r.orientadora_id}`,
-      "Estudiante": r.nombre_estudiante,
-      "Agendado por": r.agendado_por,
-      "Motivo": r.motivo ?? "",
-      "Estado confirmación": r.estado_confirma,
-      "Estado asistencia": r.estado_asiste,
-      "Nota rápida": r.nota_rapida ?? "",
-      "Dado de alta": r.dado_de_alta ? "Sí" : "No",
-      "Creada en": r.creada_en,
-    }));
-
-    const orientadorasSheet = orientadoras.map(o => ({
-      "Nombre": o.nombre,
-      "Título": o.titulo,
-      "Activa": o.activa === 1 ? "Sí" : "No",
-      "Orden": o.orden,
-    }));
-
-    const bloqueosRows = await db.select().from(orientacionBloqueoFechaTable);
-    const bloqueosSheet = bloqueosRows.map(b => ({
-      "Orientadora": nombreById.get(b.orientadoraId) ?? `#${b.orientadoraId}`,
-      "Desde": b.fechaInicio,
-      "Hasta": b.fechaFin,
-      "Hora (si aplica)": b.horaInicio ?? "Todo el día",
-      "Motivo": b.motivo ?? "",
-    }));
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(citasSheet), "Citas");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orientadorasSheet), "Orientadoras");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bloqueosSheet), "Bloqueos");
-
-    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-    const today = new Date().toISOString().slice(0, 10);
-    const filename = `orientacion_${año ?? "todo"}_${today}.xlsx`;
-
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buffer);
-  } catch (err) {
-  ;
     res.json(rows[0]);
   } catch (err) { console.error(err); res.status(500).json({ error: "Error" }); }
 });

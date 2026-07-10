@@ -1,7 +1,7 @@
-?import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Settings,
-  User, CalendarDays, Clock, BarChart2, UserCheck,
+  User, CalendarDays, Clock, BarChart2, UserCheck, Download,
 } from "lucide-react";
 import OrientacionStats from "@/pages/OrientacionStats";
 import { apiUrl } from "@/lib/api";
@@ -412,7 +412,7 @@ function AdminModal({
     if (!/^\d{2}:\d{2}$/.test(newHora)) { setHoraError("Formato HH:MM"); return; }
     setSavingHora(true); setHoraError("");
     try {
-      const r = await fetch(apiUrl("/api/orientacion/horas"), {
+      const r = await fetch(apiUrl(`/api/orientacion/orientadoras/${orientadora.id}/horas`), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hora: newHora }),
       });
@@ -424,7 +424,7 @@ function AdminModal({
   }
 
   async function deleteHora(hora: string) {
-    await fetch(apiUrl(`/api/orientacion/horas/${encodeURIComponent(hora)}`), { method: "DELETE" });
+    await fetch(apiUrl(`/api/orientacion/orientadoras/${orientadora.id}/horas/${encodeURIComponent(hora)}`), { method: "DELETE" });
     onRefreshHoras();
   }
 
@@ -1063,17 +1063,40 @@ export default function OrientacionPage() {
     } catch {}
   }, []);
 
-  // ── Load horas disponibles ─────────────────────────────────────────────────
+  // ── Load horas disponibles (por orientadora seleccionada) ───────────────────
   const loadHoras = useCallback(async () => {
+    if (!selectedId) { setHorasDisponibles(HORAS_DEFAULT); return; }
     try {
-      const r = await fetch(apiUrl("/api/orientacion/horas"));
+      const r = await fetch(apiUrl(`/api/orientacion/orientadoras/${selectedId}/horas`));
       if (!r.ok) return;
       const data: string[] = await r.json();
-      if (data.length > 0) setHorasDisponibles(data);
+      setHorasDisponibles(data.length > 0 ? data : HORAS_DEFAULT);
     } catch {}
-  }, []);
+  }, [selectedId]);
 
-  useEffect(() => { loadOrientadoras(); loadEstados(); loadHoras(); }, []);
+  useEffect(() => { loadOrientadoras(); loadEstados(); }, []);
+  useEffect(() => { loadHoras(); }, [loadHoras]);
+
+  // ── Descargar Excel (sirve como respaldo manual de citas/orientadoras) ─────
+  const handleExportExcel = useCallback(async () => {
+    setExportingExcel(true);
+    try {
+      const res = await fetch(apiUrl(`/api/orientacion/export?año=${year}`));
+      if (!res.ok) throw new Error("Error al exportar");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `orientacion_${year}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("No se pudo descargar el Excel. Intenta de nuevo.");
+    } finally {
+      setExportingExcel(false);
+    }
+  }, [year]);
+
 
   // ── Load slots ────────────────────────────────────────────────────────────
   const loadSlots = useCallback(async () => {
@@ -1140,7 +1163,8 @@ export default function OrientacionPage() {
     });
   }
 
-  async function handleDeleteCita(id: number) {
+  async function handleDeleteCita(id: number, nombreEstudiante: string) {
+    if (!window.confirm(`¿Eliminar la cita de ${nombreEstudiante}?\n\nEsta acción no se puede deshacer.`)) return;
     await fetch(apiUrl(`/api/orientacion/citas/${id}`), { method: "DELETE" });
     await loadSlots();
   }
@@ -1230,6 +1254,13 @@ export default function OrientacionPage() {
                 Estadísticas
               </button>
             </div>
+            {canManage && (
+              <button onClick={handleExportExcel} disabled={exportingExcel}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50">
+                <Download className="w-4 h-4" />
+                {exportingExcel ? "Descargando..." : "Descargar Excel"}
+              </button>
+            )}
             {canManage && (
               <button onClick={() => setEstadosModal(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors">
