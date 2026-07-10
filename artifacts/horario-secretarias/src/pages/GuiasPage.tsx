@@ -33,6 +33,7 @@ export default function GuiasPage() {
   const [allData, setAllData]     = useState<ClassEntry[]>([]);
   const [loading, setLoading]     = useState(true);
   const [selectedDay, setSelectedDay] = useState<string>(DAYS[0]);
+  const [selectedSemester, setSelectedSemester] = useState<"PRIMER" | "SEGUNDO">("PRIMER");
   const [expandedSede, setExpandedSede] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(horario.sedes.map(s => [s, true]))
   );
@@ -55,8 +56,15 @@ export default function GuiasPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const semesterData = useMemo(() => {
+    if (selectedSemester === "PRIMER") {
+      return allData.filter(c => !c.semester || c.semester === "PRIMER" || c.semester === "ANUAL");
+    }
+    return allData.filter(c => c.semester === "SEGUNDO" || c.semester === "ANUAL");
+  }, [allData, selectedSemester]);
+
   const groupsBySede = useMemo<Record<string, GuiaGroup[]>>(() => {
-    const dayClasses = allData.filter(c => c.day === selectedDay);
+    const dayClasses = semesterData.filter(c => c.day === selectedDay);
     const result: Record<string, GuiaGroup[]> = {};
 
     for (const sede of horario.sedes) {
@@ -78,7 +86,7 @@ export default function GuiasPage() {
       result[sede] = groups;
     }
     return result;
-  }, [allData, selectedDay, horario.sedes]);
+  }, [semesterData, selectedDay, horario.sedes]);
 
   useEffect(() => {
     setExpandedSede(Object.fromEntries(horario.sedes.map(s => [s, true])));
@@ -134,6 +142,26 @@ export default function GuiasPage() {
         </div>
       </div>
 
+      {/* Selector de semestre */}
+      <div className="flex gap-2 mb-4">
+        {([
+          { id: "PRIMER" as const, label: "1er Semestre" },
+          { id: "SEGUNDO" as const, label: "2do Semestre" },
+        ]).map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setSelectedSemester(id)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${
+              selectedSemester === id
+                ? "bg-foreground text-background shadow-md"
+                : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Selector de día */}
       <div className="flex gap-2 flex-wrap mb-6">
         {DAYS.map(day => (
@@ -175,7 +203,7 @@ export default function GuiasPage() {
             <span className="text-xs font-medium uppercase tracking-wide">Clases</span>
           </div>
           <p className="text-3xl font-display font-bold text-foreground">
-            {allData.filter(c => c.day === selectedDay).length}
+            {semesterData.filter(c => c.day === selectedDay).length}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">secciones activas</p>
         </div>
@@ -311,7 +339,7 @@ export default function GuiasPage() {
           Ver detalle por sección ({DAY_LABELS[selectedDay]})
         </summary>
         <div className="divide-y divide-border">
-          {allData
+          {semesterData
             .filter(c => c.day === selectedDay)
             .sort((a, b) => a.sede.localeCompare(b.sede) || a.course.localeCompare(b.course) || a.time.localeCompare(b.time))
             .map(cls => (
