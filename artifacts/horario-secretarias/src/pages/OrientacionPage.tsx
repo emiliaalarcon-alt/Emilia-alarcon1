@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Trash2, Settings,
-  User, CalendarDays, Clock, BarChart2, UserCheck, Download,
+  User, CalendarDays, Clock, BarChart2, UserCheck, Download, Search, Pencil,
 } from "lucide-react";
 import OrientacionStats from "@/pages/OrientacionStats";
 import { apiUrl } from "@/lib/api";
 import { useCurrentUser } from "@/context/UserContext";
+import { useHorario } from "@/context/HorarioContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,15 +105,22 @@ function StatusSelect({
 // ─── Booking Modal ────────────────────────────────────────────────────────────
 
 function BookingModal({
-  fecha, hora, orientadoraNombre, agendadoPor, onConfirm, onClose,
+  fecha, hora, orientadoraNombre, agendadoPor, students, onConfirm, onClose,
 }: {
-  fecha: string; hora: string; orientadoraNombre: string; agendadoPor: string;
+  fecha: string; hora: string; orientadoraNombre: string; agendadoPor: string; students: string[];
   onConfirm:(nombre:string, motivo:string)=>void; onClose:()=>void;
 }) {
   const [nombre, setNombre] = useState("");
   const [motivo, setMotivo] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
   const dt = parseDateSafe(fecha);
   const display = `${dt.getDate()} de ${MONTH_NAMES[dt.getMonth()]}`;
+
+  const matches = useMemo(() => {
+    const q = nombre.trim().toLowerCase();
+    if (!q) return [];
+    return students.filter(s => s.toLowerCase().includes(q)).slice(0, 8);
+  }, [nombre, students]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -127,12 +135,34 @@ function BookingModal({
           <p className="text-muted-foreground flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{hora}</p>
         </div>
         <div className="space-y-3">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-foreground mb-1.5">Nombre del estudiante</label>
-            <input autoFocus value={nombre} onChange={e => setNombre(e.target.value)}
-              onKeyDown={e => e.key==="Enter" && nombre.trim() && onConfirm(nombre.trim(), motivo)}
-              placeholder="Apellido, Nombre"
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+            <div className="relative">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <input autoFocus value={nombre}
+                onChange={e => { setNombre(e.target.value); setShowDropdown(true); }}
+                onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                onKeyDown={e => e.key==="Enter" && nombre.trim() && onConfirm(nombre.trim(), motivo)}
+                placeholder="Busca por nombre…"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+            </div>
+            {showDropdown && matches.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {matches.map(s => (
+                  <button key={s} type="button"
+                    onMouseDown={() => { setNombre(s); setShowDropdown(false); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+            {showDropdown && nombre.trim() && matches.length === 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg px-3 py-2 text-xs text-muted-foreground">
+                No se encontró en el horario — puedes agendar igual con este nombre.
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Motivo (opcional)</label>
@@ -772,6 +802,7 @@ function AppointmentCell({
   onDeleteCita: (id: number, nombreEstudiante: string) => void;
 }) {
   const EMPTY_H = "h-[72px]";
+  const [editingName, setEditingName] = useState(false);
 
   if (!slot) return <div className={EMPTY_H} />;
 
@@ -813,15 +844,37 @@ function AppointmentCell({
     >
       {/* Name row */}
       <div className="flex items-start justify-between gap-1">
-        <span className="text-[11px] font-bold text-foreground leading-tight line-clamp-1 flex-1">
-          {cita.nombreEstudiante}
-        </span>
-        {canManage && (
-          <button onClick={() => onDeleteCita(cita.id, cita.nombreEstudiante)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 shrink-0">
-            <X className="w-3 h-3" />
-          </button>
+        {editingName ? (
+          <input
+            autoFocus
+            defaultValue={cita.nombreEstudiante}
+            onBlur={e => {
+              const val = e.target.value.trim();
+              if (val && val !== cita.nombreEstudiante) onUpdateCita(cita.id, { nombreEstudiante: val });
+              setEditingName(false);
+            }}
+            onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingName(false); }}
+            className="text-[11px] font-bold text-foreground leading-tight flex-1 bg-muted/40 rounded px-1 outline-none ring-1 ring-primary/40"
+          />
+        ) : (
+          <span className="text-[11px] font-bold text-foreground leading-tight line-clamp-1 flex-1">
+            {cita.nombreEstudiante}
+          </span>
         )}
+        <div className="flex items-center gap-1 shrink-0">
+          {canEdit && !editingName && (
+            <button onClick={() => setEditingName(true)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary">
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+          {canManage && (
+            <button onClick={() => onDeleteCita(cita.id, cita.nombreEstudiante)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500">
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Estado confirma — editable para todos */}
@@ -1012,6 +1065,7 @@ function DaySection({
 
 export default function OrientacionPage() {
   const { currentUser } = useCurrentUser();
+  const { horarioId } = useHorario();
   const now = new Date();
   const [year, setYear]   = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -1029,6 +1083,21 @@ export default function OrientacionPage() {
   const [estadosModal, setEstadosModal] = useState(false);
   const [showStats, setShowStats]       = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [allStudents, setAllStudents]   = useState<string[]>([]);
+
+  // ── Load student names from the schedule (para el buscador al agendar) ─────
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(apiUrl(`/api/schedule?horario=${horarioId}`));
+        if (!r.ok) return;
+        const data: Array<{ students: string[] }> = await r.json();
+        const names = new Set<string>();
+        data.forEach(c => c.students?.forEach(s => s && names.add(s)));
+        setAllStudents([...names].sort((a, b) => a.localeCompare(b)));
+      } catch {}
+    })();
+  }, [horarioId]);
 
   const isAdmin     = currentUser?.role === "admin";
   const isCounselor = currentUser?.role === "orientadora";
@@ -1429,6 +1498,7 @@ export default function OrientacionPage() {
           fecha={bookingModal.fecha} hora={bookingModal.hora}
           orientadoraNombre={selectedOrientadora.nombre}
           agendadoPor={currentUser?.name ?? ""}
+          students={allStudents}
           onConfirm={handleBook} onClose={() => setBookingModal(null)}
         />
       )}
